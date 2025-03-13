@@ -124,7 +124,8 @@
 
 
 (defun reset-kill-stats ()
-  (initialize (-> *statistics* kill-stats)))
+  (initialize (-> *statistics* kill-stats))
+  (none))
 
 
 
