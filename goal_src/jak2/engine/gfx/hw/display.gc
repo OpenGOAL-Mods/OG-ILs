@@ -14,6 +14,11 @@
 
 ;; DECOMP BEGINS
 
+(defun get-real-current-time ()
+  "Get the real-clock time. Doesn't pause when game pauses."
+  (-> *display* real-clock frame-counter)
+  )
+
 (defun get-current-time ()
   "Get the base-clock time."
   (-> *display* base-clock frame-counter)
