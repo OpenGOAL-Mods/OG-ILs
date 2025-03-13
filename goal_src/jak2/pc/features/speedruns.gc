@@ -19,28 +19,67 @@
 (set! (-> *speedrun-info* active-practice-objective start-zone-init-params) (new 'static 'objective-zone-init-params))
 (set! (-> *speedrun-info* active-practice-objective end-zone-init-params) (new 'static 'objective-zone-init-params))
 
+(defun print-timer-text ((s string) (h int))
+  (pc-encode-utf8-string s *pc-encoded-temp-string*)
+  (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
+    ;; reset bucket settings prior to drawing - font won't do this for us, and
+    ;; draw-raw-image can sometimes mess them up. (intro sequence)
+    (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
+    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 h 0.0 (font-color default) (font-flags middle shadow kerning large))))
+      (set! (-> font-ctx scale) 0.325)
+      (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
+  (none)
+  )
+
 (defmethod draw-timer ((this speedrun-timer))
   ;; (format 0 "draw-timer ~D~%" (get-current-time))
   (clear *temp-string*)
   (clear *pc-encoded-temp-string*)
   (cond
    ((-> this started?)
-    (format *temp-string* "~,,2fs~%" (* (the float (- (get-real-current-time) (-> this start-time))) 0.0033333334)))
+    (format *temp-string* "~,,2fs~%" (* (the float (- (get-real-current-time) (-> this start-time))) 0.0033333334))
+    ;; show speed in practice mode
+    (when (and *target* (-> *speedrun-info* practicing?))
+      (format *temp-string* "~,,2M~%" (-> *target* control ctrl-xz-vel)))
+    
+    (print-timer-text *temp-string* 380)
+    )
    ((and (!= 0 (-> this end-time)))
-    (format *temp-string* "~,,2fs~%" (* (the float (- (-> this end-time) (-> this start-time))) 0.0033333334)))
+
+    (let* ((total-sec (the int (* (the float (- (-> this end-time) (-> this start-time))) 0.0033333334)))
+           (min (/ total-sec 60))
+           (sec (- total-sec (* min 60))))
+      (until (cpad-pressed? 0 start)
+        ;; grab jak, prevent pause
+        (process-grab? *target* #f)
+        (set-setting! 'allow-progress #f 0.0 0)
+        (set-setting! 'allow-pause #f 0.0 0)
+        ;; print end screen
+        (clear *temp-string*)
+        (clear *pc-encoded-temp-string*)
+        (format *temp-string* "~4L~S: ~6LMission Completed~%~%" (-> *speedrun-category-names* (-> *speedrun-info* category)))
+        (format *temp-string* "~0LMission Time: ~D:~2,0D~%" min sec)
+        (format *temp-string* "Enemies Killed: ~D~%" (get-jak-enemy-kill-count (-> *statistics* kill-stats)))
+        (format *temp-string* "Civilians Killed: ~D~%~%" (get-jak-friendly-kill-count (-> *statistics* kill-stats)))
+        (format *temp-string* "Press START to continue~%")
+        (print-timer-text *temp-string* 150)
+        (suspend)
+        )
+      )
+    ;; release jak, allow pause
+    (process-release? *target*)
+    (set-setting! 'allow-progress #t 0.0 0)
+    (set-setting! 'allow-pause #t 0.0 0)
+    (set! (-> this end-time) 0)
+    (print-stats (-> *statistics* kill-stats) #t)
+    )
    (else
-    (format *temp-string* "0.0s~%")))
-  ;; show speed in practice mode
-  (when (and *target* (-> *speedrun-info* practicing?))
-    (format *temp-string* "~,,2M~%" (-> *target* control ctrl-xz-vel)))
-  (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
-  (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
-    ;; reset bucket settings prior to drawing - font won't do this for us, and
-    ;; draw-raw-image can sometimes mess them up. (intro sequence)
-    (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
-    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 380 0.0 (font-color default) (font-flags middle shadow kerning large))))
-      (set! (-> font-ctx scale) 0.325)
-      (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
+    (format *temp-string* "0.0s~%")
+    (print-timer-text *temp-string* 380)
+    )
+  )
+
+
   (none))
 
 (defmethod start! ((this speedrun-timer))
@@ -88,9 +127,11 @@
   (none)
   )
 
+(define-extern reset-kill-stats (function none))
 (defmethod start-run! ((this speedrun-info))
   ;; randomize game id so the autosplitter knows to restart
   (reset! *autosplit-info-jak2*)
+  (reset-kill-stats)
   ;; turn on speedrun verification display
   (set! (-> this display-run-info?) #t)
   (send-event (ppointer->process *speedrun-manager*) 'start-run)
