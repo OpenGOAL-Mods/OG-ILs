@@ -641,6 +641,22 @@
   #f
   )
 
+(defun task-resolution-closed? ((arg0 game-task))
+  (let ((game-nodes (-> *game-info* sub-task-list)))
+    (dotimes (i (-> game-nodes length))
+      (when (nonzero? i)
+        (let ((node (-> game-nodes i)))
+          (when (and (= (-> node task) arg0) (logtest? (-> node flags) (game-task-node-flag close-task)))
+            (return (logtest? (-> node flags) (game-task-node-flag closed)))
+            )
+          )
+        )
+      )
+    )
+  (format 0 "ERROR: attempting to query resolution-closed? of unknown game-task ~A.~%" arg0)
+  #f
+  )
+
 (defun open-task-nodes ((arg0 (array game-task-node-info)))
   (local-vars (a3-4 symbol))
   (set! (-> arg0 length) 0)
