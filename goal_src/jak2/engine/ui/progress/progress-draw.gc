@@ -2896,6 +2896,80 @@
   0
   (none)
   )
+  
+(defmethod draw-option ((this menu-speedrun-end-results-option) (arg0 progress) (arg1 font-context) (arg2 int) (arg3 symbol))
+  ;; (set! (-> arg1 alpha) (- 1.0 (-> arg0 menu-transition)))
+  ;; (let ((a0-1 arg1))
+  ;;   (set! (-> a0-1 color) (font-color progress))
+  ;;   )
+  ;; (let ((v1-2 arg1))
+  ;;   (set! (-> v1-2 scale) 0.5)
+  ;;   )
+  ;; (set! (-> *bigmap* auto-save-icon-flag) #t)
+  ;; (set! (-> this sprites 0 tex) (get-texture checkpoint level-default-minimap))
+  ;; (set! (-> this sprites 0 scale-x) 1.0)
+  ;; (set! (-> this sprites 0 scale-y) 1.0)
+  ;; (let ((v1-6 (-> this sprites 0 color2)))
+  ;;   (set! (-> v1-6 0) 128)
+  ;;   (set! (-> v1-6 1) 128)
+  ;;   (set! (-> v1-6 2) 128)
+  ;;   (set! (-> v1-6 3) (the int (* 128.0 (- 1.0 (-> arg0 menu-transition)))))
+  ;;   )
+  ;; (set! (-> this sprites 0 pos z) #xffffff)
+  ;; (set! (-> this sprites 0 pos w) 0)
+  ;; (set-hud-piece-position! (the-as hud-sprite (-> this sprites)) 240 160)
+  ;; (with-dma-buffer-add-bucket ((s3-0 (-> *display* frames (-> *display* on-screen) global-buf))
+  ;;                              (bucket-id progress)
+  ;;                              )
+  ;;   ((method-of-type hud-sprite draw) (the-as hud-sprite (-> this sprites)) s3-0 (-> *level* default-level))
+  ;;   )
+  ;; (let ((a0-16 arg1))
+  ;;   (set! (-> a0-16 flags) (font-flags kerning middle middle-vert large))
+  ;;   )
+  ;; (set! (-> arg1 origin x) 90.0)
+  ;; (set! (-> arg1 origin y) 80.0)
+  ;; (let ((v1-27 arg1))
+  ;;   (set! (-> v1-27 width) (the float 330))
+  ;;   )
+  ;; (let ((v1-28 arg1))
+  ;;   (set! (-> v1-28 height) (the float 85))
+  ;;   )
+  ;; (print-game-text
+  ;;   (lookup-text! *common-text* (text-id progress-autosave-explanation) #f)
+  ;;   arg1
+  ;;   #f
+  ;;   44
+  ;;   (bucket-id progress)
+  ;;   )
+  ;; (+! (-> arg1 origin y) 115.0)
+  ;; (let ((v1-31 arg1))
+  ;;   (set! (-> v1-31 height) (the float 95))
+  ;;   )
+  ;; (print-game-text
+  ;;   (lookup-text! *common-text* (text-id progress-autosave-dont-remove) #f)
+  ;;   arg1
+  ;;   #f
+  ;;   44
+  ;;   (bucket-id progress)
+  ;;   )
+  ;; (+! (-> arg1 origin y) 90.0)
+  ;; (let ((v1-34 arg1))
+  ;;   (set! (-> v1-34 height) (the float 50))
+  ;;   )
+  ;; (let ((s5-3 arg1))
+  ;;   (set! (-> s5-3 color) (progress-selected 0))
+  ;;   )
+  ;; (draw-highlight (the int (+ 12.0 (-> arg1 origin y))) 24 (-> arg1 alpha))
+  ;; (print-game-text
+  ;;   (lookup-text! *common-text* (text-id progress-unknown-continue) #f)
+  ;;   arg1
+  ;;   #f
+  ;;   44
+  ;;   (bucket-id progress)
+  ;;   )
+  ;; 0
+  (none)
+  )
 
 (defmethod draw-option ((this menu-format-card-option) (arg0 progress) (arg1 font-context) (arg2 int) (arg3 symbol))
   (set! (-> arg1 alpha) (- 1.0 (-> arg0 menu-transition)))
