@@ -150,7 +150,7 @@ jobs:
 
       - name: Prepare Windows Build Assets
         env:
-          versionName: ${{ needs.create-release.outputs.bundleTagName }}
+          versionName: ${{ needs.create_release.outputs.bundleTagName }}
         run: |
           mkdir -p ./ci-artifacts/windows
           mkdir -p ${{ inputs.outputDir }}/dist
@@ -206,7 +206,7 @@ jobs:
 
       - name: Prepare Linux Build Assets
         env:
-          versionName: ${{ needs.create-release.outputs.bundleTagName }}
+          versionName: ${{ needs.create_release.outputs.bundleTagName }}
         run: |
           mkdir -p ./ci-artifacts/linux
           mkdir -p ${{ inputs.outputDir }}/dist
@@ -264,7 +264,7 @@ jobs:
 
       - name: Prepare MacOS Build Assets
         env:
-          versionName: ${{ needs.create-release.outputs.bundleTagName }}
+          versionName: ${{ needs.create_release.outputs.bundleTagName }}
         run: |
           mkdir -p ./ci-artifacts/macos-intel
           mkdir -p ${{ inputs.outputDir }}/dist
