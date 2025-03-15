@@ -149,6 +149,8 @@ jobs:
         run: ls -Rl ./ci-artifacts/
 
       - name: Prepare Windows Build Assets
+        env:
+          versionName: ${{ needs.create-release.outputs.bundleTagName }}
         run: |
           mkdir -p ./ci-artifacts/windows
           mkdir -p ${{ inputs.outputDir }}/dist
@@ -203,6 +205,8 @@ jobs:
         run: ls -Rl ./ci-artifacts/
 
       - name: Prepare Linux Build Assets
+        env:
+          versionName: ${{ needs.create-release.outputs.bundleTagName }}
         run: |
           mkdir -p ./ci-artifacts/linux
           mkdir -p ${{ inputs.outputDir }}/dist
@@ -259,6 +263,8 @@ jobs:
         run: ls -Rl ./ci-artifacts/
 
       - name: Prepare MacOS Build Assets
+        env:
+          versionName: ${{ needs.create-release.outputs.bundleTagName }}
         run: |
           mkdir -p ./ci-artifacts/macos-intel
           mkdir -p ${{ inputs.outputDir }}/dist
