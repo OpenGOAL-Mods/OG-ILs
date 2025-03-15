@@ -205,6 +205,7 @@
     (static-music-track-info 'palcab    :mode 1 :icon 14  :text progress-music-player-palcab-battle   :avail-after castle-boss-resolution)
     (static-music-track-info 'danger6   :mode 0 :icon 14  :text progress-music-player-danger6         :avail-after castle-boss-resolution)
     (static-music-track-info 'danger4   :mode 0 :icon 17  :text progress-music-player-danger4         :avail-after nest-boss-resolution)
+    (static-music-track-info 'dig       :mode 0 :icon 17  :text progress-music-player-dig             :avail-after dig-knock-down-resolution)
     ))
 
 ;; automatically add the default flava to all tracks that had flavas marked

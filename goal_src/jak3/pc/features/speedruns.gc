@@ -4,6 +4,7 @@
 ;; TODO later - customize menu open keybind
 
 (define-extern task-close! (function string symbol))
+(define-extern task-resolution-closed? (function game-task symbol))
 
 (define-extern *pc-dead-pool* dead-pool)
 
@@ -27,32 +28,81 @@
 
 (set! (-> *speedrun-info* active-practice-objective end-zone-init-params) (new 'static 'objective-zone-init-params))
 
+(defun print-timer-text ((s string) (x int) (y int))
+  (pc-encode-utf8-string s *pc-encoded-temp-string*)
+  (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
+    ;; reset bucket settings prior to drawing - font won't do this for us, and
+    ;; draw-raw-image can sometimes mess them up. (intro sequence)
+    (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
+    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* x y 0.0 (font-color default) (font-flags shadow kerning large))))
+      (set! (-> font-ctx scale) 0.25)
+      (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
+  (none)
+  )
+
+(defun get-speedrun-end-results-text ()
+  (let* ((timer (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
+         (total-sec (the int (* (the float (- (-> timer end-time) (-> timer start-time))) 0.0033333334)))
+         (min (/ total-sec 60))
+         (sec (- total-sec (* min 60))))
+    (clear *temp-string*)
+    (clear *pc-encoded-temp-string*)
+    (format *temp-string* "~4L~S~%" (-> *speedrun-category-names* (-> *speedrun-info* category)))
+    (format *temp-string* "~6LMission Completed~%~%")
+    (format *temp-string* "~0LMission Time: ~D:~2,'0D~%~%" min sec)
+    ;; TODO - kill stats
+    ;; (format *temp-string* "Enemies Killed: ~D~%" (get-jak-enemy-kill-count (-> *statistics* kill-stats)))
+    ;; (format *temp-string* "Civilians Killed: ~D~%~%" (get-jak-friendly-kill-count (-> *statistics* kill-stats)))
+    ;; (format *temp-string* "Press START to continue~%")
+    (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+    ;; return
+    *pc-encoded-temp-string*
+    )
+  )
+
+;; (define-extern play-music-player-track (function int none))
+;; (define-extern music-player-track-cur-idx (function int))
 (defmethod draw-timer ((this speedrun-timer))
   (clear *temp-string*)
   (clear *pc-encoded-temp-string*)
   (cond
     ((-> this started?)
-     (format *temp-string* "~,,2fs~%" (* (the float (- (current-time) (-> this start-time))) 0.0033333334)))
+      (format *temp-string* "~,,2fs~%" (* (the float (- (get-real-current-time) (-> this start-time))) 0.0033333334))
+      ;; show speed in practice mode
+      (when (and *target* (-> *speedrun-info* practicing?))
+        (format *temp-string* "~,,2M~%" (-> *target* control ctrl-xz-vel)))
+
+      (print-timer-text *temp-string* 2 406)
+      )
     ((and (!= 0 (-> this end-time)))
-     (format *temp-string* "~,,2fs~%" (* (the float (- (-> this end-time) (-> this start-time))) 0.0033333334)))
-    (else (format *temp-string* "0.0s~%")))
-  (when *target*
-    (format *temp-string* "~,,2M~%" (-> *target* control ctrl-xz-vel)))
-  (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
-  (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
-    ;; reset bucket settings prior to drawing - font won't do this for us, and
-    ;; draw-raw-image can sometimes mess them up. (intro sequence)
-    (dma-buffer-add-gs-set-flusha buf
-                                  (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1))
-                                  (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
-    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 350 0.0 (font-color default) (font-flags middle shadow kerning large))))
-      (set! (-> font-ctx scale) 0.325)
-      (draw-string-adv *pc-encoded-temp-string* buf font-ctx))))
+      (suspend-for (seconds 1))
+      ;; TODO - music stuff
+      ;; (let ((cur-music (music-player-track-cur-idx)))
+        (activate-progress *dproc* 'speedrun-end-results)
+        ;; (play-music-player-track 15)
+        ;; (print-stats (-> *statistics* kill-stats) #t)
+        (until (progress-allowed?)
+          (suspend))
+        ;; stop race music, maybe resume old music
+        ;; (remove-setting! 'music)
+        ;; (apply-settings *setting-control*)
+        ;; (sound-group-pause (sound-group music))
+        ;; (when (>= cur-music 0)
+        ;;   (play-music-player-track cur-music))
+        (set! (-> this end-time) 0)
+        ;; )
+      )
+    (else
+      (format *temp-string* "0.0s~%")
+      (print-timer-text *temp-string* 2 406)
+      )
+    )
+  (none))
 
 (defmethod start! ((this speedrun-timer))
   (true! (-> this started?))
   (false! (-> this stopped?))
-  (set-time! (-> this start-time))
+  (set! (-> this start-time) (get-real-current-time))
   (set! (-> this end-time) 0))
 
 (defmethod reset! ((this speedrun-timer))
@@ -65,12 +115,31 @@
   (when (not (-> this stopped?))
     (false! (-> this started?))
     (true! (-> this stopped?))
-    (set-time! (-> this end-time))
+    (set! (-> this end-time) (get-real-current-time))
     (set! (-> this recorded-time) (* (the float (- (-> this end-time) (-> this start-time))) 0.0033333334)))
   (-> this recorded-time))
 
 (defmethod set-category! ((this speedrun-info) (category speedrun-category))
   (set! (-> this category) category))
+
+(defmethod start-individual-level-run! ((this speedrun-info) (tsk game-task))
+  (set! (-> this active-practice-objective end-task) tsk)
+  (start 'play (get-continue-by-name *game-info* (play-task tsk 'debug 'play)))
+  (set-master-mode 'game)
+  ;; spawn a process that suspends until jak is properly spawned, before starting timer
+  (process-spawn-function process (lambda :behavior process ()
+    (let ((target-continued? #f))
+      (until (and target-continued?
+                  (< (-> *game-info* blackout-time) (get-current-time)) 
+                  (= (-> *setting-control* user-default bg-a-force) 0.0))
+        ;; (if *target* (format 0 "target is in state ~A~%" (-> *target* next-state name)))
+        (suspend)
+        (when (and *target* (!= (-> *target* next-state name) 'target-continue))
+          (true! target-continued?)))
+      )
+    (start! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))))
+  (none)
+  )
 
 (defconstant HERO_MODE_SECRETS
   (game-secrets hero-mode
@@ -150,6 +219,8 @@
   (send-event (ppointer->process *speedrun-manager*) 'start-run)
   ;; ensure any required settings are enabled
   (enforce-settings! this)
+  ;; reset end-task 
+  (set! (-> this active-practice-objective end-task) (game-task none))
   ;; finalize any category specific setup code
   (case (-> this category)
     (((speedrun-category newgame-normal))
@@ -181,6 +252,131 @@
          (set! (-> *game-info* mode) 'play)
          (start 'play (get-continue-by-name *game-info* "wasstada-jump-training"))
          (play-task (game-task arena-training-1) 'debug #f))))
+    ;; Act 1 ILs
+    (((speedrun-category arena-training-1))
+      (start-individual-level-run! this (game-task arena-training-1)))
+    (((speedrun-category arena-fight-1))
+      (start-individual-level-run! this (game-task arena-fight-1)))
+    (((speedrun-category wascity-chase))
+      (start-individual-level-run! this (game-task wascity-chase)))
+    (((speedrun-category wascity-pre-game))
+      (start-individual-level-run! this (game-task wascity-pre-game)))
+    (((speedrun-category desert-turtle-training))
+      (start-individual-level-run! this (game-task desert-turtle-training)))
+    (((speedrun-category desert-course-race))
+      (start-individual-level-run! this (game-task desert-course-race)))
+    (((speedrun-category desert-artifact-race-1))
+      (start-individual-level-run! this (game-task desert-artifact-race-1)))
+    (((speedrun-category wascity-leaper-race))
+      (start-individual-level-run! this (game-task wascity-leaper-race)))
+    (((speedrun-category desert-hover))
+      (start-individual-level-run! this (game-task desert-hover)))
+    (((speedrun-category arena-fight-2))
+      (start-individual-level-run! this (game-task arena-fight-2)))
+    (((speedrun-category desert-catch-lizards))
+      (start-individual-level-run! this (game-task desert-catch-lizards)))
+    (((speedrun-category desert-rescue))
+      (start-individual-level-run! this (game-task desert-rescue)))
+    (((speedrun-category wascity-gungame))
+      (start-individual-level-run! this (game-task wascity-gungame)))
+    (((speedrun-category arena-fight-3))
+      (start-individual-level-run! this (game-task arena-fight-3)))
+    (((speedrun-category nest-eggs))
+      (start-individual-level-run! this (game-task nest-eggs)))
+    (((speedrun-category temple-climb))
+      (start-individual-level-run! this (game-task temple-climb)))
+    (((speedrun-category desert-glide))
+      (start-individual-level-run! this (game-task desert-glide)))
+    (((speedrun-category volcano-darkeco))
+      (start-individual-level-run! this (game-task volcano-darkeco)))
+    (((speedrun-category temple-oracle))
+      (start-individual-level-run! this (game-task temple-oracle)))
+    (((speedrun-category desert-oasis-defense))
+      (start-individual-level-run! this (game-task desert-oasis-defense)))
+    (((speedrun-category temple-tests))
+      (start-individual-level-run! this (game-task temple-tests)))
+    (((speedrun-category comb-travel))
+      (start-individual-level-run! this (game-task comb-travel)))
+    (((speedrun-category mine-explore))
+      (start-individual-level-run! this (game-task mine-explore)))
+    (((speedrun-category mine-blow))
+      (start-individual-level-run! this (game-task mine-blow)))
+    (((speedrun-category mine-boss))
+      (start-individual-level-run! this (game-task mine-boss)))
+    ;; Act 2 ILs
+    (((speedrun-category sewer-met-hum))
+      (start-individual-level-run! this (game-task sewer-met-hum)))
+    (((speedrun-category city-port-fight))
+      (start-individual-level-run! this (game-task city-port-fight)))
+    (((speedrun-category city-port-attack))
+      (start-individual-level-run! this (game-task city-port-attack)))
+    (((speedrun-category city-gun-course-1))
+      (start-individual-level-run! this (game-task city-gun-course-1)))
+    (((speedrun-category city-sniper-fight))
+      (start-individual-level-run! this (game-task city-sniper-fight)))
+    (((speedrun-category sewer-kg-met))
+      (start-individual-level-run! this (game-task sewer-kg-met)))
+    (((speedrun-category city-destroy-darkeco))
+      (start-individual-level-run! this (game-task city-destroy-darkeco)))
+    (((speedrun-category forest-kill-plants))
+      (start-individual-level-run! this (game-task forest-kill-plants)))
+    (((speedrun-category city-destroy-grid))
+      (start-individual-level-run! this (game-task city-destroy-grid)))
+    (((speedrun-category city-hijack-vehicle))
+      (start-individual-level-run! this (game-task city-hijack-vehicle)))
+    (((speedrun-category city-port-assault))
+      (start-individual-level-run! this (game-task city-port-assault)))
+    (((speedrun-category city-gun-course-2))
+      (start-individual-level-run! this (game-task city-gun-course-2)))
+    (((speedrun-category city-blow-barricade))
+      (start-individual-level-run! this (game-task city-blow-barricade)))
+    (((speedrun-category city-protect-hq))
+      (start-individual-level-run! this (game-task city-protect-hq)))
+    (((speedrun-category sewer-hum-kg))
+      (start-individual-level-run! this (game-task sewer-hum-kg)))
+    (((speedrun-category city-power-game))
+      (start-individual-level-run! this (game-task city-power-game)))
+    (((speedrun-category desert-artifact-race-2))
+      (start-individual-level-run! this (game-task desert-artifact-race-2)))
+    (((speedrun-category nest-hunt))
+      (start-individual-level-run! this (game-task nest-hunt)))
+    (((speedrun-category desert-beast-battle))
+      (start-individual-level-run! this (game-task desert-beast-battle)))
+    (((speedrun-category desert-jump-mission))
+      (start-individual-level-run! this (game-task desert-jump-mission)))
+    (((speedrun-category desert-chase-marauders))
+      (start-individual-level-run! this (game-task desert-chase-marauders)))
+    (((speedrun-category forest-ring-chase))
+      (start-individual-level-run! this (game-task forest-ring-chase)))
+    (((speedrun-category factory-sky-battle))
+      (start-individual-level-run! this (game-task factory-sky-battle)))
+    (((speedrun-category factory-assault))
+      (start-individual-level-run! this (game-task factory-assault)))
+    (((speedrun-category factory-boss))
+      (start-individual-level-run! this (game-task factory-boss)))
+    ;; Act 3 ILs
+    (((speedrun-category temple-defend))
+      (start-individual-level-run! this (game-task temple-defend)))
+    (((speedrun-category wascity-defend))
+      (start-individual-level-run! this (game-task wascity-defend)))
+    (((speedrun-category forest-turn-on-machine))
+      (start-individual-level-run! this (game-task forest-turn-on-machine)))
+    (((speedrun-category precursor-tour))
+      (start-individual-level-run! this (game-task precursor-tour)))
+    (((speedrun-category city-blow-tower))
+      (start-individual-level-run! this (game-task city-blow-tower)))
+    (((speedrun-category tower-destroy))
+      (start-individual-level-run! this (game-task tower-destroy)))
+    (((speedrun-category palace-ruins-patrol))
+      (start-individual-level-run! this (game-task palace-ruins-patrol)))
+    (((speedrun-category palace-ruins-attack))
+      (start-individual-level-run! this (game-task palace-ruins-attack)))
+    (((speedrun-category comb-wild-ride))
+      (start-individual-level-run! this (game-task comb-wild-ride)))
+    (((speedrun-category precursor-destroy-ship))
+      (start-individual-level-run! this (game-task precursor-destroy-ship)))
+    (((speedrun-category desert-final-boss))
+      (start-individual-level-run! this (game-task desert-final-boss)))
     (((speedrun-category custom))
      (process-spawn-function process
        (lambda :behavior process ()
@@ -388,7 +584,204 @@
                         (set-category! *speedrun-info* (speedrun-category all-cheats-allowed)))
                       :is-toggled?
                       (lambda ()
-                        (= (-> *speedrun-info* category) (speedrun-category all-cheats-allowed))))))
+                        (= (-> *speedrun-info* category) (speedrun-category all-cheats-allowed))))
+                 (new 'static 'popup-menu-submenu :label "Act 1 Individual Levels"
+                  :entries (new 'static 'boxed-array :type popup-menu-entry 
+                    (new 'static 'popup-menu-flag :label "Complete Arena Training Course"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-training-1)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-training-1))))
+                    (new 'static 'popup-menu-flag :label "Earn 1st War Amulet"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-fight-1)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-fight-1))))
+                    (new 'static 'popup-menu-flag :label "Catch Kanga-Rats"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-chase)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-chase))))
+                    (new 'static 'popup-menu-flag :label "Unlock Satellite"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-pre-game)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-pre-game))))
+                    (new 'static 'popup-menu-flag :label "Learn to Drive a Vehicle"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-turtle-training)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-turtle-training))))
+                    (new 'static 'popup-menu-flag :label "Beat Kleiver in Desert Race"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-course-race)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-course-race))))
+                    (new 'static 'popup-menu-flag :label "Race For Artifacts"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-artifact-race-1)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-artifact-race-1))))
+                    (new 'static 'popup-menu-flag :label "Beat Monks in Leaper Race"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-leaper-race)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-leaper-race))))
+                    (new 'static 'popup-menu-flag :label "Destroy Metal Head Beasts"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-hover)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-hover))))
+                    (new 'static 'popup-menu-flag :label "Earn 2nd War Amulet"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-fight-2)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-fight-2))))
+                    (new 'static 'popup-menu-flag :label "Corral Wild Leapers"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-catch-lizards)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-catch-lizards))))
+                    (new 'static 'popup-menu-flag :label "Rescue Wastelanders"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-rescue)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-rescue))))
+                    (new 'static 'popup-menu-flag :label "Beat Turret Challenge"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-gungame)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-gungame))))
+                    (new 'static 'popup-menu-flag :label "Defeat Marauders in Arena"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-fight-3)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-fight-3))))
+                    (new 'static 'popup-menu-flag :label "Destroy Eggs in Nest"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category nest-eggs)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category nest-eggs))))
+                    (new 'static 'popup-menu-flag :label "Climb Monk Temple Tower"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-climb)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-climb))))
+                    (new 'static 'popup-menu-flag :label "Glide to Volcano"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-glide)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-glide))))
+                    (new 'static 'popup-menu-flag :label "Find Satellite in Volcano"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category volcano-darkeco)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category volcano-darkeco))))
+                    (new 'static 'popup-menu-flag :label "Find Oracle in Monk Temple"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-oracle)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-oracle))))
+                    (new 'static 'popup-menu-flag :label "Defend Ashelin at Oasis"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-oasis-defense)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-oasis-defense))))
+                    (new 'static 'popup-menu-flag :label "Complete Monk Temple Tests"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-tests)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-tests))))
+                    (new 'static 'popup-menu-flag :label "Travel Through Catacomb Subrails"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category comb-travel)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category comb-travel))))
+                    (new 'static 'popup-menu-flag :label "Explore Eco Mine"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category mine-explore)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category mine-explore))))
+                    (new 'static 'popup-menu-flag :label "Escort Bomb Train"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category mine-blow)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category mine-blow))))
+                    (new 'static 'popup-menu-flag :label "Defeat Veger's Precursor Robot"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category mine-boss)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category mine-boss))))
+                    )
+                  )
+                 (new 'static 'popup-menu-submenu :label "Act 2 Individual Levels"
+                  :entries (new 'static 'boxed-array :type popup-menu-entry 
+                    (new 'static 'popup-menu-flag :label "Reach Port via Sewer"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category sewer-met-hum)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category sewer-met-hum))))
+                    (new 'static 'popup-menu-flag :label "Destroy Incoming Blast Bots"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-port-fight)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-port-fight))))
+                    (new 'static 'popup-menu-flag :label "Destroy Barrier With Missile"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-port-attack)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-port-attack))))
+                    (new 'static 'popup-menu-flag :label "Beat Gun Course 1"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-gun-course-1)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-gun-course-1))))
+                    (new 'static 'popup-menu-flag :label "Destroy Sniper Cannons"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-sniper-fight)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-sniper-fight))))
+                    (new 'static 'popup-menu-flag :label "Reach Metal Head Area via Sewer"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category sewer-kg-met)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category sewer-kg-met))))
+                    (new 'static 'popup-menu-flag :label "Destroy Dark Eco Tanks"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-destroy-darkeco)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-destroy-darkeco))))
+                    (new 'static 'popup-menu-flag :label "Kill Dark Plants in Forest"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category forest-kill-plants)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category forest-kill-plants))))
+                    (new 'static 'popup-menu-flag :label "Destroy Eco Grid With Jinx"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-destroy-grid)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-destroy-grid))))
+                    (new 'static 'popup-menu-flag :label "Hijack Eco Vehicle"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-hijack-vehicle)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-hijack-vehicle))))
+                    (new 'static 'popup-menu-flag :label "Defend Port From Attack"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-port-assault)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-port-assault))))
+                    (new 'static 'popup-menu-flag :label "Beat Gun Course 2"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-gun-course-2)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-gun-course-2))))
+                    (new 'static 'popup-menu-flag :label "Break Barrier with Blast Bot"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-blow-barricade)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-blow-barricade))))
+                    (new 'static 'popup-menu-flag :label "Defend HQ From Attack"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-protect-hq)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-protect-hq))))
+                    (new 'static 'popup-menu-flag :label "Find Switch in Sewers"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category sewer-hum-kg)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category sewer-hum-kg))))
+                    (new 'static 'popup-menu-flag :label "Find Cypher In Eco Grid"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-power-game)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-power-game))))
+                    (new 'static 'popup-menu-flag :label "Race For More Artifacts"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-artifact-race-2)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-artifact-race-2))))
+                    (new 'static 'popup-menu-flag :label "Destroy Metal-pedes in Nest"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category nest-hunt)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category nest-hunt))))
+                    (new 'static 'popup-menu-flag :label "Chase Down Metal Head Beasts"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-beast-battle)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-beast-battle))))
+                    (new 'static 'popup-menu-flag :label "Defend Spargus' Front Gate"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-jump-mission)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-jump-mission))))
+                    (new 'static 'popup-menu-flag :label "Take Out Marauder Stronghold"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-chase-marauders)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-chase-marauders))))
+                    (new 'static 'popup-menu-flag :label "Beat Pillar Ring Challenges"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category forest-ring-chase)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category forest-ring-chase))))
+                    (new 'static 'popup-menu-flag :label "Destroy War Factory Defenses"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category factory-sky-battle)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category factory-sky-battle))))
+                    (new 'static 'popup-menu-flag :label "Explore War Factory"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category factory-assault)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category factory-assault))))
+                    (new 'static 'popup-menu-flag :label "Beat Cyber-Errol Boss"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category factory-boss)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category factory-boss))))
+                    )
+                  )
+                 (new 'static 'popup-menu-submenu :label "Act 3 Individual Levels"
+                  :entries (new 'static 'boxed-array :type popup-menu-entry 
+                    (new 'static 'popup-menu-flag :label "Rescue Seem at Temple"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-defend)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-defend))))
+                    (new 'static 'popup-menu-flag :label "Defend Spargus From Attack"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-defend)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-defend))))
+                    (new 'static 'popup-menu-flag :label "Activate Astro-Viewer in Forest"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category forest-turn-on-machine)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category forest-turn-on-machine))))
+                    (new 'static 'popup-menu-flag :label "Destroy Dark Ship Shield"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category precursor-tour)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category precursor-tour))))
+                    (new 'static 'popup-menu-flag :label "Blow Open Tower Door"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-blow-tower)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-blow-tower))))
+                    (new 'static 'popup-menu-flag :label "Destroy Metal Head Tower"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category tower-destroy)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category tower-destroy))))
+                    (new 'static 'popup-menu-flag :label "Reach Catacombs via Palace Ruins"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-patrol)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-patrol))))
+                    (new 'static 'popup-menu-flag :label "Break Through Ruins"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-attack)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-attack))))
+                    (new 'static 'popup-menu-flag :label "Reach Precursor Core"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category comb-wild-ride)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category comb-wild-ride))))
+                    (new 'static 'popup-menu-flag :label "Destroy Dark Ship"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category precursor-destroy-ship)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category precursor-destroy-ship))))
+                    (new 'static 'popup-menu-flag :label "Destroy Final Boss"
+                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-final-boss)))
+                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-final-boss))))
+                    )
+                  )
+                 )
+          )
        (new 'static
             'popup-menu-dynamic-submenu
             :label "Custom Category Select"
@@ -646,8 +1039,20 @@
     ;; Update auto-splitter struct
     (update! *autosplit-info-jak3*)
     ;; see if we should stop drawing the run info (when you finish arena training)
-    (when (and (!= (-> this category) (speedrun-category custom)) (task-complete? *game-info* (game-task arena-training-1)))
+    (when (and (!= (-> this category) (speedrun-category custom))
+               ;; (task-complete? *game-info* (game-task arena-training-1))
+               (time-elapsed? (-> this run-started-at) (seconds 10))
+               )
       (false! (-> this display-run-info?)))
+
+    ;; if we have an end task...
+    (when (!= (-> *speedrun-info* active-practice-objective end-task) (game-task none))
+      ;; ensure timer is shown
+      (set! (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) draw?) #t)
+      ;; stop timer if player finished the end-task
+      (when (task-resolution-closed? (-> *speedrun-info* active-practice-objective end-task))
+        (stop! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))))
+    
     ;; Draw info to the screen
     (when (and (not (-> *speedrun-info* practicing?)) (-> this display-run-info?))
       (draw-run-info this))
@@ -708,7 +1113,7 @@
 
 (defmethod draw-menu ((this speedrun-manager))
   ;; don't allow the menu to open during blackouts, apparently causes bugs
-  (if (< (-> *game-info* blackout-time) (current-time))
+  (if (< (-> *game-info* blackout-time) (get-current-time))
     ;; handle opening and closing the menu
     (cond
       ((!= (-> *pc-settings* speedrunner-mode-custom-bind) 0)
@@ -748,7 +1153,12 @@
         (('start-run) (set-time! (-> *speedrun-info* run-started-at)))
         (('invoke)
          (case (-> block param 0)
-           (((speedrun-menu-command reset)) (start-run! *speedrun-info*))
+           (((speedrun-menu-command reset))
+            (set! (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) draw?) #f)
+            (set-master-mode 'game)
+            (send-event (ppointer->process (-> self popup-menu)) 'close-menu)
+            (start-run! *speedrun-info*)
+            )
            (((speedrun-menu-command exit)) (set-master-mode 'game) (send-event (ppointer->process (-> self popup-menu)) 'close-menu))
            (else (format 0 "nyi: invoke ~D~%" (-> block param 0)))))))
   :trans
@@ -760,7 +1170,7 @@
         (when (and (-> *speedrun-info* practicing?) (cpad-pressed? 0 l3))
           (reset! (-> *speedrun-info* active-practice-objective)))
         (when (and (-> *speedrun-info* display-run-info?)
-                   (= (-> *speedrun-info* category) (speedrun-category custom))
-                   (time-elapsed? (-> *speedrun-info* run-started-at) (seconds 15)))
+                  ;;  (= (-> *speedrun-info* category) (speedrun-category custom))
+                   (time-elapsed? (-> *speedrun-info* run-started-at) (seconds 10)))
           (false! (-> *speedrun-info* display-run-info?)))
         (suspend))))

@@ -76,11 +76,144 @@
    (draw-info (_type_) object)
    (reset! (_type_) object)))
 
+(defconstant *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 67 :allocated-length 67
+  "Normal"
+  "Hero Mode"
+  ;; Act 1 ILs
+  "Complete Arena Training Course"
+  "Earn 1st War Amulet"
+  "Catch Kanga-Rats"
+  "Unlock Satellite"
+  "Learn to Drive a Vehicle"
+  "Beat Kleiver in Desert Race"
+  "Race For Artifacts"
+  "Beat Monks in Leaper Race"
+  "Destroy Metal Head Beasts"
+  "Earn 2nd War Amulet"
+  "Corral Wild Leapers"
+  "Rescue Wastelanders"
+  "Beat Turret Challenge"
+  "Defeat Marauders in Arena"
+  "Destroy Eggs in Nest"
+  "Climb Monk Temple Tower"
+  "Glide to Volcano"
+  "Find Satellite in Volcano"
+  "Find Oracle in Monk Temple"
+  "Defend Ashelin at Oasis"
+  "Complete Monk Temple Tests"
+  "Travel Through Catacomb Subrails"
+  "Explore Eco Mine"
+  "Escort Bomb Train"
+  "Defeat Veger's Precursor Robot"
+  ;; Act 2 ILs
+  "Reach Port via Sewer"
+  "Destroy Incoming Blast Bots"
+  "Destroy Barrier With Missile"
+  "Beat Gun Course 1"
+  "Destroy Sniper Cannons"
+  "Reach Metal Head Area via Sewer"
+  "Destroy Dark Eco Tanks"
+  "Kill Dark Plants in Forest"
+  "Destroy Eco Grid With Jinx"
+  "Hijack Eco Vehicle"
+  "Defend Port From Attack"
+  "Beat Gun Course 2"
+  "Break Barrier with Blast Bot"
+  "Defend HQ From Attack"
+  "Find Switch in Sewers"
+  "Find Cypher In Eco Grid"
+  "Race For More Artifacts"
+  "Destroy Metal-pedes in Nest"
+  "Chase Down Metal Head Beasts"
+  "Defend Spargus' Front Gate"
+  "Take Out Marauder Stronghold"
+  "Beat Pillar Ring Challenges"
+  "Destroy War Factory Defenses"
+  "Explore War Factory"
+  "Beat Cyber-Errol Boss"
+  ;; Act 3 ILs
+  "Rescue Seem at Temple"
+  "Defend Spargus From Attack"
+  "Activate Astro-Viewer in Forest"
+  "Destroy Dark Ship Shield"
+  "Blow Open Tower Door"
+  "Destroy Metal Head Tower"
+  "Reach Catacombs via Palace Ruins"
+  "Break Through Ruins"
+  "Reach Precursor Core"
+  "Destroy Dark Ship"
+  "Destroy Final Boss"
+  )))
+
 (defenum speedrun-category
   :type uint32
   ;; Main Categories
   (newgame-normal 0)
   (newgame-heromode 1)
+  ;; Act 1 ILs
+  (arena-training-1	2)
+  (arena-fight-1	3)
+  (wascity-chase	4)
+  (wascity-pre-game	5)
+  (desert-turtle-training	6)
+  (desert-course-race	7)
+  (desert-artifact-race-1	8)
+  (wascity-leaper-race	9)
+  (desert-hover	10)
+  (arena-fight-2	11)
+  (desert-catch-lizards	12)
+  (desert-rescue	13)
+  (wascity-gungame	14)
+  (arena-fight-3	15)
+  (nest-eggs	16)
+  (temple-climb	17)
+  (desert-glide	18)
+  (volcano-darkeco	19)
+  (temple-oracle	20)
+  (desert-oasis-defense	21)
+  (temple-tests	22)
+  (comb-travel	23)
+  (mine-explore	24)
+  (mine-blow	25)
+  (mine-boss	26)
+  ;; Act 2 ILs
+  (sewer-met-hum	27)
+  (city-port-fight	28)
+  (city-port-attack	29)
+  (city-gun-course-1	30)
+  (city-sniper-fight	31)
+  (sewer-kg-met	32)
+  (city-destroy-darkeco	33)
+  (forest-kill-plants	34)
+  (city-destroy-grid	35)
+  (city-hijack-vehicle	36)
+  (city-port-assault	37)
+  (city-gun-course-2	38)
+  (city-blow-barricade	39)
+  (city-protect-hq	40)
+  (sewer-hum-kg	41)
+  (city-power-game	42)
+  (desert-artifact-race-2	43)
+  (nest-hunt	44)
+  (desert-beast-battle	45)
+  (desert-jump-mission	46)
+  (desert-chase-marauders	47)
+  (forest-ring-chase	48)
+  (factory-sky-battle	49)
+  (factory-assault	50)
+  (factory-boss	51)
+  ;; Act 3 ILs
+  (temple-defend	52)
+  (wascity-defend	53)
+  (forest-turn-on-machine	54)
+  (precursor-tour	55)
+  (city-blow-tower	56)
+  (tower-destroy	57)
+  (palace-ruins-patrol	58)
+  (palace-ruins-attack	59)
+  (comb-wild-ride	60)
+  (precursor-destroy-ship	61)
+  (desert-final-boss	62)
   ;; TODO - add ILs and such later
   ;; there's no point in adding categories that just start from a new-game and have later restrictions
   ;; because we aren't going to modify the code to make that possible
@@ -110,6 +243,7 @@
   (:methods
    (set-category! (_type_ speedrun-category) object)
    (start-run! (_type_) object)
+   (start-individual-level-run! (_type_ game-task) none)
    (enforce-settings! (_type_) object)
    (update! (_type_) object)
    (draw-run-info (_type_) object)))
