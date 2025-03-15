@@ -2396,7 +2396,7 @@
     (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
     (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 88 0.0 (font-color default) (font-flags middle shadow kerning large))))
       (set! (-> font-ctx alpha) (- 1.0 (-> arg0 menu-transition)))
-      (set! (-> font-ctx scale) 0.75)
+      (set! (-> font-ctx scale) 0.5)
       (draw-string-adv (get-speedrun-end-results-text) buf font-ctx)))
 
   ;; (set-flags! arg1 (font-flags kerning middle middle-vert large))

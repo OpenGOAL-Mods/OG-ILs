@@ -439,6 +439,11 @@
   )
 
 
+(deftype menu-speedrun-end-results-option (menu-option)
+  ()
+  )
+
+
 (deftype menu-format-card-option (menu-option)
   ()
   )

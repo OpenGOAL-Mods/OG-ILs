@@ -76,7 +76,7 @@
    (draw-info (_type_) none)
    (reset! (_type_) none)))
 
-(defconstant *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 67 :allocated-length 67
+(define *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 67 :allocated-length 67
   "Normal"
   "Hero Mode"
   "Escape from Fortress"
@@ -151,7 +151,7 @@
   ;; Main Categories
   (newgame-normal 0)
   (newgame-heromode 1)
-  ;; ILs
+  ;; Act 1 ILs
   (fortress-escape	2)
   (city-help-kid	3)
   (ruins-tower	4)
@@ -176,6 +176,7 @@
   (palace-boss	23)
   (city-shuttle	24)
   (ruins-enemy	25)
+  ;; Act 2 ILs
   (forest-scouts	26)
   (city-escort-kid	27)
   (dig-knock-down	28)
@@ -195,6 +196,7 @@
   (tomb-poles	42)
   (tomb-water	43)
   (tomb-boss	44)
+  ;; Act 3 ILs
   (fortress-save-friends	45)
   (sewer-escort	46)
   (stadium-race-class2	47)

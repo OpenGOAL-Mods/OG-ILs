@@ -836,6 +836,8 @@
   (pad-circle #x2001)
   (pad-x #x2002)
   (pad-square #x2003)
+
+  (progress-music-player-dig #x2100)
 )
 ;; ---text-id
 
