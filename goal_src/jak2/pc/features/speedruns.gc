@@ -66,6 +66,8 @@
     (print-timer-text *temp-string* 2 406)
     )
    ((and (!= 0 (-> this end-time)))
+    (until (progress-allowed?)
+        (suspend))
     (suspend-for (seconds 1))
     (let ((cur-music (music-player-track-cur-idx)))
       (activate-progress *dproc* 'speedrun-end-results)
