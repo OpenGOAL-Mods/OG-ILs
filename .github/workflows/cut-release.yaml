@@ -24,17 +24,17 @@ on:
       jak1:
         description: 'Supports Jak 1?'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
       jak2:
         description: 'Supports Jak 2?'
         required: true
-        default: 'false'
+        default: 'true'
         type: boolean
       jak3:
         description: 'Supports Jak 3?'
         required: true
-        default: 'false'
+        default: 'true'
         type: boolean
       jakx:
         description: 'Supports Jak X?'
