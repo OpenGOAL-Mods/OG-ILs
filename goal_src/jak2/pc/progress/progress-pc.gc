@@ -499,20 +499,20 @@
   (sound-group-continue (sound-group music))
   0)
 
-(defun play-music-player-track ((idx int))
-  (play-music-player (-> *music-player-tracks* idx) 0)
-  (none)
-  )
+;; (defun play-music-player-track ((idx int))
+;;   (play-music-player (-> *music-player-tracks* idx) 0)
+;;   (none)
+;;   )
 
-(defun music-player-track-cur-idx ()
-  (let ((cur (-> *setting-control* user-current music)))
-    (dotimes (i (-> *music-player-tracks* length))
-      (when (= (-> *music-player-tracks* i name) cur)
-        (return i)))
-    ;; not found, return -1
-    -1
-    )
-  )
+;; (defun music-player-track-cur-idx ()
+;;   (let ((cur (-> *setting-control* user-current music)))
+;;     (dotimes (i (-> *music-player-tracks* length))
+;;       (when (= (-> *music-player-tracks* i name) cur)
+;;         (return i)))
+;;     ;; not found, return -1
+;;     -1
+;;     )
+;;   )
 
 
 (defbehavior stop-music-player progress ()
