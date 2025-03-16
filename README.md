@@ -1,4 +1,4 @@
-# Jak II/3 - All Missions Speedrun Mod (OpenGOAL)
+# Jak II / Jak 3 - All Missions Speedrun Mod (OpenGOAL)
 
 - Play now via the JakMods mod list! https://jakmods.dev
 
