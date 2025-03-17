@@ -76,21 +76,24 @@
    ((and (!= 0 (-> this end-time)))
     (until (progress-allowed?)
         (suspend))
-    (let ((tmp-music-name (-> *setting-control* user-current music))
-          (tmp-flava (-> *setting-control* user-current sound-flava))
-          (tmp-mode (-> *setting-control* user-current sound-mode)))
-      (activate-progress *dproc* 'speedrun-end-results)
-      (play-music 'race (the uint 0) (the uint 0))
-      (print-stats (-> *statistics* kill-stats) #t)
-      (until (progress-allowed?)
-        (suspend))
-      ;; stop race music, maybe resume old music
-      (remove-setting! 'music)
-      (apply-settings *setting-control*)
-      (sound-group-pause (sound-group music))
-      (when tmp-music-name
-        (play-music tmp-music-name tmp-flava tmp-mode))
-      (set! (-> this end-time) 0)
+    ;; make sure user didnt manage to reset already
+    (when (!= 0 (-> this end-time))
+      (let ((tmp-music-name (-> *setting-control* user-current music))
+            (tmp-flava (-> *setting-control* user-current sound-flava))
+            (tmp-mode (-> *setting-control* user-current sound-mode)))
+        (activate-progress *dproc* 'speedrun-end-results)
+        (play-music 'race (the uint 0) (the uint 0))
+        (print-stats (-> *statistics* kill-stats) #t)
+        (until (progress-allowed?)
+          (suspend))
+        ;; stop race music, maybe resume old music
+        (remove-setting! 'music)
+        (apply-settings *setting-control*)
+        (sound-group-pause (sound-group music))
+        (when tmp-music-name
+          (play-music tmp-music-name tmp-flava tmp-mode))
+        (set! (-> this end-time) 0)
+        )
       )
     )
    (else
@@ -943,6 +946,8 @@
 (defmethod draw-menu ((this speedrun-manager))
   ;; don't allow the menu to open during blackouts, apparently causes bugs
   (when (>= (-> *game-info* blackout-time) (get-current-time))
+    (return 0))
+  (when (not (progress-allowed?))
     (return 0))
   ;; handle opening and closing the menu
   (cond
