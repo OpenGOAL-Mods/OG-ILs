@@ -243,7 +243,9 @@
    (practicing? symbol)
    (active-practice-objective speedrun-practice-objective)
    (waiting-to-record-practice-attempt? symbol)
-   (run-started-at time-frame))
+   (run-started-at time-frame)
+   (percent-warped? symbol)
+   )
   (:methods
     (set-category! (_type_ speedrun-category) none)
     (start-run! (_type_) none)
@@ -253,6 +255,9 @@
     (draw-run-info (_type_) none)))
 
 (define-extern *speedrun-info* speedrun-info)
+
+(defun set-percent-warped! ((val symbol))
+  (set! (-> *speedrun-info* percent-warped?) val))
 
 (defenum speedrun-menu-command
   :type uint32

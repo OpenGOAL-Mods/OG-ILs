@@ -1049,6 +1049,10 @@
         (label cfg-21)
         (while (nonzero? s2-0)
           (+! s2-0 -1)
+          ;; All Missions Mod - track % warps
+          (when (!= (-> this task) (-> *game-info* sub-task-list (-> s3-0 s2-0) task))
+            ;; (format 0 "while closing ~A, also closed ~A~%" (-> this name) (-> *game-info* sub-task-list (-> (&-> s3-0 0 hword p-node-count) 0) name))
+            (set-percent-warped! #t))
           (s4-0 (-> *game-info* sub-task-list (-> s3-0 s2-0)) arg0)
           )
         )

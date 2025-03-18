@@ -89,7 +89,7 @@
     (alloc-slot (_type_ symbol) kill-statistics-enemy-entry)
 
     (get-total-count (_type_) int)
-    (get-jak-enemy-kill-count (_type_) int)
+    (print-jak-enemy-kill-stats (_type_ object) object)
     (get-jak-friendly-kill-count (_type_) int)
     (get-enemy-stats (_type_ symbol) kill-statistics-enemy-entry)
     (get-count-for-enemy (_type_ symbol) int)
@@ -180,8 +180,9 @@
     amount)
   )
 
-(defmethod get-jak-enemy-kill-count ((this kill-statistics))
-  "return the total kill count for any enemies killed by jak, tracked in the stats"
+
+(defmethod print-jak-enemy-kill-stats ((this kill-statistics) out)
+  "writes the total kill count and some stats for any enemies killed by jak to provided buffer"
 
   (let ((amount 0))
     (dotimes (i KILL_STATS_MAX_ENEMY_TYPES)
@@ -192,13 +193,33 @@
             )
           (else
             (dotimes (ii (kill-stats-source guard)) ;; all kill-stats-sources before guard are from jak
-              (+! amount (-> this enemies i sources ii))
+              (+! amount (-> this enemies i sources ii)))
+            )
+          )
+        )
+      )
+    (format out "Enemies Killed: ~D~%" amount)
+    (dotimes (i KILL_STATS_MAX_ENEMY_TYPES)
+      (when (-> this enemies i name)
+        (case (-> this enemies i name)
+          (('civilian 'sig 'ashelin 'jinx 'mog 'grim)
+            ;; friendly, dont count
+            )
+          (else
+            (let ((k 0))
+              (dotimes (ii (kill-stats-source guard)) ;; all kill-stats-sources before guard are from jak
+                (+! k (-> this enemies i sources ii)))
+              (when (> k 0)
+                (format out "~S x~D~%" (-> this enemies i name) k))
               )
             )
           )
         )
       )
-    amount)
+    )
+  
+  ;; return the buffer
+  out
   )
 
 (defmethod get-jak-friendly-kill-count ((this kill-statistics))
