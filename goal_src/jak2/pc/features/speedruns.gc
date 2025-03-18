@@ -147,7 +147,7 @@
   (start 'play (get-continue-by-name *game-info* (play-task tsk 'debug 'play)))
   (set-master-mode 'game)
   ;; spawn a process that suspends until jak is properly spawned, before starting timer
-  (process-spawn-function process (lambda :behavior process ()
+  (process-spawn-function process (lambda :behavior process ((side-mish? symbol))
     (let ((target-continued? #f))
       (until (and target-continued?
                   (< (-> *game-info* blackout-time) (get-current-time)) 
@@ -162,7 +162,7 @@
       (task-close! "city-win-resolution"))
     ;; (set! (-> *game-info* secrets) secrets)
     (set-percent-warped! #f)
-    (start! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))))
+    (start! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))) side-mish?)
   (none)
   )
 
