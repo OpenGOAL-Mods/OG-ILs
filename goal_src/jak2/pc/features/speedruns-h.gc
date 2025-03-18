@@ -76,9 +76,10 @@
    (draw-info (_type_) none)
    (reset! (_type_) none)))
 
-(define *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 67 :allocated-length 67
+(define *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 97 :allocated-length 97
   "Normal"
   "Hero Mode"
+  ;; Act 1 ILs
   "Escape from Fortress"
   "Protect Kor and Kid"
   "Retrieve Banner from Dead Town"
@@ -103,6 +104,7 @@
   "Defeat Baron at Palace"
   "Shuttle Underground Fighters"
   "Protect Site in Dead Town"
+  ;; Act 2 ILs
   "Catch Scouts in Haven Forest"
   "Escort Kid to Power Station"
   "Destroy Equipment at Dig"
@@ -122,6 +124,7 @@
   "Pass the first Test of Manhood"
   "Pass the second Test of Manhood"
   "Defeat Baron in Mar's Tomb"
+  ;; Act 3 ILs
   "Rescue Friends in Fortress"
   "Escort men through Sewers"
   "Win Class 2 Race at Stadium"
@@ -144,6 +147,37 @@
   "Break Barrier at Nest"
   "Attack the Metal Head Nest"
   "Destroy Metal Kor at Nest"
+  ;; Side Missions
+  "Orb Search 1 (Slums SE)"
+  "Orb Search 2 (Industrial N)"
+  "Orb Search 3 (Port)"
+  "Orb Search 4 (Water Slums)"
+  "Orb Search 5 (Gardens S)"
+  "Orb Search 6 (Bazaar E)"
+  "Orb Search 7 (Bazaar E)"
+  "Orb Search 8 (Gardens N)"
+  "Orb Search 9 (Main Town NE)"
+  "Orb Search 10 (Industrial S)"
+  "Orb Search 11 (Main Town W)"
+  "Orb Search 12 (Bazaar W)"
+  "Orb Search 13 (Main Town NE)"
+  "Orb Search 14 (Main Town W)"
+  "Orb Search 15 (Palace Grounds)"
+  "Collect Homing Beacons"
+  "Collect Green Eco"
+  "Collect Dark Eco"
+  "Destroy Bombots 2"
+  "Deliver Package 2"
+  "Shuttle Underground Fighters 2"
+  "Ring Race 1 (Slums)"
+  "Ring Race 2 (Port)"
+  "Ring Race 3 (Slums)"
+  "Port Race"
+  "Class 1 Reverse Race"
+  "Class 2 Reverse Race"
+  "Class 3 Reverse Race"
+  "Vulcan Fury Gun Course"
+  "Peace Maker Gun Course"
   )))
 
 (defenum speedrun-category
@@ -219,6 +253,37 @@
   (nest-get-to-gun	64)
   (nest-enter	65)
   (nest-boss	66)
+  ;; Side Missions
+  (city-burning-bush-get-to-1	67)
+  (city-burning-bush-get-to-2	68)
+  (city-burning-bush-get-to-3	69)
+  (city-burning-bush-get-to-4	70)
+  (city-burning-bush-get-to-5	71)
+  (city-burning-bush-get-to-6	72)
+  (city-burning-bush-get-to-7	73)
+  (city-burning-bush-get-to-8	74)
+  (city-burning-bush-get-to-9	75)
+  (city-burning-bush-get-to-10	76)
+  (city-burning-bush-get-to-11	77)
+  (city-burning-bush-get-to-12	78)
+  (city-burning-bush-get-to-13	79)
+  (city-burning-bush-get-to-14	80)
+  (city-burning-bush-get-to-15	81)
+  (city-burning-bush-collection-1	82)
+  (city-burning-bush-collection-2	83)
+  (city-burning-bush-collection-3	84)
+  (city-burning-bush-bombbot-1	85)
+  (city-burning-bush-racepoint-1	86)
+  (city-burning-bush-shuttle-1	87)
+  (city-burning-bush-ring-1	88)
+  (city-burning-bush-ring-2	89)
+  (city-burning-bush-ring-3	90)
+  (city-burning-bush-race-port	91)
+  (stadium-burning-bush-race-class3-r	92)
+  (stadium-burning-bush-race-class2-r	93)
+  (stadium-burning-bush-race-class1-r	94)
+  (city-blue-gun-training	95)
+  (city-dark-gun-training	96)
   ;; TODO - add ILs and such later
   ;; there's no point in adding categories that just start from a new-game and have later restrictions
   ;; because we aren't going to modify the code to make that possible
@@ -249,7 +314,7 @@
   (:methods
     (set-category! (_type_ speedrun-category) none)
     (start-run! (_type_) none)
-    (start-individual-level-run! (_type_ game-task) none)
+    (start-individual-level-run! (_type_ game-task symbol game-secrets) none)
     (enforce-settings! (_type_) none)
     (update! (_type_) none)
     (draw-run-info (_type_) none)))

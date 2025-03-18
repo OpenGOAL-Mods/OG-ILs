@@ -295,9 +295,11 @@
             :name "city-blue-gun-training"
             :pre-play-node (game-task-node city-blue-gun-training-bronze)
             :kiosk-play-node (game-task-node city-blue-gun-training-silver)
-            :pre-play-continue #f
+            ;; :pre-play-continue #f
+            :pre-play-continue "hiphog-start"
             :play-node (game-task-node city-blue-gun-training-silver)
-            :play-continue #f
+            ;; :play-continue #f
+            :play-continue "gungame-start"
             :kiosk-play-continue #f
             )
           (new 'static 'game-task-info
@@ -514,9 +516,11 @@
             :name "city-dark-gun-training"
             :pre-play-node (game-task-node city-dark-gun-training-bronze)
             :kiosk-play-node (game-task-node city-dark-gun-training-silver)
-            :pre-play-continue #f
+            ;; :pre-play-continue #f
+            :pre-play-continue "hiphog-start"
             :play-node (game-task-node city-dark-gun-training-silver)
-            :play-continue #f
+            ;; :play-continue #f
+            :play-continue "gungame-start"
             :kiosk-play-continue #f
             )
           (new 'static 'game-task-info

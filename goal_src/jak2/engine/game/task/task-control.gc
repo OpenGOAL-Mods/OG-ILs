@@ -871,8 +871,9 @@
         (while (nonzero? p-node-count)
           (+! p-node-count -1)
           ;; All Missions Mod - track % warps
-          (when (!= (-> this task) (-> *game-info* sub-task-list (-> (&-> s3-0 0 hword p-node-count) 0) task))
-            ;; (format 0 "while closing ~A, also closed ~A~%" (-> this name) (-> *game-info* sub-task-list (-> (&-> s3-0 0 hword p-node-count) 0) name))
+          (when (and (logtest? (-> *game-info* sub-task-list (-> (&-> s3-0 0 hword p-node-count) 0) flags) (game-task-node-flag close-task))
+                     (!= (-> this task) (-> *game-info* sub-task-list (-> (&-> s3-0 0 hword p-node-count) 0) task)))
+            (format 0 "while closing ~A, also closed ~A~%" (-> this name) (-> *game-info* sub-task-list (-> (&-> s3-0 0 hword p-node-count) 0) name))
             (set-percent-warped! #t))
           (task-node-close-func (-> *game-info* sub-task-list (-> (&-> s3-0 0 hword p-node-count) 0)))
           )
