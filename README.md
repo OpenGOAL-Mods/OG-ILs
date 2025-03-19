@@ -1,4 +1,4 @@
-# Jak II /3 - All Missions Speedrun Mod (OpenGOAL)
+# Jak II - All Missions Speedrun Mod (OpenGOAL)
 
 - Play now via the JakMods mod list! https://jakmods.dev
 
@@ -8,6 +8,8 @@
 - Adds in-game timer and end screen after completing each mission, with some statistics (more to come)
 
 ![image](https://github.com/user-attachments/assets/00ac1184-8ca4-4e15-9309-4e3eaf6d8550)
+
+# Jak 3
 
 - For Jak 3 you can install via these steps (Windows only):
   - Install `git` and `task` (see https://github.com/open-goal/jak-project?tab=readme-ov-file#required-software)
