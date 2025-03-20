@@ -184,11 +184,11 @@
             )
           (new 'static 'game-task-info
             :name "mountain-collection"
-            :pre-play-node (game-task-node mountain-collection-resolution)
-            :kiosk-play-node (game-task-node city-keira-delivery-introduction)
+            :pre-play-node (game-task-node mountain-lens-introduction)
+            :kiosk-play-node (game-task-node mountain-lens-introduction)
             :pre-play-continue #f
-            :play-node (game-task-node city-keira-delivery-introduction)
-            :play-continue #f
+            :play-node (game-task-node mountain-lens-introduction)
+            :play-continue "mountain-start"
             :kiosk-play-continue #f
             )
           (new 'static 'game-task-info

@@ -215,6 +215,8 @@
       (start-individual-level-run! this (game-task mountain-gear) #f (game-secrets)))
     (((speedrun-category mountain-shard))
       (start-individual-level-run! this (game-task mountain-shard) #f (game-secrets)))
+    (((speedrun-category mountain-collection))
+      (start-individual-level-run! this (game-task mountain-collection) #f (game-secrets)))
     (((speedrun-category city-keira-delivery))
       (start-individual-level-run! this (game-task city-keira-delivery) #f (game-secrets)))
     (((speedrun-category stadium-board1))
@@ -610,6 +612,9 @@
               (new 'static 'popup-menu-flag :label "Find Shard in Mountain Temple"
                   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category mountain-shard)))
                   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category mountain-shard))))
+              (new 'static 'popup-menu-flag :label "Find All Items in Mountain Temple"
+                  :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category mountain-collection)))
+                  :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category mountain-collection))))
               (new 'static 'popup-menu-flag :label "Beat Time to Race Garage"
                   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-keira-delivery)))
                   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-keira-delivery))))
