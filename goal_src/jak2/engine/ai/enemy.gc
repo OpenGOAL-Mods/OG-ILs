@@ -541,6 +541,15 @@
 
 (defmethod kill-prefer-falling ((this enemy))
   "If available in `enemy-info`, [[go]] to the [[die-falling]] state, if not, [[die]]"
+
+  ;; blue gun knocks the enemy back and eventually they're killed here, downstream of the actual attack
+  ;; so we assume these are jak kills
+  (#when PC_PORT
+    (let ((v1-1 (new 'stack 'enemy-attack-info)))
+      (set! (-> v1-1 penetrate-using) (penetrate knocked))
+      (set! (-> v1-1 attacker-handle) (process->handle *target*))
+      (add-to-kill-stats this v1-1)))
+
   (if (-> this enemy-info use-die-falling)
       (go (method-of-object this die-falling))
       (go (method-of-object this die))

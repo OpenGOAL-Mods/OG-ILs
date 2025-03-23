@@ -138,7 +138,8 @@
   "make a new statistics"
   (let ((obj (object-new allocation type-to-make (the-as int (-> type-to-make size)))))
     (initialize (-> obj kill-stats))
-    (false! (-> obj kill-stats allow-unknown?))
+    ;; (false! (-> obj kill-stats allow-unknown?))
+    (true! (-> obj kill-stats allow-unknown?))
     obj))
 
 

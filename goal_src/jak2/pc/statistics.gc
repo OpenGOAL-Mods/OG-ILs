@@ -101,7 +101,7 @@
 
 
 
-(defun add-to-kill-stats ((enemy enemy) (attack enemy-attack-info))
+(defun add-to-kill-stats ((enemy process-drawable) (attack enemy-attack-info))
   "adds a kill to the statistics tracker"
 
   ;; (format #t "enemy ~A killed (incoming ~e sec ago)~%" (-> enemy name) (- (-> PP clock old-frame-counter) (-> attack attack-time)))

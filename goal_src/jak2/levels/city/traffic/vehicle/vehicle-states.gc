@@ -361,6 +361,14 @@
   :virtual #t
   :event vehicle-event-handler
   :enter (behavior ()
+    ;; vehicle explode, if its a helldog assume these are jak kills
+    (#when PC_PORT
+      (when (= (-> self type symbol) 'helldog)
+        (let ((v1-1 (new 'stack 'enemy-attack-info)))
+          (set! (-> v1-1 penetrate-using) (penetrate knocked))
+          (set! (-> v1-1 attacker-handle) (process->handle *target*))
+          (add-to-kill-stats self v1-1))))
+
     (rlet ((vf0 :class vf))
       (init-vf0-vector)
       (let ((a0-0 (-> self draw color-mult)))
