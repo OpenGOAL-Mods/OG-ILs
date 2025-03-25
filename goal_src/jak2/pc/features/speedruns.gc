@@ -1424,6 +1424,12 @@
   (go-virtual idle)
   (none))
 
+(defun maybe-stop-timer-for-retryable-task ((tsk game-task))
+  ;; if we have an end task that matches, stop timer 
+  (when (= (-> *speedrun-info* active-practice-objective end-task) tsk)
+    (stop! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer)))))
+  (none))
+
 (defmethod update! ((this speedrun-info))
   "A per frame update for speedrunning related stuff"
   ;; (format 0 "blackout ~D vs cur ~D~%" (-> *game-info* blackout-time) (get-current-time))
@@ -1547,9 +1553,11 @@
 
 (defmethod draw-menu ((this speedrun-manager))
   ;; don't allow the menu to open during blackouts, apparently causes bugs
-  (when (>= (-> *game-info* blackout-time) (get-current-time))
-    (return 0))
-  (when (not (progress-allowed?))
+  (when (or (>= (-> *game-info* blackout-time) (get-current-time))
+            (not (progress-allowed?))
+            (not *target*)
+            (focus-test? *target* dead)
+            )
     (return 0))
   ;; handle opening and closing the menu
   (cond

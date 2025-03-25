@@ -1468,6 +1468,12 @@
     )
   :enter (behavior ()
     (process-grab? *target* #f)
+    ;; metalkor dying - count as jak kill
+    (#when PC_PORT
+      (let ((v1-1 (new 'stack 'enemy-attack-info)))
+        (set! (-> v1-1 penetrate-using) (penetrate knocked))
+        (set! (-> v1-1 attacker-handle) (process->handle *target*))
+        (add-to-kill-stats self v1-1)))
     (set-setting! 'entity-name "camera-271" 0.0 0)
     (send-event *camera* 'change-target self)
     )
