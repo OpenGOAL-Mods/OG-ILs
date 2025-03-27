@@ -146,7 +146,7 @@
 
   (true! (-> obj fast-airlock?))
   (true! (-> obj fast-elevator?))
-  (false! (-> obj fast-progress?))
+  (true! (-> obj fast-progress?))
   (true! (-> obj fix-projectile-focus))
   (true! (-> obj smooth-minimap?))
   (false! (-> obj minimap-force-north))

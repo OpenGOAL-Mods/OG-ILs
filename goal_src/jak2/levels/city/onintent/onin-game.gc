@@ -2470,11 +2470,13 @@
       (game-info-method-28 *game-info* (game-score onin-game) (-> self score))
       (logclear!
         (-> *cpad-list* cpads 0 button0-abs 0)
-        (pad-buttons up right down left l1 r1 triangle circle x square)
+        ;; (pad-buttons up right down left l1 r1 triangle circle x square)
+        (pad-buttons up right down left triangle circle x square) ;; removed l1/r1 so that speedrun menu works
         )
       (logclear!
         (-> *cpad-list* cpads 0 button0-rel 0)
-        (pad-buttons up right down left l1 r1 triangle circle x square)
+        ;; (pad-buttons up right down left l1 r1 triangle circle x square)
+        (pad-buttons up right down left triangle circle x square) ;; removed l1/r1 so that speedrun menu works
         )
       (let ((a1-29 (new 'stack-no-clear 'array 'pointer 3)))
         (set! (-> a1-29 2) (the-as pointer 'onin1))
@@ -2524,11 +2526,13 @@
       )
     (logclear!
       (-> *cpad-list* cpads 0 button0-abs 0)
-      (pad-buttons up right down left l1 r1 triangle circle x square)
+      ;; (pad-buttons up right down left l1 r1 triangle circle x square)
+      (pad-buttons up right down left triangle circle x square) ;; removed l1/r1 so that speedrun menu works
       )
     (logclear!
       (-> *cpad-list* cpads 0 button0-rel 0)
-      (pad-buttons up right down left l1 r1 triangle circle x square)
+      ;; (pad-buttons up right down left l1 r1 triangle circle x square)
+      (pad-buttons up right down left triangle circle x square) ;; removed l1/r1 so that speedrun menu works
       )
     )
   :code (behavior ((arg0 symbol))

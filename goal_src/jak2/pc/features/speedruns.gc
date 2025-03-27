@@ -827,6 +827,7 @@
 (defmethod enforce-settings! ((this speedrun-info))
   (set! (-> *pc-settings* ps2-actor-vis?) #t) ;; force PS2 actor visibility
   (set-frame-rate! *pc-settings* 60 #t) ;; force FPS to `60`
+  (true! (-> *pc-settings* fast-progress?)) ;; force fast progress menu
   ;; For posterity, the main reason why changing the cheats is useful is for two main reasons:
   ;; - If you are playing a category that requires cheats (ie. a turbo jetboard one) you'd
   ;;   probably like the game to automatically set the appropriate ones for you
@@ -1558,6 +1559,7 @@
             (not *target*)
             (focus-test? *target* dead)
             )
+    (format 0 "exiting draw-menu early~%")
     (return 0))
   ;; handle opening and closing the menu
   (cond
@@ -1574,6 +1576,7 @@
       (cond
         ((= *master-mode* 'game)
          (set-master-mode 'menu)
+          (format 0 "  SPEEDRUN MENU OPEN~%")
          (send-event (ppointer->process (-> this popup-menu)) 'open-menu))
         ((= *master-mode* 'menu)
          (set-master-mode 'game)
@@ -1592,6 +1595,7 @@
        (cond
          ((= *master-mode* 'game)
           (set-master-mode 'menu)
+          (format 0 "  SPEEDRUN MENU OPEN~%")
           (send-event (ppointer->process (-> this popup-menu)) 'open-menu))
          ((= *master-mode* 'menu)
           (set-master-mode 'game)
