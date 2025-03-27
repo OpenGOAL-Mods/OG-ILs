@@ -1412,7 +1412,7 @@
 (define *speedrun-manager* (the-as (pointer speedrun-manager) #f))
 
 (defbehavior speedrun-manager-init speedrun-manager ()
-  (format 0 "speedrun-manager-init~%")
+  ;; (format 0 "speedrun-manager-init~%")
   (set! *speedrun-manager* (the-as (pointer speedrun-manager) (process->ppointer self)))
   (set! (-> *speedrun-manager* 0 popup-menu)
         (the-as (pointer popup-menu) (process-spawn popup-menu :init popup-menu-init "Speedrun Menu" *speedrun-popup-menu-entries*)))
@@ -1439,11 +1439,11 @@
   ;; Ensure the speedrunner menu process is enabled or destroyed
   (when (and (-> *pc-settings* speedrunner-mode?)
              (not *speedrun-manager*))
-    (format 0 "speedrun-manager = ~A~%" *speedrun-manager*)
+    ;; (format 0 "speedrun-manager = ~A~%" *speedrun-manager*)
     (process-spawn speedrun-manager :init speedrun-manager-init #f :to *active-pool*))
   (when (and (not (-> *pc-settings* speedrunner-mode?))
              *speedrun-manager*)
-    (format 0 "deactivating speedrun-manager~%")
+    ;; (format 0 "deactivating speedrun-manager~%")
     (deactivate (-> *speedrun-manager* 0)))
   ;; do speedrunner mode things
   (when (-> *pc-settings* speedrunner-mode?)
@@ -1559,7 +1559,7 @@
             (not *target*)
             (focus-test? *target* dead)
             )
-    (format 0 "exiting draw-menu early~%")
+    ;; (format 0 "exiting draw-menu early~%")
     (return 0))
   ;; handle opening and closing the menu
   (cond
@@ -1576,7 +1576,6 @@
       (cond
         ((= *master-mode* 'game)
          (set-master-mode 'menu)
-          (format 0 "  SPEEDRUN MENU OPEN~%")
          (send-event (ppointer->process (-> this popup-menu)) 'open-menu))
         ((= *master-mode* 'menu)
          (set-master-mode 'game)
@@ -1595,7 +1594,6 @@
        (cond
          ((= *master-mode* 'game)
           (set-master-mode 'menu)
-          (format 0 "  SPEEDRUN MENU OPEN~%")
           (send-event (ppointer->process (-> this popup-menu)) 'open-menu))
          ((= *master-mode* 'menu)
           (set-master-mode 'game)
