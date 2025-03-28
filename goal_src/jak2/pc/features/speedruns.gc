@@ -482,13 +482,26 @@
   (none)
   )
 
+(defun fmt-timer-string (out (total-sec float))
+  (let* ((minutes (/ (the int total-sec) 60))
+         (sec (- total-sec (* minutes 60))))
+    (if (> minutes 0)
+      (if (>= sec 10) ;; too lazy to figure out zero padding for floats
+        (format out "~D:~,,2f~%" minutes sec) ;; MM:SS.ms
+        (format out "~D:0~,,2f~%" minutes sec) ;; MM:SS.ms
+        )
+      (format out "~,,2fs~%" total-sec) ;; SS.ms
+      )
+    )
+  )
+
 (defmethod draw-timer ((this speedrun-timer))
   ;; (format 0 "draw-timer ~D~%" (get-current-time))
   (clear *temp-string*)
   (clear *pc-encoded-temp-string*)
   (cond
    ((-> this started?)
-    (format *temp-string* "~,,2fs~%" (* (the float (- (get-real-current-time) (-> this start-time))) 0.0033333334))
+    (fmt-timer-string *temp-string* (* (the float (- (get-real-current-time) (-> this start-time))) 0.0033333334))
     ;; show speed in practice mode
     (when (and *target* (-> *speedrun-info* practicing?))
       (format *temp-string* "~,,2M~%" (-> *target* control ctrl-xz-vel)))
@@ -496,14 +509,14 @@
     (print-timer-text *temp-string* 2 406)
     )
    ((-> this stopped?)
-    (format *temp-string* "~,,2fs~%" (-> this recorded-time))
+    (fmt-timer-string *temp-string* (-> this recorded-time))
     ;; show speed in practice mode
     (when (and *target* (-> *speedrun-info* practicing?))
       (format *temp-string* "~,,2M~%" (-> *target* control ctrl-xz-vel)))
     (print-timer-text *temp-string* 2 406)
     )
    (else
-    (format *temp-string* "0.0s~%")
+    (fmt-timer-string *temp-string* 0.0)
     (print-timer-text *temp-string* 2 406)
     )
   )
