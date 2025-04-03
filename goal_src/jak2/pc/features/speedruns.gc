@@ -604,6 +604,8 @@
 
 (define-extern reset-kill-stats (function none))
 (defmethod start-run! ((this speedrun-info))
+  ;; set garbage continue point so drill-mech-master and other shit won't be stupid
+  (set! (-> *game-info* last-continue) *default-continue*)
   ;; randomize game id so the autosplitter knows to restart
   (reset! *autosplit-info-jak2*)
   (reset-kill-stats)
@@ -617,7 +619,7 @@
   ;; finalize any category specific setup code
   (case (-> this category)
     (((speedrun-category newgame-normal))
-      (initialize! *game-info* 'game (the-as game-save #f) "game-start"))
+      (initialize! *game-info* 'game (the-as game-save #f) "game-start")) 
     (((speedrun-category newgame-heromode))
       (initialize! *game-info* 'game (the-as game-save #f) "game-start-hero"))
     (((speedrun-category all-cheats-allowed))
@@ -1507,7 +1509,7 @@
       (else
         (format *temp-string*
               ;; "<COLOR_WHITE>Category: <COLOR_GREEN>~S~%<COLOR_WHITE>PC Cheats: <COLOR_GREEN>~D~%<COLOR_WHITE>Frame Rate: <COLOR_GREEN>~D~%<COLOR_WHITE>PS2 Actor Vis?: <COLOR_GREEN>~S~%<COLOR_WHITE>Mod Version: <COLOR_GREEN>~S~%"
-              "<COLOR_WHITE>Category: <COLOR_GREEN>~S~%Mod Version: <COLOR_GREEN>~S~%"
+              "<COLOR_WHITE>Category: <COLOR_GREEN>~S~%IL Mod <COLOR_GREEN>~S~%"
               (enum->string speedrun-category (-> this category))
               ;; (the-as int (-> *pc-settings* cheats))
               ;; (-> *pc-settings* target-fps)
