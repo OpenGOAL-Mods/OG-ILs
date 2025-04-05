@@ -546,9 +546,10 @@
   ;; so we assume these are jak kills
   (#when PC_PORT
     (let ((v1-1 (new 'stack 'enemy-attack-info)))
-      (set! (-> v1-1 penetrate-using) (penetrate knocked))
-      (set! (-> v1-1 attacker-handle) (process->handle *target*))
-      (add-to-kill-stats this v1-1)))
+      (set! (-> v1-1 penetrate-using) (-> this incoming penetrate-using))
+      (set! (-> v1-1 attacker-handle) (-> this incoming attacker-handle))
+      (add-to-kill-stats this v1-1))
+    )
 
   (if (-> this enemy-info use-die-falling)
       (go (method-of-object this die-falling))

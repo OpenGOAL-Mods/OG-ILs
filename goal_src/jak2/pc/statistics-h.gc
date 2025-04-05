@@ -13,6 +13,7 @@
 
 (defconstant KILL_STATS_MAX_ENEMY_TYPES 127)
 (defconstant KILL_STATS_MAX_SOURCE 35)
+(defconstant KILL_STATS_MAX_RECENT_PIDS 8)
 
 
 
@@ -73,8 +74,10 @@
   )
 
 (deftype kill-statistics-enemy-entry (structure)
-  ((name      symbol)
-   (sources   int16 KILL_STATS_MAX_SOURCE)
+  ((name        symbol)
+   (sources     int16 KILL_STATS_MAX_SOURCE)
+   ;; track 8 most recent PIDs so we can de-dupe kills
+   (recent-pids int32 KILL_STATS_MAX_RECENT_PIDS)
    )
   )
 
@@ -96,7 +99,7 @@
     (get-count-for-source (_type_ kill-stats-source) int)
     (get-count (_type_ symbol kill-stats-source) int)
 
-    (increment (_type_ symbol kill-stats-source) int)
+    (increment (_type_ symbol kill-stats-source int) int)
 
     (print-stats (_type_ object) object)
     )
@@ -162,8 +165,9 @@
   (dotimes (i KILL_STATS_MAX_ENEMY_TYPES)
     (set! (-> this enemies i name) #f)
     (dotimes (ii KILL_STATS_MAX_SOURCE)
-      (set! (-> this enemies i sources ii) 0)
-      )
+      (set! (-> this enemies i sources ii) 0))
+    (dotimes (ii KILL_STATS_MAX_RECENT_PIDS)
+      (set! (-> this enemies i recent-pids ii) 0))
     )
 
   0)
@@ -264,7 +268,7 @@
     )
   (the kill-statistics-enemy-entry #f))
 
-(defmethod increment ((this kill-statistics) (name symbol) (source kill-stats-source))
+(defmethod increment ((this kill-statistics) (name symbol) (source kill-stats-source) (pid int))
   "adds one kill to the kill statistics"
 
   (let ((kill-stats (get-enemy-stats this name)))
@@ -274,7 +278,27 @@
         (format 0 "out of stats memory!~%")
         (return 0))
 
-    (+! (-> kill-stats sources source) 1))
+    ;; check if we've already recorded killing this PID
+    (dotimes (i KILL_STATS_MAX_RECENT_PIDS)
+      (when (and (nonzero? (-> kill-stats recent-pids i)) (= (-> kill-stats recent-pids i) pid))
+        (format 0 "stats already recorded PID ~D kill, skipping~%" pid)
+        (return 0)
+        )
+      )
+    ;; record this PID in next empty slot, zero out the following slot so we cycle properly
+    (dotimes (i KILL_STATS_MAX_RECENT_PIDS)
+      (when (zero? (-> kill-stats recent-pids i))
+        (set! (-> kill-stats recent-pids i) pid)
+        (if (= (+ i 1) KILL_STATS_MAX_RECENT_PIDS)
+          (set! (-> kill-stats recent-pids 0) 0) ;; recorded PID in last slot, zero out first slot
+          (set! (-> kill-stats recent-pids (+ i 1)) 0) ;; zero out next slot
+          )
+        ;; break
+        (set! i KILL_STATS_MAX_RECENT_PIDS)
+        )
+      )
+    (+! (-> kill-stats sources source) 1)
+    )
   )
 
 

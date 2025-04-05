@@ -117,7 +117,7 @@
         (format #t "STATS : enemy ~S(~S) killed by ~S~%" enemy-name (-> enemy type symbol) (kill-source->string source)))
 
     (if (or (!= source (kill-stats-source unknown)) (-> *statistics* kill-stats allow-unknown?))
-        (increment (-> *statistics* kill-stats) enemy-name source))
+        (increment (-> *statistics* kill-stats) enemy-name source (-> enemy pid)))
     )
   )
 
