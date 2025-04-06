@@ -2366,7 +2366,7 @@
   (none)
   )
 
-(define-extern get-speedrun-end-results-text (function string))
+(define-extern print-speedrun-end-results-text (function dma-buffer float none))
 (defmethod draw-option ((obj menu-speedrun-end-results-option) (arg0 progress) (arg1 font-context) (arg2 int) (arg3 symbol))
   (set! (-> arg1 alpha) (- 1.0 (-> arg0 menu-transition)))
   (set-color! arg1 (font-color progress))
@@ -2394,47 +2394,8 @@
     ;; reset bucket settings prior to drawing - font won't do this for us, and
     ;; draw-raw-image can sometimes mess them up. (intro sequence)
     (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
-    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 88 0.0 (font-color default) (font-flags middle shadow kerning large))))
-      (set! (-> font-ctx alpha) (- 1.0 (-> arg0 menu-transition)))
-      (set! (-> font-ctx scale) 0.5)
-      (draw-string-adv (get-speedrun-end-results-text) buf font-ctx)))
-
-  ;; (set-flags! arg1 (font-flags kerning middle middle-vert large))
-  ;; (set! (-> arg1 origin x) 90.0)
-  ;; (set! (-> arg1 origin y) 80.0)
-  ;; (set-width! arg1 330)
-  ;; (set-height! arg1 85)
-  ;; (when (not (-> *pc-settings* use-vis?))
-  ;;   (set! (-> arg1 origin x) (the float (adjust-game-x (-> arg1 origin x))))
-  ;;   (*! (-> arg1 width) (-> *pc-settings* aspect-ratio-reciprocal))
-  ;;   )
-  ;; (print-game-text
-  ;;   (get-speedrun-end-results-text)
-  ;;   arg1
-  ;;   #f
-  ;;   44
-  ;;   (bucket-id progress)
-  ;;   )
-  ;; (+! (-> arg1 origin y) 115.0)
-  ;; (set-height! arg1 95)
-  ;; (print-game-text
-  ;;   (lookup-text! *common-text* (text-id progress-autosave-dont-remove) #f)
-  ;;   arg1
-  ;;   #f
-  ;;   44
-  ;;   (bucket-id progress)
-  ;;   )
-  ;; (+! (-> arg1 origin y) 90.0)
-  ;; (set-height! arg1 50)
-  ;; (set-color! arg1 (progress-selected 0))
-  ;; (draw-highlight (the int (+ 12.0 (-> arg1 origin y))) 24 (-> arg1 alpha))
-  ;; (print-game-text
-  ;;   (lookup-text! *common-text* (text-id progress-unknown-continue) #f)
-  ;;   arg1
-  ;;   #f
-  ;;   44
-  ;;   (bucket-id progress)
-  ;;   )
+    (print-speedrun-end-results-text buf (- 1.0 (-> arg0 menu-transition)))
+    )
   0
   (none)
   )

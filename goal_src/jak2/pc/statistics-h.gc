@@ -14,13 +14,28 @@
 (defconstant KILL_STATS_MAX_ENEMY_TYPES 127)
 (defconstant KILL_STATS_MAX_SOURCE 35)
 (defconstant KILL_STATS_MAX_RECENT_PIDS 8)
-
+(defconstant KILL_STATS_MAX_AWARD_TYPES 11)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; types and enums
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defenum kill-stats-award
+  :type uint32
+  (none 0)
+  (dummy 1)
+  (double-kill 2)
+  (triple-kill 3)
+  (overkill 4)
+  (killtacular 5)
+  (killtrocity 6)
+  (killimanjaro 7)
+  (killtastrophe 8)
+  (killpocalypse 9)
+  (killionaire 10)
+  (max 11)
+  )
 
 (defenum kill-stats-source
   :type uint8
@@ -84,6 +99,9 @@
 
 (deftype kill-statistics (structure)
   ((enemies    kill-statistics-enemy-entry KILL_STATS_MAX_ENEMY_TYPES   :inline)
+   (awards          int KILL_STATS_MAX_AWARD_TYPES)
+   (kill-streak     int)
+   (last-kill-time  time-frame)
    (allow-unknown?  symbol)
    )
 
@@ -93,6 +111,7 @@
 
     (get-total-count (_type_) int)
     (print-jak-enemy-kill-stats (_type_ object) object)
+    (print-kill-stats-awards (_type_ object) object)
     (get-jak-friendly-kill-count (_type_) int)
     (get-enemy-stats (_type_ symbol) kill-statistics-enemy-entry)
     (get-count-for-enemy (_type_ symbol) int)
@@ -169,6 +188,10 @@
     (dotimes (ii KILL_STATS_MAX_RECENT_PIDS)
       (set! (-> this enemies i recent-pids ii) 0))
     )
+  (dotimes (i KILL_STATS_MAX_AWARD_TYPES)
+    (set! (-> this awards i) 0))
+  (set! (-> this kill-streak) 0)
+  (set! (-> this last-kill-time) (the-as time-frame #f))
 
   0)
 
@@ -203,19 +226,28 @@
           )
         )
       )
-    (format out "Enemies Killed: ~D~%" amount)
-    (dotimes (i KILL_STATS_MAX_ENEMY_TYPES)
-      (when (-> this enemies i name)
-        (case (-> this enemies i name)
-          (('civilian 'sig 'ashelin 'jinx 'mog 'grim)
-            ;; friendly, dont count
-            )
-          (else
-            (let ((k 0))
-              (dotimes (ii (kill-stats-source guard)) ;; all kill-stats-sources before guard are from jak
-                (+! k (-> this enemies i sources ii)))
-              (when (> k 0)
-                (format out "~S x~D~%" (-> this enemies i name) k))
+    (format out "~32LEnemies Killed: ~0L~D" amount)
+    (let ((ii 0))
+      (dotimes (i KILL_STATS_MAX_ENEMY_TYPES)
+        (when (-> this enemies i name)
+          (case (-> this enemies i name)
+            (('civilian 'sig 'ashelin 'jinx 'mog 'grim)
+              ;; friendly, dont count
+              )
+            (else
+              ;; print 3 per line, newline on 0, spacing on 1/2
+              (case (mod ii 3)
+                ((0) (format out "~%"))
+                (else (format out "   "))
+                )
+              (+! ii 1) ;; increment used counter
+
+              (let ((k 0))
+                (dotimes (ii (kill-stats-source guard)) ;; all kill-stats-sources before guard are from jak
+                  (+! k (-> this enemies i sources ii)))
+                (when (> k 0)
+                  (format out "~13,' S x~D" (-> this enemies i name) k))
+                )
               )
             )
           )
@@ -225,6 +257,25 @@
   
   ;; return the buffer
   out
+  )
+
+(defmethod print-kill-stats-awards ((this kill-statistics) out)
+  (let ((printed-header? #f)
+        (ii 0))
+    (dotimes (i KILL_STATS_MAX_AWARD_TYPES)
+      (when (nonzero? (-> this awards i))
+        (if (not printed-header?) (format out "~32LMedals:~0L"))
+        (true! printed-header?)
+        ;; print 3 per line, newline on 0, spacing on 1/2
+        (case (mod ii 3)
+          ((0) (format out "~%"))
+          (else (format out "    "))
+          )
+        (+! ii 1) ;; increment used counter
+        (format out "~13,' S x~D" (enum->string kill-stats-award (the kill-stats-award i)) (-> this awards i))
+        )
+      )
+    )
   )
 
 (defmethod get-jak-friendly-kill-count ((this kill-statistics))
@@ -268,6 +319,10 @@
     )
   (the kill-statistics-enemy-entry #f))
 
+(defun add-award ((this kill-statistics) (award kill-stats-award))
+  (+! (-> this awards award) 1)
+  )
+
 (defmethod increment ((this kill-statistics) (name symbol) (source kill-stats-source) (pid int))
   "adds one kill to the kill statistics"
 
@@ -298,6 +353,38 @@
         )
       )
     (+! (-> kill-stats sources source) 1)
+
+    (when (< source (kill-stats-source guard)) ;; all kill-stats-sources before guard are from jak
+      ;; jak kill -> update kill-streak and maybe give awards
+      (cond
+        ((or (not (-> this last-kill-time)) (not (time-elapsed? (-> this last-kill-time) (seconds 1.5))))
+          ;; first kill, or 3s haven't passed since last kill, keep streak going
+          )
+        (else 
+          ;; streak broken, reset
+          (set! (-> this kill-streak) 0)
+          )
+        )
+      (+! (-> this kill-streak) 1)
+      (set-time! (-> this last-kill-time))
+      (case (-> this kill-streak)
+        ((0 1)
+          ;; nada
+          )
+        ((2) (add-award this (kill-stats-award double-kill)))
+        ((3) (add-award this (kill-stats-award triple-kill)))
+        ((4) (add-award this (kill-stats-award overkill)))
+        ((5) (add-award this (kill-stats-award killtacular)))
+        ((6) (add-award this (kill-stats-award killtrocity)))
+        ((7) (add-award this (kill-stats-award killimanjaro)))
+        ((8) (add-award this (kill-stats-award killtastrophe)))
+        ((9) (add-award this (kill-stats-award killpocalypse)))
+        (else (add-award this (kill-stats-award killionaire))) ;; 10+
+        )
+      )
+
+    ;; return count
+    (-> kill-stats sources source)
     )
   )
 
@@ -350,6 +437,11 @@
         (if (nonzero? (-> this enemies i sources ii))
             (format out "  ~3D ~S~%" (-> this enemies i sources ii) (kill-source->string (the kill-stats-source ii))))
         )
+      )
+    )
+  (dotimes (i KILL_STATS_MAX_AWARD_TYPES)
+    (if (nonzero? (-> this awards i))
+      (format out "  ~3D ~S~%" (-> this awards i) (enum->string kill-stats-award (the kill-stats-award i)))
       )
     )
   out)

@@ -312,6 +312,7 @@
    (waiting-to-record-practice-attempt? symbol)
    (run-started-at time-frame)
    (percent-warped? symbol)
+   (avg-speed float)
    )
   (:methods
     (set-category! (_type_ speedrun-category) none)

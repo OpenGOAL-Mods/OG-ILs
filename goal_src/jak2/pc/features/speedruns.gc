@@ -19,18 +19,6 @@
 (set! (-> *speedrun-info* active-practice-objective start-zone-init-params) (new 'static 'objective-zone-init-params))
 (set! (-> *speedrun-info* active-practice-objective end-zone-init-params) (new 'static 'objective-zone-init-params))
 
-(defun print-timer-text ((s string) (x int) (y int))
-  (pc-encode-utf8-string s *pc-encoded-temp-string*)
-  (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
-    ;; reset bucket settings prior to drawing - font won't do this for us, and
-    ;; draw-raw-image can sometimes mess them up. (intro sequence)
-    (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
-    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* x y 0.0 (font-color default) (font-flags shadow kerning large))))
-      (set! (-> font-ctx scale) 0.25)
-      (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
-  (none)
-  )
-
 (defun get-pb-time ()
   (case (-> *speedrun-info* category)
     ;; Act 1 ILs
@@ -437,22 +425,36 @@
   (none)
   )
 
-(defun get-speedrun-end-results-text ()
+(defun print-speedrun-end-results-text ((buf dma-buffer) (alpha float))
   (let* ((pb-time (get-pb-time))
          (pb-total-sec (the int pb-time))
+         (lines-used 0)
          (pb-min (/ pb-total-sec 60))
          (pb-sec (- pb-total-sec (* pb-min 60)))
          (timer (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
          (cur-total-sec (the int (-> timer recorded-time)))
          (cur-min (/ cur-total-sec 60))
          (cur-sec (- cur-total-sec (* cur-min 60))))
+    ;; print mission header
     (clear *temp-string*)
     (clear *pc-encoded-temp-string*)
     (format *temp-string* "~4L~S~%" (-> *speedrun-category-names* (-> *speedrun-info* category)))
     (format *temp-string* "~6LMission Completed~%")
+    (set! lines-used 3)
     (when (-> *speedrun-info* percent-warped?)
-      (format *temp-string* "~3LPercentage Warp Used!~%"))
-    (format *temp-string* "~%~0LMission Time: ~D:~2,'0D~%" cur-min cur-sec)
+      (format *temp-string* "~3LPercentage Warp Used!~%")
+      (+! lines-used 1)
+      )
+    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 84 0.0 (font-color default) (font-flags middle shadow kerning large))))
+      (set! (-> font-ctx alpha) alpha)
+      (set! (-> font-ctx scale) 0.5)
+        (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+      (draw-string-adv *pc-encoded-temp-string* buf font-ctx))
+
+    ;; print time
+    (clear *temp-string*)
+    (clear *pc-encoded-temp-string*)
+    (format *temp-string* "~32LMission Time: ~0L~D:~2,'0D~%" cur-min cur-sec)
     (cond
       ;; NEW PB!
       ((= pb-time (-> timer recorded-time))
@@ -460,15 +462,32 @@
         )
       ;; not a PB
       (else
-        (format *temp-string* "~0LPersonal Best: ~D:~2,'0D~%~%" pb-min pb-sec)
+        (format *temp-string* "~32LPersonal Best: ~0L~D:~2,'0D~%~%" pb-min pb-sec)
         )
       )
+    (+! lines-used 2)
+    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 (+ 90 (* (- lines-used 2) 12)) 0.0 (font-color default) (font-flags middle shadow kerning large))))
+      (set! (-> font-ctx alpha) alpha)
+      (set! (-> font-ctx scale) 0.5)
+      (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+      (draw-string-adv *pc-encoded-temp-string* buf font-ctx))
+    
+    ;; print stats
+    (clear *temp-string*)
+    (clear *pc-encoded-temp-string*)
+    (format *temp-string* "~32LAverage Speed: ~0L~,,1fm/s~%~%" (/ (-> *speedrun-info* avg-speed) 4096.0))
     (print-jak-enemy-kill-stats (-> *statistics* kill-stats) *temp-string*)
-    (format *temp-string* "~%Civilians Killed: ~D~%~%" (get-jak-friendly-kill-count (-> *statistics* kill-stats)))
-    ;; (format *temp-string* "Press START to continue~%")
-    (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
-    ;; return
-    *pc-encoded-temp-string*
+    (let ((civ-kills (get-jak-friendly-kill-count (-> *statistics* kill-stats))))
+      (when (nonzero? civ-kills)
+        (format *temp-string* "~%~%~32LCivilians Killed: ~0L~D" civ-kills)))
+    (format *temp-string* "~%~%")
+    (print-kill-stats-awards (-> *statistics* kill-stats) *temp-string*)
+    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 (+ 90 (* lines-used 15)) 0.0 (font-color default) (font-flags middle shadow kerning large))))
+      (set! (-> font-ctx alpha) alpha)
+      (set! (-> font-ctx scale) 0.35)
+      (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+      (draw-string-adv *pc-encoded-temp-string* buf font-ctx)
+      )
     )
   )
 
@@ -502,25 +521,38 @@
   (cond
    ((-> this started?)
     (fmt-timer-string *temp-string* (* (the float (- (get-real-current-time) (-> this start-time))) 0.0033333334))
-    ;; show speed in practice mode
-    (when (and *target* (-> *speedrun-info* practicing?))
-      (format *temp-string* "~,,2M~%" (-> *target* control ctrl-xz-vel)))
-    
-    (print-timer-text *temp-string* 2 406)
     )
    ((-> this stopped?)
     (fmt-timer-string *temp-string* (-> this recorded-time))
-    ;; show speed in practice mode
-    (when (and *target* (-> *speedrun-info* practicing?))
-      (format *temp-string* "~,,2M~%" (-> *target* control ctrl-xz-vel)))
-    (print-timer-text *temp-string* 2 406)
     )
    (else
     (fmt-timer-string *temp-string* 0.0)
-    (print-timer-text *temp-string* 2 406)
     )
   )
+  (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+  (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
+    ;; reset bucket settings prior to drawing - font won't do this for us, and
+    ;; draw-raw-image can sometimes mess them up. (intro sequence)
+    (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
+    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 2 406 0.0 (font-color default) (font-flags shadow kerning large))))
+      (set! (-> font-ctx scale) 0.25)
+      (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
 
+  ;; show speed in practice mode
+  (clear *temp-string*)
+  (clear *pc-encoded-temp-string*)
+  (when (and *target*) ;; (-> *speedrun-info* practicing?))
+    (format *temp-string* "~,,1fm/s~%" (/ (-> *target* control ctrl-xz-vel) 4096.0))
+    (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+    (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
+      ;; reset bucket settings prior to drawing - font won't do this for us, and
+      ;; draw-raw-image can sometimes mess them up. (intro sequence)
+      (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
+      (let* ((y (if (and (-> *pc-settings* speedrunner-mode?) (-> *speedrun-info* display-run-info?)) 387 406))
+            (font-ctx (new 'stack 'font-context *font-default-matrix* 510 y 0.0 (font-color default) (font-flags shadow kerning large right))))
+        (set! (-> font-ctx scale) 0.25)
+        (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
+    )
 
   (none))
 
@@ -598,6 +630,7 @@
       (task-close! "city-win-resolution"))
     ;; (set! (-> *game-info* secrets) secrets)
     (set-percent-warped! #f)
+    (set! (-> *speedrun-info* avg-speed) 0.0)
     (start! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))) side-mish?)
   (none)
   )
@@ -606,6 +639,11 @@
 (defmethod start-run! ((this speedrun-info))
   ;; set garbage continue point so drill-mech-master and other shit won't be stupid
   (set! (-> *game-info* last-continue) *default-continue*)
+  ;; reset guard level
+  (let ((s5-0 *traffic-manager*)) 
+    (send-event s5-0 'set-guard-target-level 0)
+    (send-event s5-0 'set-max-alert-level 0)
+    (send-event s5-0 'set-alert-level 0))
   ;; randomize game id so the autosplitter knows to restart
   (reset! *autosplit-info-jak2*)
   (reset-kill-stats)
@@ -1470,6 +1508,29 @@
                (time-elapsed? (-> this run-started-at) (seconds 10)))
       (set! (-> this display-run-info?) #f))
     
+    ;; track avg speed
+    (let* ((timer (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
+           (total-run-ticks (- (get-real-current-time) (-> timer start-time)))
+           (total-run-frames (/ total-run-ticks 5)))
+      (when (and *target* timer (not (-> timer stopped?)) (> total-run-frames 0))
+        (let ((new-avg (/ 
+                          (+
+                            (* (-> this avg-speed) (- total-run-frames 1)) ;; past X-1 frames worth
+                            (-> *target* control ctrl-xz-vel) ;; 1 frame worth
+                            )
+                          total-run-frames
+                          )))
+          ;; (format 0 "total ticks ~D frames ~D / avg ~F / cur ~F / final ~F ~%" 
+          ;;   total-run-ticks
+          ;;   total-run-frames 
+          ;;   (-> this avg-speed) 
+          ;;   (-> *target* control ctrl-xz-vel) 
+          ;;   new-avg)
+          (set! (-> this avg-speed) new-avg)
+          )
+        )
+      )
+
     ;; if we have an end task...
     (when (!= (-> *speedrun-info* active-practice-objective end-task) (game-task none))
       ;; ensure timer is shown
