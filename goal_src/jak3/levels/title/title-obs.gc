@@ -2406,7 +2406,7 @@
       (set! s3-0 #f)
       )
     (cond
-      ((and (< 70 s5-1) (cpad-pressed? 0 triangle circle x))
+      ((and (cpad-pressed? 0 triangle circle x)) ;; got rid of (< 70 s5-1) condition ("Cinematic Sound Design" off-screen / "Josh Mancell" fully on-screen)
        #t
        )
       ((and (= s5-1 (-> *credits-ids* length)) (< f30-0 (- f28-0)))

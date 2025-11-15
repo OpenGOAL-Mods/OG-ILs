@@ -142,6 +142,7 @@
   "Break Through Ruins"
   "Reach Precursor Core"
   "Destroy Dark Ship"
+  "Terraformer"
   "Destroy Final Boss"
   )))
 
@@ -213,7 +214,8 @@
   (palace-ruins-attack	59)
   (comb-wild-ride	60)
   (precursor-destroy-ship	61)
-  (desert-final-boss	62)
+  (terraformer 62)
+  (desert-final-boss	63)
   ;; TODO - add ILs and such later
   ;; there's no point in adding categories that just start from a new-game and have later restrictions
   ;; because we aren't going to modify the code to make that possible

@@ -680,11 +680,11 @@
           (new 'static 'game-task-info
             :name "desert-final-boss"
             :text-name (text-id progress-missions-desert-final-boss)
-            :pre-play-node (game-task-node desert-final-boss-introduction)
-            :kiosk-play-node (game-task-node desert-final-boss-walker)
+            :pre-play-node (game-task-node desert-final-boss-climb)
+            :kiosk-play-node (game-task-node desert-final-boss-climb)
             :pre-play-continue #f
-            :play-node (game-task-node desert-final-boss-walker)
-            :play-continue "desertb-final-boss-start"
+            :play-node (game-task-node desert-final-boss-climb)
+            :play-continue "desert-deswalk"
             :kiosk-play-continue #f
             )
           (new 'static 'game-task-info
@@ -1279,6 +1279,16 @@
             :pre-play-continue "desert-bbush-desb-4"
             :play-node (game-task-node desert-bbush-destroy-interceptors-resolution)
             :play-continue "desert-bbush-desb-4"
+            :kiosk-play-continue #f
+            )
+          (new 'static 'game-task-info
+            :name "terraformer"
+            :text-name (text-id progress-missions-desert-final-boss)
+            :pre-play-node (game-task-node desert-final-boss-introduction)
+            :kiosk-play-node (game-task-node desert-final-boss-walker)
+            :pre-play-continue #f
+            :play-node (game-task-node desert-final-boss-walker)
+            :play-continue "desertb-final-boss-start"
             :kiosk-play-continue #f
             )
           )
@@ -14851,7 +14861,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'desert
-            :task (game-task desert-final-boss)
+            :task (game-task terraformer)
             :name "desert-final-boss-introduction"
             :when-open #f
             :flags (game-task-node-flag save-on-life act3)
@@ -14875,10 +14885,10 @@
             )
           (new 'static 'game-task-node-info
             :level 'desert
-            :task (game-task desert-final-boss)
+            :task (game-task terraformer)
             :name "desert-final-boss-walker"
             :when-open #f
-            :flags (game-task-node-flag save-on-life act3)
+            :flags (game-task-node-flag close-task save-on-life act3)
             :parent-node (new 'static 'array game-task-node 4
               (game-task-node desert-final-boss-introduction)
               (game-task-node none)

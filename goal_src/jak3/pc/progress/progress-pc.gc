@@ -783,6 +783,9 @@
         (set-menu-options this (-> curr-history-entry progress-id))
         ;; otherwise, set the options
         (set! (-> this current-options) (-> curr-history-entry ref)))))
+    (('speedrun-end-results)
+     (set! (-> this current-options) *speedrun-end-results-options*)
+     )
     )
   (when (= (-> this current-options) #f)
     (format #t "Didn't find new menu settings!!~%")
