@@ -404,6 +404,8 @@
       (start-individual-level-run! this (game-task comb-wild-ride)))
     (((speedrun-category precursor-destroy-ship))
       (start-individual-level-run! this (game-task precursor-destroy-ship)))
+    (((speedrun-category terraformer))
+      (start-individual-level-run! this (game-task terraformer)))
     (((speedrun-category desert-final-boss))
       (start-individual-level-run! this (game-task desert-final-boss)))
     (((speedrun-category custom))
@@ -579,238 +581,242 @@
             (lambda ()
               (send-event (ppointer->process *speedrun-manager*) 'invoke (speedrun-menu-command reset))
               (send-event (-> *speedrun-manager* 0 popup-menu 0) 'close-menu)))
-       (new 'static
-            'popup-menu-submenu
-            :label "Built-in Category Select"
-            :entries
-            (new 'static
-                 'boxed-array
-                 :type
-                 popup-menu-entry
-                 (new 'static
-                      'popup-menu-flag
-                      :label "Normal"
-                      :on-confirm
-                      (lambda ()
-                        (set-category! *speedrun-info* (speedrun-category newgame-normal)))
-                      :is-toggled?
-                      (lambda ()
-                        (= (-> *speedrun-info* category) (speedrun-category newgame-normal))))
-                 (new 'static
-                      'popup-menu-flag
-                      :label "Hero Mode"
-                      :on-confirm
-                      (lambda ()
-                        (set-category! *speedrun-info* (speedrun-category newgame-heromode)))
-                      :is-toggled?
-                      (lambda ()
-                        (= (-> *speedrun-info* category) (speedrun-category newgame-heromode))))
-                 (new 'static
-                      'popup-menu-flag
-                      :label "All Cheats Allowed"
-                      :on-confirm
-                      (lambda ()
-                        (set-category! *speedrun-info* (speedrun-category all-cheats-allowed)))
-                      :is-toggled?
-                      (lambda ()
-                        (= (-> *speedrun-info* category) (speedrun-category all-cheats-allowed))))
-                 (new 'static 'popup-menu-submenu :label "Act 1 Individual Levels"
-                  :entries (new 'static 'boxed-array :type popup-menu-entry 
-                    (new 'static 'popup-menu-flag :label "Complete Arena Training Course"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-training-1)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-training-1))))
-                    (new 'static 'popup-menu-flag :label "Earn 1st War Amulet"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-fight-1)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-fight-1))))
-                    (new 'static 'popup-menu-flag :label "Catch Kanga-Rats"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-chase)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-chase))))
-                    (new 'static 'popup-menu-flag :label "Unlock Satellite"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-pre-game)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-pre-game))))
-                    (new 'static 'popup-menu-flag :label "Learn to Drive a Vehicle"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-turtle-training)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-turtle-training))))
-                    (new 'static 'popup-menu-flag :label "Beat Kleiver in Desert Race"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-course-race)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-course-race))))
-                    (new 'static 'popup-menu-flag :label "Race For Artifacts"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-artifact-race-1)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-artifact-race-1))))
-                    (new 'static 'popup-menu-flag :label "Beat Monks in Leaper Race"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-leaper-race)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-leaper-race))))
-                    (new 'static 'popup-menu-flag :label "Destroy Metal Head Beasts"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-hover)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-hover))))
-                    (new 'static 'popup-menu-flag :label "Earn 2nd War Amulet"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-fight-2)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-fight-2))))
-                    (new 'static 'popup-menu-flag :label "Corral Wild Leapers"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-catch-lizards)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-catch-lizards))))
-                    (new 'static 'popup-menu-flag :label "Rescue Wastelanders"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-rescue)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-rescue))))
-                    (new 'static 'popup-menu-flag :label "Beat Turret Challenge"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-gungame)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-gungame))))
-                    (new 'static 'popup-menu-flag :label "Defeat Marauders in Arena"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-fight-3)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-fight-3))))
-                    (new 'static 'popup-menu-flag :label "Destroy Eggs in Nest"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category nest-eggs)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category nest-eggs))))
-                    (new 'static 'popup-menu-flag :label "Climb Monk Temple Tower"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-climb)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-climb))))
-                    (new 'static 'popup-menu-flag :label "Glide to Volcano"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-glide)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-glide))))
-                    (new 'static 'popup-menu-flag :label "Find Satellite in Volcano"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category volcano-darkeco)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category volcano-darkeco))))
-                    (new 'static 'popup-menu-flag :label "Find Oracle in Monk Temple"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-oracle)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-oracle))))
-                    (new 'static 'popup-menu-flag :label "Defend Ashelin at Oasis"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-oasis-defense)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-oasis-defense))))
-                    (new 'static 'popup-menu-flag :label "Complete Monk Temple Tests"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-tests)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-tests))))
-                    (new 'static 'popup-menu-flag :label "Travel Through Catacomb Subrails"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category comb-travel)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category comb-travel))))
-                    (new 'static 'popup-menu-flag :label "Explore Eco Mine"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category mine-explore)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category mine-explore))))
-                    (new 'static 'popup-menu-flag :label "Escort Bomb Train"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category mine-blow)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category mine-blow))))
-                    (new 'static 'popup-menu-flag :label "Defeat Veger's Precursor Robot"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category mine-boss)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category mine-boss))))
-                    )
-                  )
-                 (new 'static 'popup-menu-submenu :label "Act 2 Individual Levels"
-                  :entries (new 'static 'boxed-array :type popup-menu-entry 
-                    (new 'static 'popup-menu-flag :label "Reach Port via Sewer"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category sewer-met-hum)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category sewer-met-hum))))
-                    (new 'static 'popup-menu-flag :label "Destroy Incoming Blast Bots"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-port-fight)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-port-fight))))
-                    (new 'static 'popup-menu-flag :label "Destroy Barrier With Missile"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-port-attack)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-port-attack))))
-                    (new 'static 'popup-menu-flag :label "Beat Gun Course 1"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-gun-course-1)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-gun-course-1))))
-                    (new 'static 'popup-menu-flag :label "Destroy Sniper Cannons"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-sniper-fight)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-sniper-fight))))
-                    (new 'static 'popup-menu-flag :label "Reach Metal Head Area via Sewer"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category sewer-kg-met)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category sewer-kg-met))))
-                    (new 'static 'popup-menu-flag :label "Destroy Dark Eco Tanks"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-destroy-darkeco)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-destroy-darkeco))))
-                    (new 'static 'popup-menu-flag :label "Kill Dark Plants in Forest"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category forest-kill-plants)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category forest-kill-plants))))
-                    (new 'static 'popup-menu-flag :label "Destroy Eco Grid With Jinx"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-destroy-grid)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-destroy-grid))))
-                    (new 'static 'popup-menu-flag :label "Hijack Eco Vehicle"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-hijack-vehicle)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-hijack-vehicle))))
-                    (new 'static 'popup-menu-flag :label "Defend Port From Attack"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-port-assault)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-port-assault))))
-                    (new 'static 'popup-menu-flag :label "Beat Gun Course 2"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-gun-course-2)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-gun-course-2))))
-                    (new 'static 'popup-menu-flag :label "Break Barrier with Blast Bot"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-blow-barricade)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-blow-barricade))))
-                    (new 'static 'popup-menu-flag :label "Defend HQ From Attack"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-protect-hq)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-protect-hq))))
-                    (new 'static 'popup-menu-flag :label "Find Switch in Sewers"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category sewer-hum-kg)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category sewer-hum-kg))))
-                    (new 'static 'popup-menu-flag :label "Find Cypher In Eco Grid"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-power-game)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-power-game))))
-                    (new 'static 'popup-menu-flag :label "Race For More Artifacts"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-artifact-race-2)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-artifact-race-2))))
-                    (new 'static 'popup-menu-flag :label "Destroy Metal-pedes in Nest"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category nest-hunt)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category nest-hunt))))
-                    (new 'static 'popup-menu-flag :label "Chase Down Metal Head Beasts"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-beast-battle)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-beast-battle))))
-                    (new 'static 'popup-menu-flag :label "Defend Spargus' Front Gate"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-jump-mission)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-jump-mission))))
-                    (new 'static 'popup-menu-flag :label "Take Out Marauder Stronghold"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-chase-marauders)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-chase-marauders))))
-                    (new 'static 'popup-menu-flag :label "Beat Pillar Ring Challenges"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category forest-ring-chase)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category forest-ring-chase))))
-                    (new 'static 'popup-menu-flag :label "Destroy War Factory Defenses"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category factory-sky-battle)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category factory-sky-battle))))
-                    (new 'static 'popup-menu-flag :label "Explore War Factory"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category factory-assault)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category factory-assault))))
-                    (new 'static 'popup-menu-flag :label "Beat Cyber-Errol Boss"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category factory-boss)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category factory-boss))))
-                    )
-                  )
-                 (new 'static 'popup-menu-submenu :label "Act 3 Individual Levels"
-                  :entries (new 'static 'boxed-array :type popup-menu-entry 
-                    (new 'static 'popup-menu-flag :label "Rescue Seem at Temple"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-defend)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-defend))))
-                    (new 'static 'popup-menu-flag :label "Defend Spargus From Attack"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-defend)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-defend))))
-                    (new 'static 'popup-menu-flag :label "Activate Astro-Viewer in Forest"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category forest-turn-on-machine)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category forest-turn-on-machine))))
-                    (new 'static 'popup-menu-flag :label "Destroy Dark Ship Shield"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category precursor-tour)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category precursor-tour))))
-                    (new 'static 'popup-menu-flag :label "Blow Open Tower Door"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-blow-tower)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-blow-tower))))
-                    (new 'static 'popup-menu-flag :label "Destroy Metal Head Tower"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category tower-destroy)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category tower-destroy))))
-                    (new 'static 'popup-menu-flag :label "Reach Catacombs via Palace Ruins"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-patrol)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-patrol))))
-                    (new 'static 'popup-menu-flag :label "Break Through Ruins"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-attack)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-attack))))
-                    (new 'static 'popup-menu-flag :label "Reach Precursor Core"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category comb-wild-ride)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category comb-wild-ride))))
-                    (new 'static 'popup-menu-flag :label "Destroy Dark Ship"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category precursor-destroy-ship)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category precursor-destroy-ship))))
-                    (new 'static 'popup-menu-flag :label "Destroy Final Boss"
-                      :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-final-boss)))
-                      :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-final-boss))))
-                    )
-                  )
-                 )
+       
+       (new 'static 'popup-menu-submenu :label "Act 1 Individual Levels"
+        :entries (new 'static 'boxed-array :type popup-menu-entry 
+          (new 'static 'popup-menu-flag :label "Complete Arena Training Course"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-training-1)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-training-1))))
+          (new 'static 'popup-menu-flag :label "Earn 1st War Amulet"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-fight-1)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-fight-1))))
+          (new 'static 'popup-menu-flag :label "Catch Kanga-Rats"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-chase)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-chase))))
+          (new 'static 'popup-menu-flag :label "Unlock Satellite"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-pre-game)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-pre-game))))
+          (new 'static 'popup-menu-flag :label "Learn to Drive a Vehicle"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-turtle-training)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-turtle-training))))
+          (new 'static 'popup-menu-flag :label "Beat Kleiver in Desert Race"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-course-race)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-course-race))))
+          (new 'static 'popup-menu-flag :label "Race For Artifacts"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-artifact-race-1)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-artifact-race-1))))
+          (new 'static 'popup-menu-flag :label "Beat Monks in Leaper Race"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-leaper-race)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-leaper-race))))
+          (new 'static 'popup-menu-flag :label "Destroy Metal Head Beasts"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-hover)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-hover))))
+          (new 'static 'popup-menu-flag :label "Earn 2nd War Amulet"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-fight-2)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-fight-2))))
+          (new 'static 'popup-menu-flag :label "Corral Wild Leapers"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-catch-lizards)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-catch-lizards))))
+          (new 'static 'popup-menu-flag :label "Rescue Wastelanders"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-rescue)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-rescue))))
+          (new 'static 'popup-menu-flag :label "Beat Turret Challenge"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-gungame)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-gungame))))
+          (new 'static 'popup-menu-flag :label "Defeat Marauders in Arena"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category arena-fight-3)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category arena-fight-3))))
+          (new 'static 'popup-menu-flag :label "Destroy Eggs in Nest"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category nest-eggs)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category nest-eggs))))
+          (new 'static 'popup-menu-flag :label "Climb Monk Temple Tower"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-climb)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-climb))))
+          (new 'static 'popup-menu-flag :label "Glide to Volcano"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-glide)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-glide))))
+          (new 'static 'popup-menu-flag :label "Find Satellite in Volcano"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category volcano-darkeco)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category volcano-darkeco))))
+          (new 'static 'popup-menu-flag :label "Find Oracle in Monk Temple"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-oracle)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-oracle))))
+          (new 'static 'popup-menu-flag :label "Defend Ashelin at Oasis"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-oasis-defense)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-oasis-defense))))
+          (new 'static 'popup-menu-flag :label "Complete Monk Temple Tests"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-tests)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-tests))))
+          (new 'static 'popup-menu-flag :label "Travel Through Catacomb Subrails"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category comb-travel)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category comb-travel))))
+          (new 'static 'popup-menu-flag :label "Explore Eco Mine"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category mine-explore)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category mine-explore))))
+          (new 'static 'popup-menu-flag :label "Escort Bomb Train"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category mine-blow)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category mine-blow))))
+          (new 'static 'popup-menu-flag :label "Defeat Veger's Precursor Robot"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category mine-boss)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category mine-boss))))
           )
+        )
+       (new 'static 'popup-menu-submenu :label "Act 2 Individual Levels"
+        :entries (new 'static 'boxed-array :type popup-menu-entry 
+          (new 'static 'popup-menu-flag :label "Reach Port via Sewer"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category sewer-met-hum)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category sewer-met-hum))))
+          (new 'static 'popup-menu-flag :label "Destroy Incoming Blast Bots"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-port-fight)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-port-fight))))
+          (new 'static 'popup-menu-flag :label "Destroy Barrier With Missile"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-port-attack)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-port-attack))))
+          (new 'static 'popup-menu-flag :label "Beat Gun Course 1"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-gun-course-1)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-gun-course-1))))
+          (new 'static 'popup-menu-flag :label "Destroy Sniper Cannons"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-sniper-fight)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-sniper-fight))))
+          (new 'static 'popup-menu-flag :label "Reach Metal Head Area via Sewer"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category sewer-kg-met)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category sewer-kg-met))))
+          (new 'static 'popup-menu-flag :label "Destroy Dark Eco Tanks"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-destroy-darkeco)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-destroy-darkeco))))
+          (new 'static 'popup-menu-flag :label "Kill Dark Plants in Forest"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category forest-kill-plants)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category forest-kill-plants))))
+          (new 'static 'popup-menu-flag :label "Destroy Eco Grid With Jinx"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-destroy-grid)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-destroy-grid))))
+          (new 'static 'popup-menu-flag :label "Hijack Eco Vehicle"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-hijack-vehicle)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-hijack-vehicle))))
+          (new 'static 'popup-menu-flag :label "Defend Port From Attack"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-port-assault)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-port-assault))))
+          (new 'static 'popup-menu-flag :label "Beat Gun Course 2"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-gun-course-2)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-gun-course-2))))
+          (new 'static 'popup-menu-flag :label "Break Barrier with Blast Bot"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-blow-barricade)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-blow-barricade))))
+          (new 'static 'popup-menu-flag :label "Defend HQ From Attack"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-protect-hq)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-protect-hq))))
+          (new 'static 'popup-menu-flag :label "Find Switch in Sewers"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category sewer-hum-kg)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category sewer-hum-kg))))
+          (new 'static 'popup-menu-flag :label "Find Cypher In Eco Grid"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-power-game)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-power-game))))
+          (new 'static 'popup-menu-flag :label "Race For More Artifacts"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-artifact-race-2)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-artifact-race-2))))
+          (new 'static 'popup-menu-flag :label "Destroy Metal-pedes in Nest"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category nest-hunt)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category nest-hunt))))
+          (new 'static 'popup-menu-flag :label "Chase Down Metal Head Beasts"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-beast-battle)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-beast-battle))))
+          (new 'static 'popup-menu-flag :label "Defend Spargus' Front Gate"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-jump-mission)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-jump-mission))))
+          (new 'static 'popup-menu-flag :label "Take Out Marauder Stronghold"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-chase-marauders)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-chase-marauders))))
+          (new 'static 'popup-menu-flag :label "Beat Pillar Ring Challenges"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category forest-ring-chase)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category forest-ring-chase))))
+          (new 'static 'popup-menu-flag :label "Destroy War Factory Defenses"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category factory-sky-battle)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category factory-sky-battle))))
+          (new 'static 'popup-menu-flag :label "Explore War Factory"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category factory-assault)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category factory-assault))))
+          (new 'static 'popup-menu-flag :label "Beat Cyber-Errol Boss"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category factory-boss)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category factory-boss))))
+          )
+        )
+       (new 'static 'popup-menu-submenu :label "Act 3 Individual Levels"
+        :entries (new 'static 'boxed-array :type popup-menu-entry 
+          (new 'static 'popup-menu-flag :label "Rescue Seem at Temple"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category temple-defend)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category temple-defend))))
+          (new 'static 'popup-menu-flag :label "Defend Spargus From Attack"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-defend)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-defend))))
+          (new 'static 'popup-menu-flag :label "Activate Astro-Viewer in Forest"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category forest-turn-on-machine)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category forest-turn-on-machine))))
+          (new 'static 'popup-menu-flag :label "Destroy Dark Ship Shield"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category precursor-tour)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category precursor-tour))))
+          (new 'static 'popup-menu-flag :label "Blow Open Tower Door"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-blow-tower)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-blow-tower))))
+          (new 'static 'popup-menu-flag :label "Destroy Metal Head Tower"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category tower-destroy)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category tower-destroy))))
+          (new 'static 'popup-menu-flag :label "Reach Catacombs via Palace Ruins"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-patrol)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-patrol))))
+          (new 'static 'popup-menu-flag :label "Break Through Ruins"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-attack)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-attack))))
+          (new 'static 'popup-menu-flag :label "Reach Precursor Core"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category comb-wild-ride)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category comb-wild-ride))))
+          (new 'static 'popup-menu-flag :label "Destroy Dark Ship"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category precursor-destroy-ship)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category precursor-destroy-ship))))
+          (new 'static 'popup-menu-flag :label "Terraformer"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category terraformer)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category terraformer))))
+          (new 'static 'popup-menu-flag :label "Destroy Final Boss"
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-final-boss)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-final-boss))))
+          )
+        )
+       (new 'static
+        'popup-menu-submenu
+        :label "Built-in Category Select"
+        :entries
+        (new 'static
+          'boxed-array
+          :type
+          popup-menu-entry
+          (new 'static
+                'popup-menu-flag
+                :label "Normal"
+                :on-confirm
+                (lambda ()
+                  (set-category! *speedrun-info* (speedrun-category newgame-normal)))
+                :is-toggled?
+                (lambda ()
+                  (= (-> *speedrun-info* category) (speedrun-category newgame-normal))))
+          (new 'static
+                'popup-menu-flag
+                :label "Hero Mode"
+                :on-confirm
+                (lambda ()
+                  (set-category! *speedrun-info* (speedrun-category newgame-heromode)))
+                :is-toggled?
+                (lambda ()
+                  (= (-> *speedrun-info* category) (speedrun-category newgame-heromode))))
+          (new 'static
+                'popup-menu-flag
+                :label "All Cheats Allowed"
+                :on-confirm
+                (lambda ()
+                  (set-category! *speedrun-info* (speedrun-category all-cheats-allowed)))
+                :is-toggled?
+                (lambda ()
+                  (= (-> *speedrun-info* category) (speedrun-category all-cheats-allowed))))
+          )
+        )
        (new 'static
             'popup-menu-dynamic-submenu
             :label "Custom Category Select"

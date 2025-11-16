@@ -373,6 +373,9 @@
         (set-menu-options obj (-> curr-history-entry progress-id))
         ;; otherwise, set the options
         (set! (-> obj current-options) (-> curr-history-entry ref)))))
+    (('speedrun-end-results)
+     (set! (-> obj current-options) *speedrun-end-results-options*)
+     )
     )
   (when (= (-> obj current-options) #f)
     (format #t "Didn't find new menu settings!!~%")
