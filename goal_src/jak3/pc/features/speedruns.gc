@@ -6,6 +6,10 @@
 (define-extern task-close! (function string symbol))
 (define-extern task-resolution-closed? (function game-task symbol))
 
+;; do NOT change %MODVERSIONPLACEHOLDER% below, otherwise the mod-bundling-tools
+;;   will be unable to automatically add version info to the speedrun display
+(define *mod-version-text* "%MODVERSIONPLACEHOLDER%")
+
 (define-extern *pc-dead-pool* dead-pool)
 
 (define *speedrun-info* (new 'static 'speedrun-info))
@@ -28,38 +32,618 @@
 
 (set! (-> *speedrun-info* active-practice-objective end-zone-init-params) (new 'static 'objective-zone-init-params))
 
-(defun print-timer-text ((s string) (x int) (y int))
-  (pc-encode-utf8-string s *pc-encoded-temp-string*)
-  (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
-    ;; reset bucket settings prior to drawing - font won't do this for us, and
-    ;; draw-raw-image can sometimes mess them up. (intro sequence)
-    (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
-    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* x y 0.0 (font-color default) (font-flags shadow kerning large))))
-      (set! (-> font-ctx scale) 0.25)
-      (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
+;; (defun print-timer-text ((s string) (x int) (y int))
+;;   (pc-encode-utf8-string s *pc-encoded-temp-string*)
+;;   (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
+;;     ;; reset bucket settings prior to drawing - font won't do this for us, and
+;;     ;; draw-raw-image can sometimes mess them up. (intro sequence)
+;;     (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
+;;     (let ((font-ctx (new 'stack 'font-context *font-default-matrix* x y 0.0 (font-color default) (font-flags shadow kerning large))))
+;;       (set! (-> font-ctx scale) 0.25)
+;;       (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
+;;   (none)
+;;   )
+
+(defun get-pb-time ()
+  (case (-> *speedrun-info* category)
+    ;; Act 1
+    (((speedrun-category arena-training-1))
+      (-> *pc-settings* pb-time-arena-training-1))
+    (((speedrun-category arena-fight-1))
+      (-> *pc-settings* pb-time-arena-fight-1))
+    (((speedrun-category wascity-chase))
+      (-> *pc-settings* pb-time-wascity-chase))
+    (((speedrun-category wascity-pre-game))
+      (-> *pc-settings* pb-time-wascity-pre-game))
+    (((speedrun-category desert-turtle-training))
+      (-> *pc-settings* pb-time-desert-turtle-training))
+    (((speedrun-category desert-course-race))
+      (-> *pc-settings* pb-time-desert-course-race))
+    (((speedrun-category desert-artifact-race-1))
+      (-> *pc-settings* pb-time-desert-artifact-race-1))
+    (((speedrun-category wascity-leaper-race))
+      (-> *pc-settings* pb-time-wascity-leaper-race))
+    (((speedrun-category desert-hover))
+      (-> *pc-settings* pb-time-desert-hover))
+    (((speedrun-category arena-fight-2))
+      (-> *pc-settings* pb-time-arena-fight-2))
+    (((speedrun-category desert-catch-lizards))
+      (-> *pc-settings* pb-time-desert-catch-lizards))
+    (((speedrun-category desert-rescue))
+      (-> *pc-settings* pb-time-desert-rescue))
+    (((speedrun-category wascity-gungame))
+      (-> *pc-settings* pb-time-wascity-gungame))
+    (((speedrun-category arena-fight-3))
+      (-> *pc-settings* pb-time-arena-fight-3))
+    (((speedrun-category nest-eggs))
+      (-> *pc-settings* pb-time-nest-eggs))
+    (((speedrun-category temple-climb))
+      (-> *pc-settings* pb-time-temple-climb))
+    (((speedrun-category desert-glide))
+      (-> *pc-settings* pb-time-desert-glide))
+    (((speedrun-category volcano-darkeco))
+      (-> *pc-settings* pb-time-volcano-darkeco))
+    (((speedrun-category temple-oracle))
+      (-> *pc-settings* pb-time-temple-oracle))
+    (((speedrun-category desert-oasis-defense))
+      (-> *pc-settings* pb-time-desert-oasis-defense))
+    (((speedrun-category temple-tests))
+      (-> *pc-settings* pb-time-temple-tests))
+    (((speedrun-category comb-travel))
+      (-> *pc-settings* pb-time-comb-travel))
+    (((speedrun-category mine-explore))
+      (-> *pc-settings* pb-time-mine-explore))
+    (((speedrun-category mine-blow))
+      (-> *pc-settings* pb-time-mine-blow))
+    (((speedrun-category mine-boss))
+      (-> *pc-settings* pb-time-mine-boss))
+    ;; Act 2
+    (((speedrun-category sewer-met-hum))
+      (-> *pc-settings* pb-time-sewer-met-hum))
+    (((speedrun-category city-port-fight))
+      (-> *pc-settings* pb-time-city-port-fight))
+    (((speedrun-category city-port-attack))
+      (-> *pc-settings* pb-time-city-port-attack))
+    (((speedrun-category city-gun-course-1))
+      (-> *pc-settings* pb-time-city-gun-course-1))
+    (((speedrun-category city-sniper-fight))
+      (-> *pc-settings* pb-time-city-sniper-fight))
+    (((speedrun-category sewer-kg-met))
+      (-> *pc-settings* pb-time-sewer-kg-met))
+    (((speedrun-category city-destroy-darkeco))
+      (-> *pc-settings* pb-time-city-destroy-darkeco))
+    (((speedrun-category forest-kill-plants))
+      (-> *pc-settings* pb-time-forest-kill-plants))
+    (((speedrun-category city-destroy-grid))
+      (-> *pc-settings* pb-time-city-destroy-grid))
+    (((speedrun-category city-hijack-vehicle))
+      (-> *pc-settings* pb-time-city-hijack-vehicle))
+    (((speedrun-category city-port-assault))
+      (-> *pc-settings* pb-time-city-port-assault))
+    (((speedrun-category city-gun-course-2))
+      (-> *pc-settings* pb-time-city-gun-course-2))
+    (((speedrun-category city-blow-barricade))
+      (-> *pc-settings* pb-time-city-blow-barricade))
+    (((speedrun-category city-protect-hq))
+      (-> *pc-settings* pb-time-city-protect-hq))
+    (((speedrun-category sewer-hum-kg))
+      (-> *pc-settings* pb-time-sewer-hum-kg))
+    (((speedrun-category city-power-game))
+      (-> *pc-settings* pb-time-city-power-game))
+    (((speedrun-category desert-artifact-race-2))
+      (-> *pc-settings* pb-time-desert-artifact-race-2))
+    (((speedrun-category nest-hunt))
+      (-> *pc-settings* pb-time-nest-hunt))
+    (((speedrun-category desert-beast-battle))
+      (-> *pc-settings* pb-time-desert-beast-battle))
+    (((speedrun-category desert-jump-mission))
+      (-> *pc-settings* pb-time-desert-jump-mission))
+    (((speedrun-category desert-chase-marauders))
+      (-> *pc-settings* pb-time-desert-chase-marauders))
+    (((speedrun-category forest-ring-chase))
+      (-> *pc-settings* pb-time-forest-ring-chase))
+    (((speedrun-category factory-sky-battle))
+      (-> *pc-settings* pb-time-factory-sky-battle))
+    (((speedrun-category factory-assault))
+      (-> *pc-settings* pb-time-factory-assault))
+    (((speedrun-category factory-boss))
+      (-> *pc-settings* pb-time-factory-boss))
+    ;; Act 3
+    (((speedrun-category temple-defend))
+      (-> *pc-settings* pb-time-temple-defend))
+    (((speedrun-category wascity-defend))
+      (-> *pc-settings* pb-time-wascity-defend))
+    (((speedrun-category forest-turn-on-machine))
+      (-> *pc-settings* pb-time-forest-turn-on-machine))
+    (((speedrun-category precursor-tour))
+      (-> *pc-settings* pb-time-precursor-tour))
+    (((speedrun-category city-blow-tower))
+      (-> *pc-settings* pb-time-city-blow-tower))
+    (((speedrun-category tower-destroy))
+      (-> *pc-settings* pb-time-tower-destroy))
+    (((speedrun-category palace-ruins-patrol))
+      (-> *pc-settings* pb-time-palace-ruins-patrol))
+    (((speedrun-category palace-ruins-attack))
+      (-> *pc-settings* pb-time-palace-ruins-attack))
+    (((speedrun-category comb-wild-ride))
+      (-> *pc-settings* pb-time-comb-wild-ride))
+    (((speedrun-category precursor-destroy-ship))
+      (-> *pc-settings* pb-time-precursor-destroy-ship))
+    (((speedrun-category terraformer))
+      (-> *pc-settings* pb-time-terraformer))
+    (((speedrun-category desert-final-boss))
+      (-> *pc-settings* pb-time-desert-final-boss))
+    ;; Side Missions
+    (((speedrun-category desert-bbush-get-to-1))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-1))
+    (((speedrun-category desert-bbush-get-to-2))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-2))
+    (((speedrun-category desert-bbush-get-to-3))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-3))
+    (((speedrun-category desert-bbush-get-to-4))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-4))
+    (((speedrun-category desert-bbush-get-to-5))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-5))
+    (((speedrun-category desert-bbush-get-to-6))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-6))
+    (((speedrun-category desert-bbush-get-to-7))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-7))
+    (((speedrun-category desert-bbush-get-to-8))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-8))
+    (((speedrun-category desert-bbush-get-to-9))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-9))
+    (((speedrun-category desert-bbush-get-to-11))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-11))
+    (((speedrun-category desert-bbush-get-to-12))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-12))
+    (((speedrun-category desert-bbush-get-to-14))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-14))
+    (((speedrun-category desert-bbush-get-to-16))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-16))
+    (((speedrun-category desert-bbush-get-to-17))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-17))
+    (((speedrun-category wascity-bbush-get-to-18))
+      (-> *pc-settings* pb-time-wascity-bbush-get-to-18))
+    (((speedrun-category desert-bbush-get-to-19))
+      (-> *pc-settings* pb-time-desert-bbush-get-to-19))
+    (((speedrun-category wascity-bbush-get-to-20))
+      (-> *pc-settings* pb-time-wascity-bbush-get-to-20))
+    (((speedrun-category wascity-bbush-get-to-21))
+      (-> *pc-settings* pb-time-wascity-bbush-get-to-21))
+    (((speedrun-category wascity-bbush-get-to-22))
+      (-> *pc-settings* pb-time-wascity-bbush-get-to-22))
+    (((speedrun-category wascity-bbush-get-to-23))
+      (-> *pc-settings* pb-time-wascity-bbush-get-to-23))
+    (((speedrun-category wascity-bbush-get-to-24))
+      (-> *pc-settings* pb-time-wascity-bbush-get-to-24))
+    (((speedrun-category wascity-bbush-get-to-25))
+      (-> *pc-settings* pb-time-wascity-bbush-get-to-25))
+    (((speedrun-category city-bbush-get-to-26))
+      (-> *pc-settings* pb-time-city-bbush-get-to-26))
+    (((speedrun-category city-bbush-get-to-27))
+      (-> *pc-settings* pb-time-city-bbush-get-to-27))
+    (((speedrun-category city-bbush-get-to-28))
+      (-> *pc-settings* pb-time-city-bbush-get-to-28))
+    (((speedrun-category city-bbush-get-to-29))
+      (-> *pc-settings* pb-time-city-bbush-get-to-29))
+    (((speedrun-category city-bbush-get-to-30))
+      (-> *pc-settings* pb-time-city-bbush-get-to-30))
+    (((speedrun-category city-bbush-get-to-31))
+      (-> *pc-settings* pb-time-city-bbush-get-to-31))
+    (((speedrun-category city-bbush-get-to-32))
+      (-> *pc-settings* pb-time-city-bbush-get-to-32))
+    (((speedrun-category city-bbush-get-to-33))
+      (-> *pc-settings* pb-time-city-bbush-get-to-33))
+    (((speedrun-category city-bbush-get-to-34))
+      (-> *pc-settings* pb-time-city-bbush-get-to-34))
+    (((speedrun-category city-bbush-get-to-35))
+      (-> *pc-settings* pb-time-city-bbush-get-to-35))
+    (((speedrun-category city-bbush-get-to-36))
+      (-> *pc-settings* pb-time-city-bbush-get-to-36))
+    (((speedrun-category city-bbush-get-to-37))
+      (-> *pc-settings* pb-time-city-bbush-get-to-37))
+    (((speedrun-category city-bbush-get-to-38))
+      (-> *pc-settings* pb-time-city-bbush-get-to-38))
+    (((speedrun-category city-bbush-get-to-39))
+      (-> *pc-settings* pb-time-city-bbush-get-to-39))
+    (((speedrun-category city-bbush-get-to-40))
+      (-> *pc-settings* pb-time-city-bbush-get-to-40))
+    (((speedrun-category city-bbush-get-to-41))
+      (-> *pc-settings* pb-time-city-bbush-get-to-41))
+    (((speedrun-category city-bbush-get-to-42))
+      (-> *pc-settings* pb-time-city-bbush-get-to-42))
+    (((speedrun-category city-bbush-get-to-43))
+      (-> *pc-settings* pb-time-city-bbush-get-to-43))
+    (((speedrun-category city-bbush-get-to-44))
+      (-> *pc-settings* pb-time-city-bbush-get-to-44))
+    (((speedrun-category desert-bbush-ring-1))
+      (-> *pc-settings* pb-time-desert-bbush-ring-1))
+    (((speedrun-category desert-bbush-ring-2))
+      (-> *pc-settings* pb-time-desert-bbush-ring-2))
+    (((speedrun-category wascity-bbush-ring-3))
+      (-> *pc-settings* pb-time-wascity-bbush-ring-3))
+    (((speedrun-category wascity-bbush-ring-4))
+      (-> *pc-settings* pb-time-wascity-bbush-ring-4))
+    (((speedrun-category city-bbush-ring-5))
+      (-> *pc-settings* pb-time-city-bbush-ring-5))
+    (((speedrun-category city-bbush-ring-6))
+      (-> *pc-settings* pb-time-city-bbush-ring-6))
+    (((speedrun-category desert-bbush-egg-spider-1))
+      (-> *pc-settings* pb-time-desert-bbush-egg-spider-1))
+    (((speedrun-category desert-bbush-spirit-chase-1))
+      (-> *pc-settings* pb-time-desert-bbush-spirit-chase-1))
+    (((speedrun-category wascity-bbush-spirit-chase-2))
+      (-> *pc-settings* pb-time-wascity-bbush-spirit-chase-2))
+    (((speedrun-category city-bbush-spirit-chase-3))
+      (-> *pc-settings* pb-time-city-bbush-spirit-chase-3))
+    (((speedrun-category desert-bbush-timer-chase-1))
+      (-> *pc-settings* pb-time-desert-bbush-timer-chase-1))
+    (((speedrun-category wascity-bbush-timer-chase-2))
+      (-> *pc-settings* pb-time-wascity-bbush-timer-chase-2))
+    (((speedrun-category desert-bbush-air-time))
+      (-> *pc-settings* pb-time-desert-bbush-air-time))
+    (((speedrun-category desert-bbush-total-air-time))
+      (-> *pc-settings* pb-time-desert-bbush-total-air-time))
+    (((speedrun-category desert-bbush-jump-distance))
+      (-> *pc-settings* pb-time-desert-bbush-jump-distance))
+    (((speedrun-category desert-bbush-total-jump-distance))
+      (-> *pc-settings* pb-time-desert-bbush-total-jump-distance))
+    (((speedrun-category desert-bbush-roll-count))
+      (-> *pc-settings* pb-time-desert-bbush-roll-count))
+    (((speedrun-category desert-bbush-time-trial-1))
+      (-> *pc-settings* pb-time-desert-bbush-time-trial-1))
+    (((speedrun-category desert-bbush-rally))
+      (-> *pc-settings* pb-time-desert-bbush-rally))
+    (((speedrun-category city-bbush-port-attack))
+      (-> *pc-settings* pb-time-city-bbush-port-attack))
+    (((speedrun-category desert-rescue-bbush))
+      (-> *pc-settings* pb-time-desert-rescue-bbush))
+    (((speedrun-category city-gun-course-play-for-fun))
+      (-> *pc-settings* pb-time-city-gun-course-play-for-fun))
+    (((speedrun-category city-jetboard-bbush))
+      (-> *pc-settings* pb-time-city-jetboard-bbush))
+    (((speedrun-category desert-bbush-destroy-interceptors))
+      (-> *pc-settings* pb-time-desert-bbush-destroy-interceptors))
+    (else
+      ;; dont update anything
+      -1.0)
+    )
+  )
+
+(defun maybe-update-best-time ((this speedrun-timer))
+  (when (not (or *debug-segment* *cheat-mode*))
+    (let ((pb-time (get-pb-time)))
+      (when (or (= pb-time 0.0) (< (-> this recorded-time) pb-time))
+        (case (-> *speedrun-info* category)
+          ;; Act 1
+          (((speedrun-category arena-training-1))
+            (set! (-> *pc-settings* pb-time-arena-training-1) (-> this recorded-time)))
+          (((speedrun-category arena-fight-1))
+            (set! (-> *pc-settings* pb-time-arena-fight-1) (-> this recorded-time)))
+          (((speedrun-category wascity-chase))
+            (set! (-> *pc-settings* pb-time-wascity-chase) (-> this recorded-time)))
+          (((speedrun-category wascity-pre-game))
+            (set! (-> *pc-settings* pb-time-wascity-pre-game) (-> this recorded-time)))
+          (((speedrun-category desert-turtle-training))
+            (set! (-> *pc-settings* pb-time-desert-turtle-training) (-> this recorded-time)))
+          (((speedrun-category desert-course-race))
+            (set! (-> *pc-settings* pb-time-desert-course-race) (-> this recorded-time)))
+          (((speedrun-category desert-artifact-race-1))
+            (set! (-> *pc-settings* pb-time-desert-artifact-race-1) (-> this recorded-time)))
+          (((speedrun-category wascity-leaper-race))
+            (set! (-> *pc-settings* pb-time-wascity-leaper-race) (-> this recorded-time)))
+          (((speedrun-category desert-hover))
+            (set! (-> *pc-settings* pb-time-desert-hover) (-> this recorded-time)))
+          (((speedrun-category arena-fight-2))
+            (set! (-> *pc-settings* pb-time-arena-fight-2) (-> this recorded-time)))
+          (((speedrun-category desert-catch-lizards))
+            (set! (-> *pc-settings* pb-time-desert-catch-lizards) (-> this recorded-time)))
+          (((speedrun-category desert-rescue))
+            (set! (-> *pc-settings* pb-time-desert-rescue) (-> this recorded-time)))
+          (((speedrun-category wascity-gungame))
+            (set! (-> *pc-settings* pb-time-wascity-gungame) (-> this recorded-time)))
+          (((speedrun-category arena-fight-3))
+            (set! (-> *pc-settings* pb-time-arena-fight-3) (-> this recorded-time)))
+          (((speedrun-category nest-eggs))
+            (set! (-> *pc-settings* pb-time-nest-eggs) (-> this recorded-time)))
+          (((speedrun-category temple-climb))
+            (set! (-> *pc-settings* pb-time-temple-climb) (-> this recorded-time)))
+          (((speedrun-category desert-glide))
+            (set! (-> *pc-settings* pb-time-desert-glide) (-> this recorded-time)))
+          (((speedrun-category volcano-darkeco))
+            (set! (-> *pc-settings* pb-time-volcano-darkeco) (-> this recorded-time)))
+          (((speedrun-category temple-oracle))
+            (set! (-> *pc-settings* pb-time-temple-oracle) (-> this recorded-time)))
+          (((speedrun-category desert-oasis-defense))
+            (set! (-> *pc-settings* pb-time-desert-oasis-defense) (-> this recorded-time)))
+          (((speedrun-category temple-tests))
+            (set! (-> *pc-settings* pb-time-temple-tests) (-> this recorded-time)))
+          (((speedrun-category comb-travel))
+            (set! (-> *pc-settings* pb-time-comb-travel) (-> this recorded-time)))
+          (((speedrun-category mine-explore))
+            (set! (-> *pc-settings* pb-time-mine-explore) (-> this recorded-time)))
+          (((speedrun-category mine-blow))
+            (set! (-> *pc-settings* pb-time-mine-blow) (-> this recorded-time)))
+          (((speedrun-category mine-boss))
+            (set! (-> *pc-settings* pb-time-mine-boss) (-> this recorded-time)))
+          ;; Act 2
+          (((speedrun-category sewer-met-hum))
+            (set! (-> *pc-settings* pb-time-sewer-met-hum) (-> this recorded-time)))
+          (((speedrun-category city-port-fight))
+            (set! (-> *pc-settings* pb-time-city-port-fight) (-> this recorded-time)))
+          (((speedrun-category city-port-attack))
+            (set! (-> *pc-settings* pb-time-city-port-attack) (-> this recorded-time)))
+          (((speedrun-category city-gun-course-1))
+            (set! (-> *pc-settings* pb-time-city-gun-course-1) (-> this recorded-time)))
+          (((speedrun-category city-sniper-fight))
+            (set! (-> *pc-settings* pb-time-city-sniper-fight) (-> this recorded-time)))
+          (((speedrun-category sewer-kg-met))
+            (set! (-> *pc-settings* pb-time-sewer-kg-met) (-> this recorded-time)))
+          (((speedrun-category city-destroy-darkeco))
+            (set! (-> *pc-settings* pb-time-city-destroy-darkeco) (-> this recorded-time)))
+          (((speedrun-category forest-kill-plants))
+            (set! (-> *pc-settings* pb-time-forest-kill-plants) (-> this recorded-time)))
+          (((speedrun-category city-destroy-grid))
+            (set! (-> *pc-settings* pb-time-city-destroy-grid) (-> this recorded-time)))
+          (((speedrun-category city-hijack-vehicle))
+            (set! (-> *pc-settings* pb-time-city-hijack-vehicle) (-> this recorded-time)))
+          (((speedrun-category city-port-assault))
+            (set! (-> *pc-settings* pb-time-city-port-assault) (-> this recorded-time)))
+          (((speedrun-category city-gun-course-2))
+            (set! (-> *pc-settings* pb-time-city-gun-course-2) (-> this recorded-time)))
+          (((speedrun-category city-blow-barricade))
+            (set! (-> *pc-settings* pb-time-city-blow-barricade) (-> this recorded-time)))
+          (((speedrun-category city-protect-hq))
+            (set! (-> *pc-settings* pb-time-city-protect-hq) (-> this recorded-time)))
+          (((speedrun-category sewer-hum-kg))
+            (set! (-> *pc-settings* pb-time-sewer-hum-kg) (-> this recorded-time)))
+          (((speedrun-category city-power-game))
+            (set! (-> *pc-settings* pb-time-city-power-game) (-> this recorded-time)))
+          (((speedrun-category desert-artifact-race-2))
+            (set! (-> *pc-settings* pb-time-desert-artifact-race-2) (-> this recorded-time)))
+          (((speedrun-category nest-hunt))
+            (set! (-> *pc-settings* pb-time-nest-hunt) (-> this recorded-time)))
+          (((speedrun-category desert-beast-battle))
+            (set! (-> *pc-settings* pb-time-desert-beast-battle) (-> this recorded-time)))
+          (((speedrun-category desert-jump-mission))
+            (set! (-> *pc-settings* pb-time-desert-jump-mission) (-> this recorded-time)))
+          (((speedrun-category desert-chase-marauders))
+            (set! (-> *pc-settings* pb-time-desert-chase-marauders) (-> this recorded-time)))
+          (((speedrun-category forest-ring-chase))
+            (set! (-> *pc-settings* pb-time-forest-ring-chase) (-> this recorded-time)))
+          (((speedrun-category factory-sky-battle))
+            (set! (-> *pc-settings* pb-time-factory-sky-battle) (-> this recorded-time)))
+          (((speedrun-category factory-assault))
+            (set! (-> *pc-settings* pb-time-factory-assault) (-> this recorded-time)))
+          (((speedrun-category factory-boss))
+            (set! (-> *pc-settings* pb-time-factory-boss) (-> this recorded-time)))
+          ;; Act 3
+          (((speedrun-category temple-defend))
+            (set! (-> *pc-settings* pb-time-temple-defend) (-> this recorded-time)))
+          (((speedrun-category wascity-defend))
+            (set! (-> *pc-settings* pb-time-wascity-defend) (-> this recorded-time)))
+          (((speedrun-category forest-turn-on-machine))
+            (set! (-> *pc-settings* pb-time-forest-turn-on-machine) (-> this recorded-time)))
+          (((speedrun-category precursor-tour))
+            (set! (-> *pc-settings* pb-time-precursor-tour) (-> this recorded-time)))
+          (((speedrun-category city-blow-tower))
+            (set! (-> *pc-settings* pb-time-city-blow-tower) (-> this recorded-time)))
+          (((speedrun-category tower-destroy))
+            (set! (-> *pc-settings* pb-time-tower-destroy) (-> this recorded-time)))
+          (((speedrun-category palace-ruins-patrol))
+            (set! (-> *pc-settings* pb-time-palace-ruins-patrol) (-> this recorded-time)))
+          (((speedrun-category palace-ruins-attack))
+            (set! (-> *pc-settings* pb-time-palace-ruins-attack) (-> this recorded-time)))
+          (((speedrun-category comb-wild-ride))
+            (set! (-> *pc-settings* pb-time-comb-wild-ride) (-> this recorded-time)))
+          (((speedrun-category precursor-destroy-ship))
+            (set! (-> *pc-settings* pb-time-precursor-destroy-ship) (-> this recorded-time)))
+          (((speedrun-category terraformer))
+            (set! (-> *pc-settings* pb-time-terraformer) (-> this recorded-time)))
+          (((speedrun-category desert-final-boss))
+            (set! (-> *pc-settings* pb-time-desert-final-boss) (-> this recorded-time)))
+          ;; Side Missions
+          (((speedrun-category desert-bbush-get-to-1))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-1) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-2))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-2) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-3))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-3) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-4))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-4) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-5))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-5) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-6))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-6) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-7))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-7) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-8))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-8) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-9))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-9) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-11))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-11) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-12))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-12) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-14))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-14) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-16))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-16) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-17))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-17) (-> this recorded-time)))
+          (((speedrun-category wascity-bbush-get-to-18))
+            (set! (-> *pc-settings* pb-time-wascity-bbush-get-to-18) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-get-to-19))
+            (set! (-> *pc-settings* pb-time-desert-bbush-get-to-19) (-> this recorded-time)))
+          (((speedrun-category wascity-bbush-get-to-20))
+            (set! (-> *pc-settings* pb-time-wascity-bbush-get-to-20) (-> this recorded-time)))
+          (((speedrun-category wascity-bbush-get-to-21))
+            (set! (-> *pc-settings* pb-time-wascity-bbush-get-to-21) (-> this recorded-time)))
+          (((speedrun-category wascity-bbush-get-to-22))
+            (set! (-> *pc-settings* pb-time-wascity-bbush-get-to-22) (-> this recorded-time)))
+          (((speedrun-category wascity-bbush-get-to-23))
+            (set! (-> *pc-settings* pb-time-wascity-bbush-get-to-23) (-> this recorded-time)))
+          (((speedrun-category wascity-bbush-get-to-24))
+            (set! (-> *pc-settings* pb-time-wascity-bbush-get-to-24) (-> this recorded-time)))
+          (((speedrun-category wascity-bbush-get-to-25))
+            (set! (-> *pc-settings* pb-time-wascity-bbush-get-to-25) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-26))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-26) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-27))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-27) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-28))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-28) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-29))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-29) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-30))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-30) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-31))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-31) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-32))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-32) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-33))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-33) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-34))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-34) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-35))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-35) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-36))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-36) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-37))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-37) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-38))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-38) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-39))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-39) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-40))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-40) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-41))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-41) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-42))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-42) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-43))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-43) (-> this recorded-time)))
+          (((speedrun-category city-bbush-get-to-44))
+            (set! (-> *pc-settings* pb-time-city-bbush-get-to-44) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-ring-1))
+            (set! (-> *pc-settings* pb-time-desert-bbush-ring-1) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-ring-2))
+            (set! (-> *pc-settings* pb-time-desert-bbush-ring-2) (-> this recorded-time)))
+          (((speedrun-category wascity-bbush-ring-3))
+            (set! (-> *pc-settings* pb-time-wascity-bbush-ring-3) (-> this recorded-time)))
+          (((speedrun-category wascity-bbush-ring-4))
+            (set! (-> *pc-settings* pb-time-wascity-bbush-ring-4) (-> this recorded-time)))
+          (((speedrun-category city-bbush-ring-5))
+            (set! (-> *pc-settings* pb-time-city-bbush-ring-5) (-> this recorded-time)))
+          (((speedrun-category city-bbush-ring-6))
+            (set! (-> *pc-settings* pb-time-city-bbush-ring-6) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-egg-spider-1))
+            (set! (-> *pc-settings* pb-time-desert-bbush-egg-spider-1) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-spirit-chase-1))
+            (set! (-> *pc-settings* pb-time-desert-bbush-spirit-chase-1) (-> this recorded-time)))
+          (((speedrun-category wascity-bbush-spirit-chase-2))
+            (set! (-> *pc-settings* pb-time-wascity-bbush-spirit-chase-2) (-> this recorded-time)))
+          (((speedrun-category city-bbush-spirit-chase-3))
+            (set! (-> *pc-settings* pb-time-city-bbush-spirit-chase-3) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-timer-chase-1))
+            (set! (-> *pc-settings* pb-time-desert-bbush-timer-chase-1) (-> this recorded-time)))
+          (((speedrun-category wascity-bbush-timer-chase-2))
+            (set! (-> *pc-settings* pb-time-wascity-bbush-timer-chase-2) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-air-time))
+            (set! (-> *pc-settings* pb-time-desert-bbush-air-time) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-total-air-time))
+            (set! (-> *pc-settings* pb-time-desert-bbush-total-air-time) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-jump-distance))
+            (set! (-> *pc-settings* pb-time-desert-bbush-jump-distance) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-total-jump-distance))
+            (set! (-> *pc-settings* pb-time-desert-bbush-total-jump-distance) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-roll-count))
+            (set! (-> *pc-settings* pb-time-desert-bbush-roll-count) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-time-trial-1))
+            (set! (-> *pc-settings* pb-time-desert-bbush-time-trial-1) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-rally))
+            (set! (-> *pc-settings* pb-time-desert-bbush-rally) (-> this recorded-time)))
+          (((speedrun-category city-bbush-port-attack))
+            (set! (-> *pc-settings* pb-time-city-bbush-port-attack) (-> this recorded-time)))
+          (((speedrun-category desert-rescue-bbush))
+            (set! (-> *pc-settings* pb-time-desert-rescue-bbush) (-> this recorded-time)))
+          (((speedrun-category city-gun-course-play-for-fun))
+            (set! (-> *pc-settings* pb-time-city-gun-course-play-for-fun) (-> this recorded-time)))
+          (((speedrun-category city-jetboard-bbush))
+            (set! (-> *pc-settings* pb-time-city-jetboard-bbush) (-> this recorded-time)))
+          (((speedrun-category desert-bbush-destroy-interceptors))
+            (set! (-> *pc-settings* pb-time-desert-bbush-destroy-interceptors) (-> this recorded-time)))
+          )
+        ;; save settings with PB times
+        (commit-to-file *pc-settings*)
+        )
+      )
+    )
   (none)
   )
 
-(defun get-speedrun-end-results-text ()
-  (let* ((timer (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
-         (total-sec (the int (-> timer recorded-time)))
-         (min (/ total-sec 60))
-         (sec (- total-sec (* min 60))))
+(defun print-speedrun-end-results-text ((buf dma-buffer) (alpha float))
+  (let* ((pb-time (get-pb-time))
+         (pb-total-sec (the int pb-time))
+         (lines-used 0)
+         (pb-min (/ pb-total-sec 60))
+         (pb-sec (- pb-total-sec (* pb-min 60)))
+         (timer (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
+         (cur-total-sec (the int (-> timer recorded-time)))
+         (cur-min (/ cur-total-sec 60))
+         (cur-sec (- cur-total-sec (* cur-min 60))))
+    ;; print mission header
     (clear *temp-string*)
     (clear *pc-encoded-temp-string*)
     (format *temp-string* "~4L~S~%" (-> *speedrun-category-names* (-> *speedrun-info* category)))
     (format *temp-string* "~6LMission Completed~%")
+    (+! lines-used 3)
     (when (-> *speedrun-info* percent-warped?)
-      (format *temp-string* "~3LPercentage Warp Used!~%"))
-    (format *temp-string* "~%~0LMission Time: ~D:~2,'0D~%~%" min sec)
+      (format *temp-string* "~3LPercentage Warp Used!~%")
+      (+! lines-used 1))
+    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 84 0.0 (font-color default) (font-flags middle shadow kerning large))))
+      (set! (-> font-ctx alpha) alpha)
+      (set! (-> font-ctx scale) 0.5)
+        (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+      (draw-string-adv *pc-encoded-temp-string* buf font-ctx))
+
+    ;; print time
+    (clear *temp-string*)
+    (clear *pc-encoded-temp-string*)
+    (format *temp-string* "~32LMission Time: ~0L~D:~2,'0D~%" cur-min cur-sec)
+    (cond
+      ;; NEW PB!
+      ((= pb-time (-> timer recorded-time))
+        (format *temp-string* "~14LNEW PERSONAL BEST!~0L~%~%")
+        )
+      ;; not a PB
+      (else
+        (format *temp-string* "~32LPersonal Best: ~0L~D:~2,'0D~%~%" pb-min pb-sec)
+        )
+      )
+    (+! lines-used 2)
+    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 (+ 90 (* (- lines-used 2) 12)) 0.0 (font-color default) (font-flags middle shadow kerning large))))
+      (set! (-> font-ctx alpha) alpha)
+      (set! (-> font-ctx scale) 0.5)
+      (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+      (draw-string-adv *pc-encoded-temp-string* buf font-ctx))
+    
+    ;; print stats
+    (clear *temp-string*)
+    (clear *pc-encoded-temp-string*)
+    (format *temp-string* "~32LAverage Speed: ~0L~,,1fm/s~%~%" (/ (-> *speedrun-info* avg-speed) 4096.0))
     ;; TODO - kill stats
     ;; (format *temp-string* "Enemies Killed: ~D~%" (get-jak-enemy-kill-count (-> *statistics* kill-stats)))
     ;; (format *temp-string* "Civilians Killed: ~D~%~%" (get-jak-friendly-kill-count (-> *statistics* kill-stats)))
     ;; (format *temp-string* "Press START to continue~%")
-    (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
-    ;; return
-    *pc-encoded-temp-string*
+    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 (+ 90 (* lines-used 15)) 0.0 (font-color default) (font-flags middle shadow kerning large))))
+      (set! (-> font-ctx alpha) alpha)
+      (set! (-> font-ctx scale) 0.35)
+      (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+      (draw-string-adv *pc-encoded-temp-string* buf font-ctx)
+      )
     )
+  (none)
   )  
 
 ;; (defun play-music ((music-name symbol) (flava uint) (mode uint))
@@ -74,29 +658,56 @@
   (none)
   )
 
+(defun fmt-timer-string (out (total-sec float))
+  (let* ((minutes (/ (the int total-sec) 60))
+         (sec (- total-sec (* minutes 60))))
+    (if (> minutes 0)
+      (if (>= sec 10) ;; too lazy to figure out zero padding for floats
+        (format out "~D:~,,2f~%" minutes sec) ;; MM:SS.ms
+        (format out "~D:0~,,2f~%" minutes sec) ;; MM:SS.ms
+        )
+      (format out "~,,2fs~%" total-sec) ;; SS.ms
+      )
+    )
+  )
+
 (defmethod draw-timer ((this speedrun-timer))
   (clear *temp-string*)
   (clear *pc-encoded-temp-string*)
   (cond
     ((-> this started?)
-      (format *temp-string* "~,,2fs~%" (* (the float (- (get-real-current-time) (-> this start-time))) 0.0033333334))
-      ;; show speed in practice mode
-      (when (and *target* (-> *speedrun-info* practicing?))
-        (format *temp-string* "~,,2M~%" (-> *target* control ctrl-xz-vel)))
-
-      (print-timer-text *temp-string* 2 406)
+      (fmt-timer-string *temp-string* (* (the float (- (get-real-current-time) (-> this start-time))) 0.0033333334))
       )
     ((-> this stopped?)
-      (format *temp-string* "~,,2fs~%" (-> this recorded-time))
-      ;; show speed in practice mode
-      (when (and *target* (-> *speedrun-info* practicing?))
-        (format *temp-string* "~,,2M~%" (-> *target* control ctrl-xz-vel)))
-      (print-timer-text *temp-string* 2 406)
+      (fmt-timer-string *temp-string* (-> this recorded-time))
       )
     (else
-      (format *temp-string* "0.0s~%")
-      (print-timer-text *temp-string* 2 406)
+      (fmt-timer-string *temp-string* 0.0)
       )
+    )
+  (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+  (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
+    ;; reset bucket settings prior to drawing - font won't do this for us, and
+    ;; draw-raw-image can sometimes mess them up. (intro sequence)
+    (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
+    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 2 (if *display-sha* 396 406) 0.0 (font-color default) (font-flags shadow kerning large))))
+      (set! (-> font-ctx scale) 0.25)
+      (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
+
+  ;; show speed in practice mode
+  (clear *temp-string*)
+  (clear *pc-encoded-temp-string*)
+  (when (and *target*) ;; (-> *speedrun-info* practicing?))
+    (format *temp-string* "~,,1fm/s~%" (/ (-> *target* control ctrl-xz-vel) 4096.0))
+    (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+    (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
+      ;; reset bucket settings prior to drawing - font won't do this for us, and
+      ;; draw-raw-image can sometimes mess them up. (intro sequence)
+      (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
+      (let* ((y (if (and (-> *pc-settings* speedrunner-mode?) (-> *speedrun-info* display-run-info?)) 387 406))
+            (font-ctx (new 'stack 'font-context *font-default-matrix* 510 y 0.0 (font-color default) (font-flags shadow kerning large right))))
+        (set! (-> font-ctx scale) 0.25)
+        (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
     )
   (none))
 
@@ -118,6 +729,7 @@
     (true! (-> this stopped?))
     (set! (-> this end-time) (get-real-current-time))
     (set! (-> this recorded-time) (* (the float (- (-> this end-time) (-> this start-time))) 0.0033333334))
+    (maybe-update-best-time this)
     ;; spawn function to bring up end screen whenever we can
     (process-spawn-function process (lambda :behavior process ()
       (until (progress-allowed?)
@@ -150,7 +762,7 @@
 (defmethod set-category! ((this speedrun-info) (category speedrun-category))
   (set! (-> this category) category))
 
-(defmethod start-individual-level-run! ((this speedrun-info) (tsk game-task))
+(defmethod start-individual-level-run! ((this speedrun-info) (tsk game-task) (side-mish? symbol) (secrets game-secrets))
   (set! (-> this active-practice-objective end-task) tsk)
   (start 'play (get-continue-by-name *game-info* (play-task tsk 'debug 'play)))
   (set-master-mode 'game)
@@ -165,7 +777,12 @@
         (when (and *target* (!= (-> *target* next-state name) 'target-continue))
           (true! target-continued?)))
       )
+    (when side-mish?
+      ;; post-game for side missions
+      (task-close! "city-win-resolution"))
+    ;; (set! (-> *game-info* secrets) secrets)
     (set-percent-warped! #f)
+    (set! (-> *speedrun-info* avg-speed) 0.0)
     (start! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))))
   (none)
   )
@@ -283,131 +900,263 @@
          (play-task (game-task arena-training-1) 'debug #f))))
     ;; Act 1 ILs
     (((speedrun-category arena-training-1))
-      (start-individual-level-run! this (game-task arena-training-1)))
+      (start-individual-level-run! this (game-task arena-training-1) #f (game-secrets)))
     (((speedrun-category arena-fight-1))
-      (start-individual-level-run! this (game-task arena-fight-1)))
+      (start-individual-level-run! this (game-task arena-fight-1) #f (game-secrets)))
     (((speedrun-category wascity-chase))
-      (start-individual-level-run! this (game-task wascity-chase)))
+      (start-individual-level-run! this (game-task wascity-chase) #f (game-secrets)))
     (((speedrun-category wascity-pre-game))
-      (start-individual-level-run! this (game-task wascity-pre-game)))
+      (start-individual-level-run! this (game-task wascity-pre-game) #f (game-secrets)))
     (((speedrun-category desert-turtle-training))
-      (start-individual-level-run! this (game-task desert-turtle-training)))
+      (start-individual-level-run! this (game-task desert-turtle-training) #f (game-secrets)))
     (((speedrun-category desert-course-race))
-      (start-individual-level-run! this (game-task desert-course-race)))
+      (start-individual-level-run! this (game-task desert-course-race) #f (game-secrets)))
     (((speedrun-category desert-artifact-race-1))
-      (start-individual-level-run! this (game-task desert-artifact-race-1)))
+      (start-individual-level-run! this (game-task desert-artifact-race-1) #f (game-secrets)))
     (((speedrun-category wascity-leaper-race))
-      (start-individual-level-run! this (game-task wascity-leaper-race)))
+      (start-individual-level-run! this (game-task wascity-leaper-race) #f (game-secrets)))
     (((speedrun-category desert-hover))
-      (start-individual-level-run! this (game-task desert-hover)))
+      (start-individual-level-run! this (game-task desert-hover) #f (game-secrets)))
     (((speedrun-category arena-fight-2))
-      (start-individual-level-run! this (game-task arena-fight-2)))
+      (start-individual-level-run! this (game-task arena-fight-2) #f (game-secrets)))
     (((speedrun-category desert-catch-lizards))
-      (start-individual-level-run! this (game-task desert-catch-lizards)))
+      (start-individual-level-run! this (game-task desert-catch-lizards) #f (game-secrets)))
     (((speedrun-category desert-rescue))
-      (start-individual-level-run! this (game-task desert-rescue)))
+      (start-individual-level-run! this (game-task desert-rescue) #f (game-secrets)))
     (((speedrun-category wascity-gungame))
-      (start-individual-level-run! this (game-task wascity-gungame)))
+      (start-individual-level-run! this (game-task wascity-gungame) #f (game-secrets)))
     (((speedrun-category arena-fight-3))
-      (start-individual-level-run! this (game-task arena-fight-3)))
+      (start-individual-level-run! this (game-task arena-fight-3) #f (game-secrets)))
     (((speedrun-category nest-eggs))
-      (start-individual-level-run! this (game-task nest-eggs)))
+      (start-individual-level-run! this (game-task nest-eggs) #f (game-secrets)))
     (((speedrun-category temple-climb))
-      (start-individual-level-run! this (game-task temple-climb)))
+      (start-individual-level-run! this (game-task temple-climb) #f (game-secrets)))
     (((speedrun-category desert-glide))
-      (start-individual-level-run! this (game-task desert-glide)))
+      (start-individual-level-run! this (game-task desert-glide) #f (game-secrets)))
     (((speedrun-category volcano-darkeco))
-      (start-individual-level-run! this (game-task volcano-darkeco)))
+      (start-individual-level-run! this (game-task volcano-darkeco) #f (game-secrets)))
     (((speedrun-category temple-oracle))
-      (start-individual-level-run! this (game-task temple-oracle)))
+      (start-individual-level-run! this (game-task temple-oracle) #f (game-secrets)))
     (((speedrun-category desert-oasis-defense))
-      (start-individual-level-run! this (game-task desert-oasis-defense)))
+      (start-individual-level-run! this (game-task desert-oasis-defense) #f (game-secrets)))
     (((speedrun-category temple-tests))
-      (start-individual-level-run! this (game-task temple-tests)))
+      (start-individual-level-run! this (game-task temple-tests) #f (game-secrets)))
     (((speedrun-category comb-travel))
-      (start-individual-level-run! this (game-task comb-travel)))
+      (start-individual-level-run! this (game-task comb-travel) #f (game-secrets)))
     (((speedrun-category mine-explore))
-      (start-individual-level-run! this (game-task mine-explore)))
+      (start-individual-level-run! this (game-task mine-explore) #f (game-secrets)))
     (((speedrun-category mine-blow))
-      (start-individual-level-run! this (game-task mine-blow)))
+      (start-individual-level-run! this (game-task mine-blow) #f (game-secrets)))
     (((speedrun-category mine-boss))
-      (start-individual-level-run! this (game-task mine-boss)))
+      (start-individual-level-run! this (game-task mine-boss) #f (game-secrets)))
     ;; Act 2 ILs
     (((speedrun-category sewer-met-hum))
-      (start-individual-level-run! this (game-task sewer-met-hum)))
+      (start-individual-level-run! this (game-task sewer-met-hum) #f (game-secrets)))
     (((speedrun-category city-port-fight))
-      (start-individual-level-run! this (game-task city-port-fight)))
+      (start-individual-level-run! this (game-task city-port-fight) #f (game-secrets)))
     (((speedrun-category city-port-attack))
-      (start-individual-level-run! this (game-task city-port-attack)))
+      (start-individual-level-run! this (game-task city-port-attack) #f (game-secrets)))
     (((speedrun-category city-gun-course-1))
-      (start-individual-level-run! this (game-task city-gun-course-1)))
+      (start-individual-level-run! this (game-task city-gun-course-1) #f (game-secrets)))
     (((speedrun-category city-sniper-fight))
-      (start-individual-level-run! this (game-task city-sniper-fight)))
+      (start-individual-level-run! this (game-task city-sniper-fight) #f (game-secrets)))
     (((speedrun-category sewer-kg-met))
-      (start-individual-level-run! this (game-task sewer-kg-met)))
+      (start-individual-level-run! this (game-task sewer-kg-met) #f (game-secrets)))
     (((speedrun-category city-destroy-darkeco))
-      (start-individual-level-run! this (game-task city-destroy-darkeco)))
+      (start-individual-level-run! this (game-task city-destroy-darkeco) #f (game-secrets)))
     (((speedrun-category forest-kill-plants))
-      (start-individual-level-run! this (game-task forest-kill-plants)))
+      (start-individual-level-run! this (game-task forest-kill-plants) #f (game-secrets)))
     (((speedrun-category city-destroy-grid))
-      (start-individual-level-run! this (game-task city-destroy-grid)))
+      (start-individual-level-run! this (game-task city-destroy-grid) #f (game-secrets)))
     (((speedrun-category city-hijack-vehicle))
-      (start-individual-level-run! this (game-task city-hijack-vehicle)))
+      (start-individual-level-run! this (game-task city-hijack-vehicle) #f (game-secrets)))
     (((speedrun-category city-port-assault))
-      (start-individual-level-run! this (game-task city-port-assault)))
+      (start-individual-level-run! this (game-task city-port-assault) #f (game-secrets)))
     (((speedrun-category city-gun-course-2))
-      (start-individual-level-run! this (game-task city-gun-course-2)))
+      (start-individual-level-run! this (game-task city-gun-course-2) #f (game-secrets)))
     (((speedrun-category city-blow-barricade))
-      (start-individual-level-run! this (game-task city-blow-barricade)))
+      (start-individual-level-run! this (game-task city-blow-barricade) #f (game-secrets)))
     (((speedrun-category city-protect-hq))
-      (start-individual-level-run! this (game-task city-protect-hq)))
+      (start-individual-level-run! this (game-task city-protect-hq) #f (game-secrets)))
     (((speedrun-category sewer-hum-kg))
-      (start-individual-level-run! this (game-task sewer-hum-kg)))
+      (start-individual-level-run! this (game-task sewer-hum-kg) #f (game-secrets)))
     (((speedrun-category city-power-game))
-      (start-individual-level-run! this (game-task city-power-game)))
+      (start-individual-level-run! this (game-task city-power-game) #f (game-secrets)))
     (((speedrun-category desert-artifact-race-2))
-      (start-individual-level-run! this (game-task desert-artifact-race-2)))
+      (start-individual-level-run! this (game-task desert-artifact-race-2) #f (game-secrets)))
     (((speedrun-category nest-hunt))
-      (start-individual-level-run! this (game-task nest-hunt)))
+      (start-individual-level-run! this (game-task nest-hunt) #f (game-secrets)))
     (((speedrun-category desert-beast-battle))
-      (start-individual-level-run! this (game-task desert-beast-battle)))
+      (start-individual-level-run! this (game-task desert-beast-battle) #f (game-secrets)))
     (((speedrun-category desert-jump-mission))
-      (start-individual-level-run! this (game-task desert-jump-mission)))
+      (start-individual-level-run! this (game-task desert-jump-mission) #f (game-secrets)))
     (((speedrun-category desert-chase-marauders))
-      (start-individual-level-run! this (game-task desert-chase-marauders)))
+      (start-individual-level-run! this (game-task desert-chase-marauders) #f (game-secrets)))
     (((speedrun-category forest-ring-chase))
-      (start-individual-level-run! this (game-task forest-ring-chase)))
+      (start-individual-level-run! this (game-task forest-ring-chase) #f (game-secrets)))
     (((speedrun-category factory-sky-battle))
-      (start-individual-level-run! this (game-task factory-sky-battle)))
+      (start-individual-level-run! this (game-task factory-sky-battle) #f (game-secrets)))
     (((speedrun-category factory-assault))
-      (start-individual-level-run! this (game-task factory-assault)))
+      (start-individual-level-run! this (game-task factory-assault) #f (game-secrets)))
     (((speedrun-category factory-boss))
-      (start-individual-level-run! this (game-task factory-boss)))
+      (start-individual-level-run! this (game-task factory-boss) #f (game-secrets)))
     ;; Act 3 ILs
     (((speedrun-category temple-defend))
-      (start-individual-level-run! this (game-task temple-defend)))
+      (start-individual-level-run! this (game-task temple-defend) #f (game-secrets)))
     (((speedrun-category wascity-defend))
-      (start-individual-level-run! this (game-task wascity-defend)))
+      (start-individual-level-run! this (game-task wascity-defend) #f (game-secrets)))
     (((speedrun-category forest-turn-on-machine))
-      (start-individual-level-run! this (game-task forest-turn-on-machine)))
+      (start-individual-level-run! this (game-task forest-turn-on-machine) #f (game-secrets)))
     (((speedrun-category precursor-tour))
-      (start-individual-level-run! this (game-task precursor-tour)))
+      (start-individual-level-run! this (game-task precursor-tour) #f (game-secrets)))
     (((speedrun-category city-blow-tower))
-      (start-individual-level-run! this (game-task city-blow-tower)))
+      (start-individual-level-run! this (game-task city-blow-tower) #f (game-secrets)))
     (((speedrun-category tower-destroy))
-      (start-individual-level-run! this (game-task tower-destroy)))
+      (start-individual-level-run! this (game-task tower-destroy) #f (game-secrets)))
     (((speedrun-category palace-ruins-patrol))
-      (start-individual-level-run! this (game-task palace-ruins-patrol)))
+      (start-individual-level-run! this (game-task palace-ruins-patrol) #f (game-secrets)))
     (((speedrun-category palace-ruins-attack))
-      (start-individual-level-run! this (game-task palace-ruins-attack)))
+      (start-individual-level-run! this (game-task palace-ruins-attack) #f (game-secrets)))
     (((speedrun-category comb-wild-ride))
-      (start-individual-level-run! this (game-task comb-wild-ride)))
+      (start-individual-level-run! this (game-task comb-wild-ride) #f (game-secrets)))
     (((speedrun-category precursor-destroy-ship))
-      (start-individual-level-run! this (game-task precursor-destroy-ship)))
+      (start-individual-level-run! this (game-task precursor-destroy-ship) #f (game-secrets)))
     (((speedrun-category terraformer))
-      (start-individual-level-run! this (game-task terraformer)))
+      (start-individual-level-run! this (game-task terraformer) #f (game-secrets)))
     (((speedrun-category desert-final-boss))
-      (start-individual-level-run! this (game-task desert-final-boss)))
+      (start-individual-level-run! this (game-task desert-final-boss) #f (game-secrets)))
+    
+    ;; Side Missions
+    (((speedrun-category desert-bbush-get-to-1))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-1) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-2))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-2) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-3))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-3) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-4))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-4) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-5))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-5) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-6))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-6) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-7))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-7) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-8))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-8) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-9))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-9) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-11))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-11) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-12))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-12) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-14))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-14) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-16))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-16) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-17))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-17) #t (game-secrets)))
+    (((speedrun-category wascity-bbush-get-to-18))
+      (start-individual-level-run! this (game-task wascity-bbush-get-to-18) #t (game-secrets)))
+    (((speedrun-category desert-bbush-get-to-19))
+      (start-individual-level-run! this (game-task desert-bbush-get-to-19) #t (game-secrets)))
+    (((speedrun-category wascity-bbush-get-to-20))
+      (start-individual-level-run! this (game-task wascity-bbush-get-to-20) #t (game-secrets)))
+    (((speedrun-category wascity-bbush-get-to-21))
+      (start-individual-level-run! this (game-task wascity-bbush-get-to-21) #t (game-secrets)))
+    (((speedrun-category wascity-bbush-get-to-22))
+      (start-individual-level-run! this (game-task wascity-bbush-get-to-22) #t (game-secrets)))
+    (((speedrun-category wascity-bbush-get-to-23))
+      (start-individual-level-run! this (game-task wascity-bbush-get-to-23) #t (game-secrets)))
+    (((speedrun-category wascity-bbush-get-to-24))
+      (start-individual-level-run! this (game-task wascity-bbush-get-to-24) #t (game-secrets)))
+    (((speedrun-category wascity-bbush-get-to-25))
+      (start-individual-level-run! this (game-task wascity-bbush-get-to-25) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-26))
+      (start-individual-level-run! this (game-task city-bbush-get-to-26) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-27))
+      (start-individual-level-run! this (game-task city-bbush-get-to-27) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-28))
+      (start-individual-level-run! this (game-task city-bbush-get-to-28) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-29))
+      (start-individual-level-run! this (game-task city-bbush-get-to-29) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-30))
+      (start-individual-level-run! this (game-task city-bbush-get-to-30) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-31))
+      (start-individual-level-run! this (game-task city-bbush-get-to-31) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-32))
+      (start-individual-level-run! this (game-task city-bbush-get-to-32) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-33))
+      (start-individual-level-run! this (game-task city-bbush-get-to-33) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-34))
+      (start-individual-level-run! this (game-task city-bbush-get-to-34) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-35))
+      (start-individual-level-run! this (game-task city-bbush-get-to-35) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-36))
+      (start-individual-level-run! this (game-task city-bbush-get-to-36) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-37))
+      (start-individual-level-run! this (game-task city-bbush-get-to-37) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-38))
+      (start-individual-level-run! this (game-task city-bbush-get-to-38) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-39))
+      (start-individual-level-run! this (game-task city-bbush-get-to-39) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-40))
+      (start-individual-level-run! this (game-task city-bbush-get-to-40) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-41))
+      (start-individual-level-run! this (game-task city-bbush-get-to-41) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-42))
+      (start-individual-level-run! this (game-task city-bbush-get-to-42) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-43))
+      (start-individual-level-run! this (game-task city-bbush-get-to-43) #t (game-secrets)))
+    (((speedrun-category city-bbush-get-to-44))
+      (start-individual-level-run! this (game-task city-bbush-get-to-44) #t (game-secrets)))
+    (((speedrun-category desert-bbush-ring-1))
+      (start-individual-level-run! this (game-task desert-bbush-ring-1) #t (game-secrets)))
+    (((speedrun-category desert-bbush-ring-2))
+      (start-individual-level-run! this (game-task desert-bbush-ring-2) #t (game-secrets)))
+    (((speedrun-category wascity-bbush-ring-3))
+      (start-individual-level-run! this (game-task wascity-bbush-ring-3) #t (game-secrets)))
+    (((speedrun-category wascity-bbush-ring-4))
+      (start-individual-level-run! this (game-task wascity-bbush-ring-4) #t (game-secrets)))
+    (((speedrun-category city-bbush-ring-5))
+      (start-individual-level-run! this (game-task city-bbush-ring-5) #t (game-secrets)))
+    (((speedrun-category city-bbush-ring-6))
+      (start-individual-level-run! this (game-task city-bbush-ring-6) #t (game-secrets)))
+    (((speedrun-category desert-bbush-egg-spider-1))
+      (start-individual-level-run! this (game-task desert-bbush-egg-spider-1) #t (game-secrets)))
+    (((speedrun-category desert-bbush-spirit-chase-1))
+      (start-individual-level-run! this (game-task desert-bbush-spirit-chase-1) #t (game-secrets)))
+    (((speedrun-category wascity-bbush-spirit-chase-2))
+      (start-individual-level-run! this (game-task wascity-bbush-spirit-chase-2) #t (game-secrets)))
+    (((speedrun-category city-bbush-spirit-chase-3))
+      (start-individual-level-run! this (game-task city-bbush-spirit-chase-3) #t (game-secrets)))
+    (((speedrun-category desert-bbush-timer-chase-1))
+      (start-individual-level-run! this (game-task desert-bbush-timer-chase-1) #t (game-secrets)))
+    (((speedrun-category wascity-bbush-timer-chase-2))
+      (start-individual-level-run! this (game-task wascity-bbush-timer-chase-2) #t (game-secrets)))
+    (((speedrun-category desert-bbush-air-time))
+      (start-individual-level-run! this (game-task desert-bbush-air-time) #t (game-secrets)))
+    (((speedrun-category desert-bbush-total-air-time))
+      (start-individual-level-run! this (game-task desert-bbush-total-air-time) #t (game-secrets)))
+    (((speedrun-category desert-bbush-jump-distance))
+      (start-individual-level-run! this (game-task desert-bbush-jump-distance) #t (game-secrets)))
+    (((speedrun-category desert-bbush-total-jump-distance))
+      (start-individual-level-run! this (game-task desert-bbush-total-jump-distance) #t (game-secrets)))
+    (((speedrun-category desert-bbush-roll-count))
+      (start-individual-level-run! this (game-task desert-bbush-roll-count) #t (game-secrets)))
+    (((speedrun-category desert-bbush-time-trial-1))
+      (start-individual-level-run! this (game-task desert-bbush-time-trial-1) #t (game-secrets)))
+    (((speedrun-category desert-bbush-rally))
+      (start-individual-level-run! this (game-task desert-bbush-rally) #t (game-secrets)))
+    (((speedrun-category city-bbush-port-attack))
+      (start-individual-level-run! this (game-task city-bbush-port-attack) #t (game-secrets)))
+    (((speedrun-category desert-rescue-bbush))
+      (start-individual-level-run! this (game-task desert-rescue-bbush) #t (game-secrets)))
+    (((speedrun-category city-gun-course-play-for-fun))
+      (start-individual-level-run! this (game-task city-gun-course-play-for-fun) #t (game-secrets)))
+    (((speedrun-category city-jetboard-bbush))
+      (start-individual-level-run! this (game-task city-jetboard-bbush) #t (game-secrets)))
+    (((speedrun-category desert-bbush-destroy-interceptors))
+      (start-individual-level-run! this (game-task desert-bbush-destroy-interceptors) #t (game-secrets)))
     (((speedrun-category custom))
      (process-spawn-function process
        (lambda :behavior process ()
@@ -780,61 +1529,275 @@
             :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-final-boss))))
           )
         )
-       (new 'static
-        'popup-menu-submenu
-        :label "Built-in Category Select"
-        :entries
-        (new 'static
-          'boxed-array
-          :type
-          popup-menu-entry
-          (new 'static
-                'popup-menu-flag
-                :label "Normal"
-                :on-confirm
-                (lambda ()
-                  (set-category! *speedrun-info* (speedrun-category newgame-normal)))
-                :is-toggled?
-                (lambda ()
-                  (= (-> *speedrun-info* category) (speedrun-category newgame-normal))))
-          (new 'static
-                'popup-menu-flag
-                :label "Hero Mode"
-                :on-confirm
-                (lambda ()
-                  (set-category! *speedrun-info* (speedrun-category newgame-heromode)))
-                :is-toggled?
-                (lambda ()
-                  (= (-> *speedrun-info* category) (speedrun-category newgame-heromode))))
-          (new 'static
-                'popup-menu-flag
-                :label "All Cheats Allowed"
-                :on-confirm
-                (lambda ()
-                  (set-category! *speedrun-info* (speedrun-category all-cheats-allowed)))
-                :is-toggled?
-                (lambda ()
-                  (= (-> *speedrun-info* category) (speedrun-category all-cheats-allowed))))
+       (new 'static 'popup-menu-submenu :label "Side Missions"
+        :entries (new 'static 'boxed-array :type popup-menu-entry
+          (new 'static 'popup-menu-submenu :label "Side Missions - Spargus"
+            :entries (new 'static 'boxed-array :type popup-menu-entry 
+              (new 'static 'popup-menu-flag :label "Orb Search 18 (Spargus E)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-get-to-18)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-get-to-18))))
+              (new 'static 'popup-menu-flag :label "Orb Search 19 (Spargus E)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-19)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-19))))
+              (new 'static 'popup-menu-flag :label "Orb Search 20 (Spargus E)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-get-to-20)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-get-to-20))))
+              (new 'static 'popup-menu-flag :label "Orb Search 21 (Spargus E)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-get-to-21)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-get-to-21))))
+              (new 'static 'popup-menu-flag :label "Orb Search 22 (Spargus W)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-get-to-22)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-get-to-22))))
+              (new 'static 'popup-menu-flag :label "Orb Search 23 (Spargus W)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-get-to-23)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-get-to-23))))
+              (new 'static 'popup-menu-flag :label "Orb Search 24 (Spargus W)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-get-to-24)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-get-to-24))))
+              (new 'static 'popup-menu-flag :label "Orb Search 25 (Spargus W)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-get-to-25)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-get-to-25))))
+              (new 'static 'popup-menu-flag :label "Ring Race 3 (Spargus W)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-ring-3)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-ring-3))))
+              (new 'static 'popup-menu-flag :label "Ring Race 4 (Spargus E)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-ring-4)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-ring-4))))
+              (new 'static 'popup-menu-flag :label "Spirit Chase 2 (Spargus)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-spirit-chase-2)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-spirit-chase-2))))
+              (new 'static 'popup-menu-flag :label "Timer Race 2 (Spargus)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-timer-chase-2)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-timer-chase-2))))
+              )
+            )
+          (new 'static 'popup-menu-submenu :label "Side Missions - Wasteland"
+            :entries (new 'static 'boxed-array :type popup-menu-entry 
+              (new 'static 'popup-menu-flag :label "Orb Search 1 (Wasteland NE)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-1)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-1))))
+              (new 'static 'popup-menu-flag :label "Orb Search 2 (Wasteland W)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-2)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-2))))
+              (new 'static 'popup-menu-flag :label "Orb Search 3 (Wasteland NW)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-3)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-3))))
+              (new 'static 'popup-menu-flag :label "Orb Search 4 (Wasteland SE)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-4)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-4))))
+              (new 'static 'popup-menu-flag :label "Orb Search 5 (Wasteland SE)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-5)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-5))))
+              (new 'static 'popup-menu-flag :label "Orb Search 6 (Wasteland W)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-6)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-6))))
+              (new 'static 'popup-menu-flag :label "Orb Search 7 (Wasteland SW)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-7)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-7))))
+              (new 'static 'popup-menu-flag :label "Orb Search 8 (Wasteland NE)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-8)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-8))))
+              (new 'static 'popup-menu-flag :label "Orb Search 9 (Wasteland N)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-9)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-9))))
+              (new 'static 'popup-menu-flag :label "Orb Search 11 (Wasteland SE)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-11)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-11))))
+              (new 'static 'popup-menu-flag :label "Orb Search 12 (Wasteland E)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-12)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-12))))
+              (new 'static 'popup-menu-flag :label "Orb Search 14 (Wasteland SW)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-14)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-14))))
+              (new 'static 'popup-menu-flag :label "Orb Search 16 (Wasteland E)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-16)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-16))))
+              (new 'static 'popup-menu-flag :label "Orb Search 17 (Wasteland NE)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-17)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-17))))
+              (new 'static 'popup-menu-flag :label "Ring Race 1 (Wasteland SE)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-ring-1)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-ring-1))))
+              (new 'static 'popup-menu-flag :label "Ring Race 2 (Wasteland SW)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-ring-2)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-ring-2))))
+              (new 'static 'popup-menu-flag :label "Pod Spider Hunt"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-egg-spider-1)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-egg-spider-1))))
+              (new 'static 'popup-menu-flag :label "Spirit Chase 1 (Wasteland)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-spirit-chase-1)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-spirit-chase-1))))
+              (new 'static 'popup-menu-flag :label "Timer Race 1 (Wasteland)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-timer-chase-1)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-timer-chase-1))))
+              ;; can't really speedrun these, just leaving them out for now
+              ;; (new 'static 'popup-menu-flag :label "Single Hang Time Challenge"
+              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-air-time)))
+              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-air-time))))
+              ;; (new 'static 'popup-menu-flag :label "Total Hang Time Challenge"
+              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-total-air-time)))
+              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-total-air-time))))
+              ;; (new 'static 'popup-menu-flag :label "Single Distance Challenge"
+              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-jump-distance)))
+              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-jump-distance))))
+              ;; (new 'static 'popup-menu-flag :label "Total Distance Challenge"
+              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-total-jump-distance)))
+              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-total-jump-distance))))
+              ;; (new 'static 'popup-menu-flag :label "Roll Challenge"
+              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-roll-count)))
+              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-roll-count))))
+              (new 'static 'popup-menu-flag :label "Wasteland Racetrack Time Trial"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-time-trial-1)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-time-trial-1))))
+              (new 'static 'popup-menu-flag :label "Wasteland Rally"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-rally)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-rally))))
+              (new 'static 'popup-menu-flag :label "Rescue More Wastelanders"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-rescue-bbush)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-rescue-bbush))))
+              ;; can't really speedrun this, just leaving out for now
+              ;; (new 'static 'popup-menu-flag :label "Destroy Marauders ?"
+              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-destroy-interceptors)))
+              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-destroy-interceptors))))
+              )
+            )
+          (new 'static 'popup-menu-submenu :label "Side Missions - Haven"
+            :entries (new 'static 'boxed-array :type popup-menu-entry 
+              (new 'static 'popup-menu-flag :label "Orb Search 26 (Main Town Ruins)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-26)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-26))))
+              (new 'static 'popup-menu-flag :label "Orb Search 27 (New Haven S)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-27)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-27))))
+              (new 'static 'popup-menu-flag :label "Orb Search 28 (Main Town Ruins)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-28)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-28))))
+              (new 'static 'popup-menu-flag :label "Orb Search 29 (Main Town Ruins)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-29)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-29))))
+              (new 'static 'popup-menu-flag :label "Orb Search 30 (Main Town Ruins)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-30)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-30))))
+              (new 'static 'popup-menu-flag :label "Orb Search 31 (New Haven S)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-31)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-31))))
+              (new 'static 'popup-menu-flag :label "Orb Search 32 (New Haven N)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-32)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-32))))
+              (new 'static 'popup-menu-flag :label "Orb Search 33 (New Haven N)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-33)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-33))))
+              (new 'static 'popup-menu-flag :label "Orb Search 34 (Slums)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-34)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-34))))
+              (new 'static 'popup-menu-flag :label "Orb Search 35 (Slums)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-35)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-35))))
+              (new 'static 'popup-menu-flag :label "Orb Search 36 (Industrial N)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-36)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-36))))
+              (new 'static 'popup-menu-flag :label "Orb Search 37 (Industrial N)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-37)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-37))))
+              (new 'static 'popup-menu-flag :label "Orb Search 38 (Industrial S)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-38)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-38))))
+              (new 'static 'popup-menu-flag :label "Orb Search 39 (Industrial S)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-39)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-39))))
+              (new 'static 'popup-menu-flag :label "Orb Search 40 (Industrial S)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-40)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-40))))
+              (new 'static 'popup-menu-flag :label "Orb Search 41 (Port)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-41)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-41))))
+              (new 'static 'popup-menu-flag :label "Orb Search 42 (Port)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-42)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-42))))
+              (new 'static 'popup-menu-flag :label "Orb Search 43 (Port)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-43)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-43))))
+              (new 'static 'popup-menu-flag :label "Orb Search 44 (Port)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-get-to-44)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-get-to-44))))
+              (new 'static 'popup-menu-flag :label "Ring Race 5 (New Haven S)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-ring-5)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-ring-5))))
+              (new 'static 'popup-menu-flag :label "Ring Race 6 (Industrial S)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-ring-6)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-ring-6))))
+              (new 'static 'popup-menu-flag :label "Spirit Chase 3 (Slums)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-spirit-chase-3)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-spirit-chase-3))))
+              (new 'static 'popup-menu-flag :label "Port Missile Challenge"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-port-attack)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-port-attack))))
+              ;; maybe add Ratchet and Clank courses?
+              ;; (new 'static 'popup-menu-flag :label "Gun Course ?"
+              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-gun-course-play-for-fun)))
+              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-gun-course-play-for-fun))))
+              (new 'static 'popup-menu-flag :label "JET-Board Challenge"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-jetboard-bbush)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-jetboard-bbush))))
+              )
+            )
           )
         )
-       (new 'static
-            'popup-menu-dynamic-submenu
-            :label "Custom Category Select"
-            :get-length
-            (lambda ()
-              (pc-sr-mode-get-custom-category-amount))
-            :get-entry-label
-            (lambda ((index int) (str-dest string))
-              (pc-sr-mode-get-custom-category-name index str-dest))
-            :on-entry-confirm
-            (lambda ((index int))
-              ;; hydrate from cpp
-              (pc-sr-mode-init-custom-category-info! index (-> *speedrun-info* active-custom-category))
-              (set-category! *speedrun-info* (speedrun-category custom)))
-            :entry-selected?
-            (lambda ((index int))
-              (and (= (-> *speedrun-info* category) (speedrun-category custom))
-                   (= index (-> *speedrun-info* active-custom-category index)))))
+      ;;  (new 'static
+      ;;   'popup-menu-submenu
+      ;;   :label "Built-in Category Select"
+      ;;   :entries
+      ;;   (new 'static
+      ;;     'boxed-array
+      ;;     :type
+      ;;     popup-menu-entry
+      ;;     (new 'static
+      ;;           'popup-menu-flag
+      ;;           :label "Normal"
+      ;;           :on-confirm
+      ;;           (lambda ()
+      ;;             (set-category! *speedrun-info* (speedrun-category newgame-normal)))
+      ;;           :is-toggled?
+      ;;           (lambda ()
+      ;;             (= (-> *speedrun-info* category) (speedrun-category newgame-normal))))
+      ;;     (new 'static
+      ;;           'popup-menu-flag
+      ;;           :label "Hero Mode"
+      ;;           :on-confirm
+      ;;           (lambda ()
+      ;;             (set-category! *speedrun-info* (speedrun-category newgame-heromode)))
+      ;;           :is-toggled?
+      ;;           (lambda ()
+      ;;             (= (-> *speedrun-info* category) (speedrun-category newgame-heromode))))
+      ;;     (new 'static
+      ;;           'popup-menu-flag
+      ;;           :label "All Cheats Allowed"
+      ;;           :on-confirm
+      ;;           (lambda ()
+      ;;             (set-category! *speedrun-info* (speedrun-category all-cheats-allowed)))
+      ;;           :is-toggled?
+      ;;           (lambda ()
+      ;;             (= (-> *speedrun-info* category) (speedrun-category all-cheats-allowed))))
+      ;;     )
+      ;;   )
+      ;;  (new 'static
+      ;;       'popup-menu-dynamic-submenu
+      ;;       :label "Custom Category Select"
+      ;;       :get-length
+      ;;       (lambda ()
+      ;;         (pc-sr-mode-get-custom-category-amount))
+      ;;       :get-entry-label
+      ;;       (lambda ((index int) (str-dest string))
+      ;;         (pc-sr-mode-get-custom-category-name index str-dest))
+      ;;       :on-entry-confirm
+      ;;       (lambda ((index int))
+      ;;         ;; hydrate from cpp
+      ;;         (pc-sr-mode-init-custom-category-info! index (-> *speedrun-info* active-custom-category))
+      ;;         (set-category! *speedrun-info* (speedrun-category custom)))
+      ;;       :entry-selected?
+      ;;       (lambda ((index int))
+      ;;         (and (= (-> *speedrun-info* category) (speedrun-category custom))
+      ;;              (= index (-> *speedrun-info* active-custom-category index)))))
        ;; TODO - disabled until finalized
        ; (new 'static
        ;      'popup-menu-dynamic-submenu
@@ -912,136 +1875,136 @@
        ;            (deactivate (-> *speedrun-info* active-practice-objective end-zone 0))))
        ;        (set! (-> *speedrun-info* practicing?) #f)
        ;        (set! (-> (the speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) draw?) #f)))
-       (new 'static
-            'popup-menu-submenu
-            :label "Tools"
-            :entries
-            (new 'static
-                 'boxed-array
-                 :type
-                 popup-menu-entry
-                 (new 'static
-                      'popup-menu-submenu
-                      :label "Create custom category"
-                      :entries
-                      (new 'static
-                           'boxed-array
-                           :type
-                           popup-menu-entry
-                           (new 'static
-                                'popup-menu-dynamic-submenu
-                                :label "Select secrets"
-                                :get-length
-                                (lambda ()
-                                  58)
-                                :get-entry-label
-                                (lambda ((index int) (str-dest string))
-                                  (copy-string<-string str-dest (bitfield->string game-secrets index)))
-                                :on-entry-confirm
-                                (lambda ((index int))
-                                  (logxor! (-> *speedrun-info* dump-custom-category secrets) (shl 1 index)))
-                                :entry-selected?
-                                (lambda ((index int))
-                                  (logtest? (-> *speedrun-info* dump-custom-category secrets) (shl 1 index)))
-                                :on-reset
-                                (lambda ()
-                                  (set! (-> *speedrun-info* dump-custom-category secrets) (game-secrets))))
-                           (new 'static
-                                'popup-menu-dynamic-submenu
-                                :label "Select features"
-                                :get-length
-                                (lambda ()
-                                  58)
-                                :get-entry-label
-                                (lambda ((index int) (str-dest string))
-                                  (copy-string<-string str-dest (bitfield->string game-feature index)))
-                                :on-entry-confirm
-                                (lambda ((index int))
-                                  (logxor! (-> *speedrun-info* dump-custom-category features) (shl 1 index)))
-                                :entry-selected?
-                                (lambda ((index int))
-                                  (logtest? (-> *speedrun-info* dump-custom-category features) (shl 1 index)))
-                                :on-reset
-                                (lambda ()
-                                  (set! (-> *speedrun-info* dump-custom-category features) (game-feature))))
-                           (new 'static
-                                'popup-menu-dynamic-submenu
-                                :label "Select vehicles"
-                                :get-length
-                                (lambda ()
-                                  8)
-                                :get-entry-label
-                                (lambda ((index int) (str-dest string))
-                                  (copy-string<-string str-dest (bitfield->string game-vehicles index)))
-                                :on-entry-confirm
-                                (lambda ((index int))
-                                  (logxor! (-> *speedrun-info* dump-custom-category vehicles) (shl 1 index)))
-                                :entry-selected?
-                                (lambda ((index int))
-                                  (logtest? (-> *speedrun-info* dump-custom-category vehicles) (shl 1 index)))
-                                :on-reset
-                                (lambda ()
-                                  (set! (-> *speedrun-info* dump-custom-category vehicles) (game-vehicles))))
-                           (new 'static
-                                'popup-menu-dynamic-submenu
-                                :label "Forbid features"
-                                :get-length
-                                (lambda ()
-                                  58)
-                                :get-entry-label
-                                (lambda ((index int) (str-dest string))
-                                  (copy-string<-string str-dest (bitfield->string game-feature index)))
-                                :on-entry-confirm
-                                (lambda ((index int))
-                                  (logxor! (-> *speedrun-info* dump-custom-category forbidden-features) (shl 1 index)))
-                                :entry-selected?
-                                (lambda ((index int))
-                                  (logtest? (-> *speedrun-info* dump-custom-category forbidden-features) (shl 1 index)))
-                                :on-reset
-                                (lambda ()
-                                  (set! (-> *speedrun-info* dump-custom-category forbidden-features) (game-feature))))
-                           (new 'static
-                                'popup-menu-dynamic-submenu
-                                :label "Select cheats"
-                                :get-length
-                                (lambda ()
-                                  17)
-                                :get-entry-label
-                                (lambda ((index int) (str-dest string))
-                                  (copy-string<-string str-dest (bitfield->string pc-cheats index)))
-                                :on-entry-confirm
-                                (lambda ((index int))
-                                  (logxor! (-> *speedrun-info* dump-custom-category pc-cheats) (shl 1 index)))
-                                :entry-selected?
-                                (lambda ((index int))
-                                  (logtest? (-> *speedrun-info* dump-custom-category pc-cheats) (shl 1 index)))
-                                :on-reset
-                                (lambda ()
-                                  (set! (-> *speedrun-info* dump-custom-category pc-cheats) (pc-cheats))))
-                           (new 'static
-                                'popup-menu-dynamic-submenu
-                                :label "Select completed task"
-                                :get-length
-                                (lambda ()
-                                  (dec (the int (game-task max))))
-                                :get-entry-label
-                                (lambda ((index int) (str-dest string))
-                                  (copy-string<-string str-dest (enum->string game-task index)))
-                                :on-entry-confirm
-                                (lambda ((index int))
-                                  (set! (-> *speedrun-info* dump-custom-category completed-task) (the game-task index)))
-                                :entry-selected?
-                                (lambda ((index int))
-                                  (= (-> *speedrun-info* dump-custom-category completed-task) (the game-task index)))
-                                :on-reset
-                                (lambda ()
-                                  (set! (-> *speedrun-info* dump-custom-category completed-task) (game-task none))))
-                           (new 'static
-                                'popup-menu-button
-                                :label "Save new category to file"
-                                :on-confirm
-                                (lambda ()
-                                  (pc-sr-mode-dump-new-custom-category (-> *speedrun-info* dump-custom-category))))))))
+      ;;  (new 'static
+      ;;       'popup-menu-submenu
+      ;;       :label "Tools"
+      ;;       :entries
+      ;;       (new 'static
+      ;;            'boxed-array
+      ;;            :type
+      ;;            popup-menu-entry
+      ;;            (new 'static
+      ;;                 'popup-menu-submenu
+      ;;                 :label "Create custom category"
+      ;;                 :entries
+      ;;                 (new 'static
+      ;;                      'boxed-array
+      ;;                      :type
+      ;;                      popup-menu-entry
+      ;;                      (new 'static
+      ;;                           'popup-menu-dynamic-submenu
+      ;;                           :label "Select secrets"
+      ;;                           :get-length
+      ;;                           (lambda ()
+      ;;                             58)
+      ;;                           :get-entry-label
+      ;;                           (lambda ((index int) (str-dest string))
+      ;;                             (copy-string<-string str-dest (bitfield->string game-secrets index)))
+      ;;                           :on-entry-confirm
+      ;;                           (lambda ((index int))
+      ;;                             (logxor! (-> *speedrun-info* dump-custom-category secrets) (shl 1 index)))
+      ;;                           :entry-selected?
+      ;;                           (lambda ((index int))
+      ;;                             (logtest? (-> *speedrun-info* dump-custom-category secrets) (shl 1 index)))
+      ;;                           :on-reset
+      ;;                           (lambda ()
+      ;;                             (set! (-> *speedrun-info* dump-custom-category secrets) (game-secrets))))
+      ;;                      (new 'static
+      ;;                           'popup-menu-dynamic-submenu
+      ;;                           :label "Select features"
+      ;;                           :get-length
+      ;;                           (lambda ()
+      ;;                             58)
+      ;;                           :get-entry-label
+      ;;                           (lambda ((index int) (str-dest string))
+      ;;                             (copy-string<-string str-dest (bitfield->string game-feature index)))
+      ;;                           :on-entry-confirm
+      ;;                           (lambda ((index int))
+      ;;                             (logxor! (-> *speedrun-info* dump-custom-category features) (shl 1 index)))
+      ;;                           :entry-selected?
+      ;;                           (lambda ((index int))
+      ;;                             (logtest? (-> *speedrun-info* dump-custom-category features) (shl 1 index)))
+      ;;                           :on-reset
+      ;;                           (lambda ()
+      ;;                             (set! (-> *speedrun-info* dump-custom-category features) (game-feature))))
+      ;;                      (new 'static
+      ;;                           'popup-menu-dynamic-submenu
+      ;;                           :label "Select vehicles"
+      ;;                           :get-length
+      ;;                           (lambda ()
+      ;;                             8)
+      ;;                           :get-entry-label
+      ;;                           (lambda ((index int) (str-dest string))
+      ;;                             (copy-string<-string str-dest (bitfield->string game-vehicles index)))
+      ;;                           :on-entry-confirm
+      ;;                           (lambda ((index int))
+      ;;                             (logxor! (-> *speedrun-info* dump-custom-category vehicles) (shl 1 index)))
+      ;;                           :entry-selected?
+      ;;                           (lambda ((index int))
+      ;;                             (logtest? (-> *speedrun-info* dump-custom-category vehicles) (shl 1 index)))
+      ;;                           :on-reset
+      ;;                           (lambda ()
+      ;;                             (set! (-> *speedrun-info* dump-custom-category vehicles) (game-vehicles))))
+      ;;                      (new 'static
+      ;;                           'popup-menu-dynamic-submenu
+      ;;                           :label "Forbid features"
+      ;;                           :get-length
+      ;;                           (lambda ()
+      ;;                             58)
+      ;;                           :get-entry-label
+      ;;                           (lambda ((index int) (str-dest string))
+      ;;                             (copy-string<-string str-dest (bitfield->string game-feature index)))
+      ;;                           :on-entry-confirm
+      ;;                           (lambda ((index int))
+      ;;                             (logxor! (-> *speedrun-info* dump-custom-category forbidden-features) (shl 1 index)))
+      ;;                           :entry-selected?
+      ;;                           (lambda ((index int))
+      ;;                             (logtest? (-> *speedrun-info* dump-custom-category forbidden-features) (shl 1 index)))
+      ;;                           :on-reset
+      ;;                           (lambda ()
+      ;;                             (set! (-> *speedrun-info* dump-custom-category forbidden-features) (game-feature))))
+      ;;                      (new 'static
+      ;;                           'popup-menu-dynamic-submenu
+      ;;                           :label "Select cheats"
+      ;;                           :get-length
+      ;;                           (lambda ()
+      ;;                             17)
+      ;;                           :get-entry-label
+      ;;                           (lambda ((index int) (str-dest string))
+      ;;                             (copy-string<-string str-dest (bitfield->string pc-cheats index)))
+      ;;                           :on-entry-confirm
+      ;;                           (lambda ((index int))
+      ;;                             (logxor! (-> *speedrun-info* dump-custom-category pc-cheats) (shl 1 index)))
+      ;;                           :entry-selected?
+      ;;                           (lambda ((index int))
+      ;;                             (logtest? (-> *speedrun-info* dump-custom-category pc-cheats) (shl 1 index)))
+      ;;                           :on-reset
+      ;;                           (lambda ()
+      ;;                             (set! (-> *speedrun-info* dump-custom-category pc-cheats) (pc-cheats))))
+      ;;                      (new 'static
+      ;;                           'popup-menu-dynamic-submenu
+      ;;                           :label "Select completed task"
+      ;;                           :get-length
+      ;;                           (lambda ()
+      ;;                             (dec (the int (game-task max))))
+      ;;                           :get-entry-label
+      ;;                           (lambda ((index int) (str-dest string))
+      ;;                             (copy-string<-string str-dest (enum->string game-task index)))
+      ;;                           :on-entry-confirm
+      ;;                           (lambda ((index int))
+      ;;                             (set! (-> *speedrun-info* dump-custom-category completed-task) (the game-task index)))
+      ;;                           :entry-selected?
+      ;;                           (lambda ((index int))
+      ;;                             (= (-> *speedrun-info* dump-custom-category completed-task) (the game-task index)))
+      ;;                           :on-reset
+      ;;                           (lambda ()
+      ;;                             (set! (-> *speedrun-info* dump-custom-category completed-task) (game-task none))))
+      ;;                      (new 'static
+      ;;                           'popup-menu-button
+      ;;                           :label "Save new category to file"
+      ;;                           :on-confirm
+      ;;                           (lambda ()
+      ;;                             (pc-sr-mode-dump-new-custom-category (-> *speedrun-info* dump-custom-category))))))))
        (new 'static
             'popup-menu-button
             :label "Exit"
@@ -1062,6 +2025,12 @@
   (set! (-> *speedrun-info* waiting-to-record-practice-attempt?) #f)
   (go-virtual idle))
 
+(defun maybe-stop-timer-for-retryable-task ((tsk game-task))
+  ;; if we have an end task that matches, stop timer 
+  (when (= (-> *speedrun-info* active-practice-objective end-task) tsk)
+    (stop! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer)))))
+  (none))
+
 (defmethod update! ((this speedrun-info))
   "A per frame update for speedrunning related stuff"
   ;; Ensure the speedrunner menu process is enabled or destroyed
@@ -1079,6 +2048,29 @@
                (time-elapsed? (-> this run-started-at) (seconds 10))
                )
       (false! (-> this display-run-info?)))
+
+    ;; track avg speed
+    (let* ((timer (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
+           (total-run-ticks (- (get-real-current-time) (-> timer start-time)))
+           (total-run-frames (/ total-run-ticks 5)))
+      (when (and *target* timer (not (-> timer stopped?)) (> total-run-frames 0))
+        (let ((new-avg (/ 
+                          (+
+                            (* (-> this avg-speed) (- total-run-frames 1)) ;; past X-1 frames worth
+                            (-> *target* control ctrl-xz-vel) ;; 1 frame worth
+                            )
+                          total-run-frames
+                          )))
+          ;; (format 0 "total ticks ~D frames ~D / avg ~F / cur ~F / final ~F ~%" 
+          ;;   total-run-ticks
+          ;;   total-run-frames 
+          ;;   (-> this avg-speed) 
+          ;;   (-> *target* control ctrl-xz-vel) 
+          ;;   new-avg)
+          (set! (-> this avg-speed) new-avg)
+          )
+        )
+      )
 
     ;; if we have an end task...
     (when (!= (-> *speedrun-info* active-practice-objective end-task) (game-task none))
@@ -1116,12 +2108,13 @@
                *pc-settings-built-sha*))
       (else
        (format *temp-string*
-               "<COLOR_WHITE>Category: <COLOR_GREEN>~S~%<COLOR_WHITE>PC Cheats: <COLOR_GREEN>~S~%<COLOR_WHITE>Frame Rate: <COLOR_GREEN>~D~%<COLOR_WHITE>PS2 Actor Vis?: <COLOR_GREEN>~S~%<COLOR_WHITE>Version: <COLOR_GREEN>~S~%"
+              ;;  "<COLOR_WHITE>Category: <COLOR_GREEN>~S~%<COLOR_WHITE>PC Cheats: <COLOR_GREEN>~S~%<COLOR_WHITE>Frame Rate: <COLOR_GREEN>~D~%<COLOR_WHITE>PS2 Actor Vis?: <COLOR_GREEN>~S~%<COLOR_WHITE>Version: <COLOR_GREEN>~S~%"
+               "<COLOR_WHITE>Category: <COLOR_GREEN>~S~%Mod Version: <COLOR_GREEN>~S~%"
                (enum->string speedrun-category (-> this category))
-               (if (= (-> *pc-settings* cheats) (pc-cheats)) "None" (pc-cheats->string (-> *pc-settings* cheats) *temp-string2*))
-               (-> *pc-settings* target-fps)
-               (if (-> *pc-settings* ps2-actor-vis?) "true" "false")
-               *pc-settings-built-sha*)))
+              ;;  (if (= (-> *pc-settings* cheats) (pc-cheats)) "None" (pc-cheats->string (-> *pc-settings* cheats) *temp-string2*))
+              ;;  (-> *pc-settings* target-fps)
+              ;;  (if (-> *pc-settings* ps2-actor-vis?) "true" "false")
+               *mod-version-text*)))
     (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
     (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf2))
       ;; reset bucket settings prior to drawing - font won't do this for us, and
@@ -1133,7 +2126,7 @@
                            'font-context
                            *font-default-matrix*
                            510
-                           (if (= (-> this category) (speedrun-category custom)) 355 365)
+                           (if (= (-> this category) (speedrun-category custom)) 355 395)
                            0.0
                            (font-color default)
                            (font-flags right shadow kerning large))))
@@ -1148,37 +2141,43 @@
 
 (defmethod draw-menu ((this speedrun-manager))
   ;; don't allow the menu to open during blackouts, apparently causes bugs
-  (if (and (< (-> *game-info* blackout-time) (get-current-time)) (progress-allowed?))
-    ;; handle opening and closing the menu
-    (cond
-      ((!= (-> *pc-settings* speedrunner-mode-custom-bind) 0)
-       ;; the user has let go of the keybind completely or partially, allow the bind to trigger again
-       (when (and (-> this ignore-menu-toggle?)
-                  (!= (cpad-hold 0) (logior (cpad-hold 0) (-> *pc-settings* speedrunner-mode-custom-bind))))
-         (false! (-> this ignore-menu-toggle?)))
-       ;; bind handler
-       (when (and (not (-> this ignore-menu-toggle?))
-                  (= (cpad-hold 0) (logior (cpad-hold 0) (-> *pc-settings* speedrunner-mode-custom-bind))))
-         (send-event (ppointer->process (-> this popup-menu)) 'open-menu)
-         (logclear! (cpad-hold 0) (-> *pc-settings* speedrunner-mode-custom-bind))
-         (logclear! (cpad-pressed 0) (-> *pc-settings* speedrunner-mode-custom-bind))
-         (true! (-> this ignore-menu-toggle?))))
-      (else
-       (when (and (-> this ignore-menu-toggle?)
-                  (or (not (cpad-hold? 0 l1)) (not (cpad-hold? 0 r1)))
-                  (or (and (-> this opened-with-start?) (not (cpad-hold? 0 start)))
-                      (and (not (-> this opened-with-start?)) (not (cpad-hold? 0 select)))))
-         (set! (-> this ignore-menu-toggle?) #f))
-       (when (and (cpad-hold? 0 l1)
-                  (cpad-hold? 0 r1)
-                  (or (cpad-hold? 0 select) (cpad-hold? 0 start))
-                  (not (-> this ignore-menu-toggle?)))
-         (send-event (ppointer->process (-> this popup-menu)) 'open-menu)
-         (cpad-clear! 0 l1 r1)
-         (cond
-           ((cpad-hold? 0 select) (cpad-clear! 0 select) (false! (-> this opened-with-start?)))
-           ((cpad-hold? 0 start) (cpad-clear! 0 start) (true! (-> this opened-with-start?))))
-         (true! (-> this ignore-menu-toggle?)))))))
+  (when (or (>= (-> *game-info* blackout-time) (get-current-time))
+            (not (progress-allowed?))
+            (not *target*)
+            (focus-test? *target* dead)
+            )
+    (return 0))
+  ;; handle opening and closing the menu
+  (cond
+    ((!= (-> *pc-settings* speedrunner-mode-custom-bind) 0)
+      ;; the user has let go of the keybind completely or partially, allow the bind to trigger again
+      (when (and (-> this ignore-menu-toggle?)
+                (!= (cpad-hold 0) (logior (cpad-hold 0) (-> *pc-settings* speedrunner-mode-custom-bind))))
+        (false! (-> this ignore-menu-toggle?)))
+      ;; bind handler
+      (when (and (not (-> this ignore-menu-toggle?))
+                (= (cpad-hold 0) (logior (cpad-hold 0) (-> *pc-settings* speedrunner-mode-custom-bind))))
+        (send-event (ppointer->process (-> this popup-menu)) 'open-menu)
+        (logclear! (cpad-hold 0) (-> *pc-settings* speedrunner-mode-custom-bind))
+        (logclear! (cpad-pressed 0) (-> *pc-settings* speedrunner-mode-custom-bind))
+        (true! (-> this ignore-menu-toggle?))))
+    (else
+      (when (and (-> this ignore-menu-toggle?)
+                (or (not (cpad-hold? 0 l1)) (not (cpad-hold? 0 r1)))
+                (or (and (-> this opened-with-start?) (not (cpad-hold? 0 start)))
+                    (and (not (-> this opened-with-start?)) (not (cpad-hold? 0 select)))))
+        (set! (-> this ignore-menu-toggle?) #f))
+      (when (and (cpad-hold? 0 l1)
+                (cpad-hold? 0 r1)
+                (or (cpad-hold? 0 select) (cpad-hold? 0 start))
+                (not (-> this ignore-menu-toggle?)))
+        (send-event (ppointer->process (-> this popup-menu)) 'open-menu)
+        (cpad-clear! 0 l1 r1)
+        (cond
+          ((cpad-hold? 0 select) (cpad-clear! 0 select) (false! (-> this opened-with-start?)))
+          ((cpad-hold? 0 start) (cpad-clear! 0 start) (true! (-> this opened-with-start?))))
+        (true! (-> this ignore-menu-toggle?)))))
+  (none))
 
 (defstate idle (speedrun-manager)
   :virtual #t

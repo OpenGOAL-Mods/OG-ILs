@@ -3536,7 +3536,7 @@
   (none)
   )
 
-(define-extern get-speedrun-end-results-text (function string))
+(define-extern print-speedrun-end-results-text (function dma-buffer float none))
 (defmethod draw-option ((obj menu-speedrun-end-results-option) (arg0 progress) (arg1 font-context) (arg2 int) (arg3 symbol))
   (set! (-> arg1 alpha) (- 1.0 (-> arg0 menu-transition)))
   (set-color! arg1 (font-color menu))
@@ -3564,10 +3564,8 @@
     ;; reset bucket settings prior to drawing - font won't do this for us, and
     ;; draw-raw-image can sometimes mess them up. (intro sequence)
     (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
-    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 88 0.0 (font-color default) (font-flags middle shadow kerning large))))
-      (set! (-> font-ctx alpha) (- 1.0 (-> arg0 menu-transition)))
-      (set! (-> font-ctx scale) 0.75)
-      (draw-string-adv (get-speedrun-end-results-text) buf font-ctx)))
+    (print-speedrun-end-results-text buf (- 1.0 (-> arg0 menu-transition)))
+    )
 
   (none))
 
