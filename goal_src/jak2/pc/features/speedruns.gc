@@ -535,7 +535,7 @@
     ;; reset bucket settings prior to drawing - font won't do this for us, and
     ;; draw-raw-image can sometimes mess them up. (intro sequence)
     (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
-    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 2 406 0.0 (font-color default) (font-flags shadow kerning large))))
+    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 2 (if *display-sha* 396 406) 0.0 (font-color default) (font-flags shadow kerning large))))
       (set! (-> font-ctx scale) 0.25)
       (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
 

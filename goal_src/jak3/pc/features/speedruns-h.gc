@@ -76,7 +76,7 @@
    (draw-info (_type_) object)
    (reset! (_type_) object)))
 
-(defconstant *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 67 :allocated-length 67
+(defconstant *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 129 :allocated-length 129
   "Normal"
   "Hero Mode"
   ;; Act 1 ILs
@@ -144,6 +144,72 @@
   "Destroy Dark Ship"
   "Terraformer"
   "Destroy Final Boss"
+  ;; Side Missions
+  "Orb Search 1 (Wasteland NE)"     ;; desert-bbush-get-to-1
+  "Orb Search 2 (Wasteland W)"      ;; desert-bbush-get-to-2
+  "Orb Search 3 (Wasteland NW)"     ;; desert-bbush-get-to-3
+  "Orb Search 4 (Wasteland SE)"     ;; desert-bbush-get-to-4
+  "Orb Search 5 (Wasteland SE)"     ;; desert-bbush-get-to-5
+  "Orb Search 6 (Wasteland W)"      ;; desert-bbush-get-to-6
+  "Orb Search 7 (Wasteland SW)"     ;; desert-bbush-get-to-7
+  "Orb Search 8 (Wasteland NE)"     ;; desert-bbush-get-to-8
+  "Orb Search 9 (Wasteland N)"      ;; desert-bbush-get-to-9
+  "Orb Search 11 (Wasteland SE)"    ;; desert-bbush-get-to-11
+  "Orb Search 12 (Wasteland E)"     ;; desert-bbush-get-to-12
+  "Orb Search 14 (Wasteland SW)"    ;; desert-bbush-get-to-14
+  "Orb Search 16 (Wasteland E)"     ;; desert-bbush-get-to-16
+  "Orb Search 17 (Wasteland NE)"    ;; desert-bbush-get-to-17
+  "Orb Search 18 (Spargus E)"       ;; wascity-bbush-get-to-18
+  "Orb Search 19 (Spargus E)"       ;; desert-bbush-get-to-19
+  "Orb Search 20 (Spargus E)"       ;; wascity-bbush-get-to-20
+  "Orb Search 21 (Spargus E)"       ;; wascity-bbush-get-to-21
+  "Orb Search 22 (Spargus W)"       ;; wascity-bbush-get-to-22
+  "Orb Search 23 (Spargus W)"       ;; wascity-bbush-get-to-23
+  "Orb Search 24 (Spargus W)"       ;; wascity-bbush-get-to-24
+  "Orb Search 25 (Spargus W)"       ;; wascity-bbush-get-to-25
+  "Orb Search 26 (Main Town Ruins)" ;; city-bbush-get-to-26
+  "Orb Search 27 (New Haven S)"     ;; city-bbush-get-to-27
+  "Orb Search 28 (Main Town Ruins)" ;; city-bbush-get-to-28
+  "Orb Search 29 (Main Town Ruins)" ;; city-bbush-get-to-29
+  "Orb Search 30 (Main Town Ruins)" ;; city-bbush-get-to-30
+  "Orb Search 31 (New Haven S)"     ;; city-bbush-get-to-31
+  "Orb Search 32 (New Haven N)"     ;; city-bbush-get-to-32
+  "Orb Search 33 (New Haven N)"     ;; city-bbush-get-to-33
+  "Orb Search 34 (Slums)"           ;; city-bbush-get-to-34
+  "Orb Search 35 (Slums)"           ;; city-bbush-get-to-35
+  "Orb Search 36 (Industrial N)"    ;; city-bbush-get-to-36
+  "Orb Search 37 (Industrial N)"    ;; city-bbush-get-to-37
+  "Orb Search 38 (Industrial S)"    ;; city-bbush-get-to-38
+  "Orb Search 39 (Industrial S)"    ;; city-bbush-get-to-39
+  "Orb Search 40 (Industrial S)"    ;; city-bbush-get-to-40
+  "Orb Search 41 (Port)"            ;; city-bbush-get-to-41
+  "Orb Search 42 (Port)"            ;; city-bbush-get-to-42
+  "Orb Search 43 (Port)"            ;; city-bbush-get-to-43
+  "Orb Search 44 (Port)"            ;; city-bbush-get-to-44
+  "Ring Race 1 (Wasteland SE)"      ;; desert-bbush-ring-1
+  "Ring Race 2 (Wasteland SW)"      ;; desert-bbush-ring-2
+  "Ring Race 3 (Spargus W)"         ;; wascity-bbush-ring-3
+  "Ring Race 4 (Spargus E)"         ;; wascity-bbush-ring-4
+  "Ring Race 5 (New Haven S)"       ;; city-bbush-ring-5
+  "Ring Race 6 (Industrial S)"      ;; city-bbush-ring-6
+  "Pod Spider Hunt"                 ;; desert-bbush-egg-spider-1
+  "Spirit Chase 1 (Wasteland)"      ;; desert-bbush-spirit-chase-1
+  "Spirit Chase 2 (Spargus)"        ;; wascity-bbush-spirit-chase-2
+  "Spirit Chase 3 (Slums)"          ;; city-bbush-spirit-chase-3
+  "Timer Race 1 (Wasteland)"        ;; desert-bbush-timer-chase-1
+  "Timer Race 2 (Spargus)"          ;; wascity-bbush-timer-chase-2
+  "Single Hang Time Challenge"      ;; desert-bbush-air-time
+  "Total Hang Time Challenge"       ;; desert-bbush-total-air-time
+  "Single Distance Challenge"       ;; desert-bbush-jump-distance
+  "Total Distance Challenge"        ;; desert-bbush-total-jump-distance
+  "Roll Challenge"                  ;; desert-bbush-roll-count
+  "Wasteland Racetrack Time Trial"  ;; desert-bbush-time-trial-1
+  "Wasteland Rally"                 ;; desert-bbush-rally
+  "Port Missile Challenge"          ;; city-bbush-port-attack
+  "Rescue More Wastelanders"        ;; desert-rescue-bbush
+  "Gun Course ?"                    ;; city-gun-course-play-for-fun
+  "JET-Board Challenge"             ;; city-jetboard-bbush
+  "Destroy Marauders ?"             ;; desert-bbush-destroy-interceptors
   )))
 
 (defenum speedrun-category
@@ -216,6 +282,72 @@
   (precursor-destroy-ship	61)
   (terraformer 62)
   (desert-final-boss	63)
+  ;; Side Missions
+  (desert-bbush-get-to-1 64)
+  (desert-bbush-get-to-2 65)
+  (desert-bbush-get-to-3 66)
+  (desert-bbush-get-to-4 67)
+  (desert-bbush-get-to-5 68)
+  (desert-bbush-get-to-6 69)
+  (desert-bbush-get-to-7 70)
+  (desert-bbush-get-to-8 71)
+  (desert-bbush-get-to-9 72)
+  (desert-bbush-get-to-11 73)
+  (desert-bbush-get-to-12 74)
+  (desert-bbush-get-to-14 75)
+  (desert-bbush-get-to-16 76)
+  (desert-bbush-get-to-17 77)
+  (wascity-bbush-get-to-18 78)
+  (desert-bbush-get-to-19 79)
+  (wascity-bbush-get-to-20 80)
+  (wascity-bbush-get-to-21 81)
+  (wascity-bbush-get-to-22 82)
+  (wascity-bbush-get-to-23 83)
+  (wascity-bbush-get-to-24 84)
+  (wascity-bbush-get-to-25 85)
+  (city-bbush-get-to-26 86)
+  (city-bbush-get-to-27 87)
+  (city-bbush-get-to-28 88)
+  (city-bbush-get-to-29 89)
+  (city-bbush-get-to-30 90)
+  (city-bbush-get-to-31 91)
+  (city-bbush-get-to-32 92)
+  (city-bbush-get-to-33 93)
+  (city-bbush-get-to-34 94)
+  (city-bbush-get-to-35 95)
+  (city-bbush-get-to-36 96)
+  (city-bbush-get-to-37 97)
+  (city-bbush-get-to-38 98)
+  (city-bbush-get-to-39 99)
+  (city-bbush-get-to-40 100)
+  (city-bbush-get-to-41 101)
+  (city-bbush-get-to-42 102)
+  (city-bbush-get-to-43 103)
+  (city-bbush-get-to-44 104)
+  (desert-bbush-ring-1 105)
+  (desert-bbush-ring-2 106)
+  (wascity-bbush-ring-3 107)
+  (wascity-bbush-ring-4 108)
+  (city-bbush-ring-5 109)
+  (city-bbush-ring-6 110)
+  (desert-bbush-egg-spider-1 111)
+  (desert-bbush-spirit-chase-1 112)
+  (wascity-bbush-spirit-chase-2 113)
+  (city-bbush-spirit-chase-3 114)
+  (desert-bbush-timer-chase-1 115)
+  (wascity-bbush-timer-chase-2 116)
+  (desert-bbush-air-time 117)
+  (desert-bbush-total-air-time 118)
+  (desert-bbush-jump-distance 119)
+  (desert-bbush-total-jump-distance 120)
+  (desert-bbush-roll-count 121)
+  (desert-bbush-time-trial-1 122)
+  (desert-bbush-rally 123)
+  (city-bbush-port-attack 124)
+  (desert-rescue-bbush 125)
+  (city-gun-course-play-for-fun 126)
+  (city-jetboard-bbush 127)
+  (desert-bbush-destroy-interceptors 128)
   ;; TODO - add ILs and such later
   ;; there's no point in adding categories that just start from a new-game and have later restrictions
   ;; because we aren't going to modify the code to make that possible
@@ -242,11 +374,13 @@
    (active-practice-objective           speedrun-practice-objective)
    (waiting-to-record-practice-attempt? symbol)
    (run-started-at                      time-frame)
-   (percent-warped?                     symbol))
+   (percent-warped?                     symbol)
+   (avg-speed                           float)
+   )
   (:methods
    (set-category! (_type_ speedrun-category) object)
    (start-run! (_type_) object)
-   (start-individual-level-run! (_type_ game-task) none)
+   (start-individual-level-run! (_type_ game-task symbol game-secrets) none)
    (enforce-settings! (_type_) object)
    (update! (_type_) object)
    (draw-run-info (_type_) object)))

@@ -1321,6 +1321,8 @@
     )
   )
 
+(define-extern maybe-stop-timer-for-retryable-task (function game-task none))
+
 (defstate win (race-manager)
   :virtual #t
   :event race-manager-event-handler
@@ -1346,6 +1348,8 @@
     (until #f
       (cond
         ((logtest? (-> self race-state info flags) (racer-info-flag rif2))
+          ;; stop timer for IL speedruns
+         (maybe-stop-timer-for-retryable-task (-> *game-info* sub-task-list (-> self race-state info task-node) task))
          (draw-message-retry self)
          (when (time-elapsed? (-> self state-time) (seconds 0.5))
            (cond
