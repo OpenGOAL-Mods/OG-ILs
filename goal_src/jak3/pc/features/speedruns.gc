@@ -2078,7 +2078,7 @@
   ;; if we have an end task that matches, stop timer 
   (when (and (= (-> *speedrun-info* active-practice-objective end-task) tsk)
              (not (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) stopped?)))
-    (format 0 "finishing IL run because maybe-stop-timer-for-retryable-task ~A~%" (enum->string game-task (-> *speedrun-info* active-practice-objective end-task)))
+    ;; (format 0 "finishing IL run because maybe-stop-timer-for-retryable-task ~A~%" (enum->string game-task (-> *speedrun-info* active-practice-objective end-task)))
     (stop! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer)))))
   (none))
 
@@ -2130,7 +2130,7 @@
       ;; stop timer if player finished the end-task
       (when (and (task-resolution-closed? (-> *speedrun-info* active-practice-objective end-task))
                  (not (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) stopped?)))
-        (format 0 "finishing IL run because task-resolution-closed ~A~%" (enum->string game-task (-> *speedrun-info* active-practice-objective end-task)))
+        ;; (format 0 "finishing IL run because task-resolution-closed ~A~%" (enum->string game-task (-> *speedrun-info* active-practice-objective end-task)))
         (stop! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))))
     
     ;; Draw info to the screen

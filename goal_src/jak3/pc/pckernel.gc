@@ -756,6 +756,7 @@
     (("pb-time-desert-bbush-destroy-interceptors") (set! (-> obj pb-time-desert-bbush-destroy-interceptors) (file-stream-read-float file)))
     (("pb-time-wascity-pre-game-2") (set! (-> obj pb-time-wascity-pre-game-2) (file-stream-read-float file)))
     (("pb-time-wascity-gungame-2") (set! (-> obj pb-time-wascity-gungame-2) (file-stream-read-float file)))
+    (("pb-time-city-power-game-2") (set! (-> obj pb-time-city-power-game-2) (file-stream-read-float file)))
     ;; (("stats")
     ;;   (dosettings (file)
     ;;     (case-str *pc-temp-string*
