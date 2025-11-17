@@ -76,7 +76,7 @@
    (draw-info (_type_) object)
    (reset! (_type_) object)))
 
-(defconstant *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 129 :allocated-length 129
+(defconstant *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 131 :allocated-length 131
   "Normal"
   "Hero Mode"
   ;; Act 1 ILs
@@ -207,9 +207,11 @@
   "Wasteland Rally"                 ;; desert-bbush-rally
   "Port Missile Challenge"          ;; city-bbush-port-attack
   "Rescue More Wastelanders"        ;; desert-rescue-bbush
-  "Gun Course ?"                    ;; city-gun-course-play-for-fun
   "JET-Board Challenge"             ;; city-jetboard-bbush
-  "Destroy Marauders ?"             ;; desert-bbush-destroy-interceptors
+  "Destroy Marauders (Gold)"        ;; desert-bbush-destroy-interceptors
+  "Satellite (Gold)"                ;; wascity-pre-game-2
+  "Turret Challenge (Gold)"         ;; wascity-gungame-2
+  "Eco Grid (Gold)"                 ;; city-power-game-2
   )))
 
 (defenum speedrun-category
@@ -345,9 +347,11 @@
   (desert-bbush-rally 123)
   (city-bbush-port-attack 124)
   (desert-rescue-bbush 125)
-  (city-gun-course-play-for-fun 126)
-  (city-jetboard-bbush 127)
-  (desert-bbush-destroy-interceptors 128)
+  (city-jetboard-bbush 126)
+  (desert-bbush-destroy-interceptors 127)
+  (wascity-pre-game-2 128)
+  (wascity-gungame-2 129)
+  (city-power-game-2 130)
   ;; TODO - add ILs and such later
   ;; there's no point in adding categories that just start from a new-game and have later restrictions
   ;; because we aren't going to modify the code to make that possible

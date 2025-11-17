@@ -1177,45 +1177,45 @@
             :name "desert-bbush-air-time"
             :pre-play-node (game-task-node desert-bbush-air-time-introduction)
             :kiosk-play-node (game-task-node desert-bbush-air-time-resolution)
-            :pre-play-continue "desert-bbush-desc-4"
+            :pre-play-continue "desert-bbush-desc-4-toad"
             :play-node (game-task-node desert-bbush-air-time-resolution)
-            :play-continue "desert-bbush-desc-4"
+            :play-continue "desert-bbush-desc-4-toad"
             :kiosk-play-continue #f
             )
           (new 'static 'game-task-info
             :name "desert-bbush-total-air-time"
             :pre-play-node (game-task-node desert-bbush-total-air-time-introduction)
             :kiosk-play-node (game-task-node desert-bbush-total-air-time-resolution)
-            :pre-play-continue "desert-bbush-desc-4"
+            :pre-play-continue "desert-bbush-desc-4-toad"
             :play-node (game-task-node desert-bbush-total-air-time-resolution)
-            :play-continue "desert-bbush-desc-4"
+            :play-continue "desert-bbush-desc-4-toad"
             :kiosk-play-continue #f
             )
           (new 'static 'game-task-info
             :name "desert-bbush-jump-distance"
             :pre-play-node (game-task-node desert-bbush-jump-distance-introduction)
             :kiosk-play-node (game-task-node desert-bbush-jump-distance-resolution)
-            :pre-play-continue "desert-bbush-desc-4"
+            :pre-play-continue "desert-bbush-desc-4-toad"
             :play-node (game-task-node desert-bbush-jump-distance-resolution)
-            :play-continue "desert-bbush-desc-4"
+            :play-continue "desert-bbush-desc-4-toad"
             :kiosk-play-continue #f
             )
           (new 'static 'game-task-info
             :name "desert-bbush-total-jump-distance"
             :pre-play-node (game-task-node desert-bbush-total-jump-distance-introduction)
             :kiosk-play-node (game-task-node desert-bbush-total-jump-distance-resolution)
-            :pre-play-continue "desert-bbush-desc-4"
+            :pre-play-continue "desert-bbush-desc-4-toad"
             :play-node (game-task-node desert-bbush-total-jump-distance-resolution)
-            :play-continue "desert-bbush-desc-4"
+            :play-continue "desert-bbush-desc-4-toad"
             :kiosk-play-continue #f
             )
           (new 'static 'game-task-info
             :name "desert-bbush-roll-count"
             :pre-play-node (game-task-node desert-bbush-roll-count-introduction)
             :kiosk-play-node (game-task-node desert-bbush-roll-count-resolution)
-            :pre-play-continue "desert-bbush-desc-4"
+            :pre-play-continue "desert-bbush-desc-4-mirage"
             :play-node (game-task-node desert-bbush-roll-count-resolution)
-            :play-continue "desert-bbush-desc-4"
+            :play-continue "desert-bbush-desc-4-mirage"
             :kiosk-play-continue #f
             )
           (new 'static 'game-task-info
@@ -1276,9 +1276,9 @@
             :name "desert-bbush-destroy-interceptors"
             :pre-play-node (game-task-node desert-bbush-destroy-interceptors-introduction)
             :kiosk-play-node (game-task-node desert-bbush-destroy-interceptors-resolution)
-            :pre-play-continue "desert-bbush-desb-4"
+            :pre-play-continue "desert-bbush-desb-4-toad"
             :play-node (game-task-node desert-bbush-destroy-interceptors-resolution)
-            :play-continue "desert-bbush-desb-4"
+            :play-continue "desert-bbush-desb-4-toad"
             :kiosk-play-continue #f
             )
           (new 'static 'game-task-info
@@ -1289,6 +1289,36 @@
             :pre-play-continue #f
             :play-node (game-task-node desert-final-boss-walker)
             :play-continue "desertb-final-boss-start"
+            :kiosk-play-continue #f
+            )
+          (new 'static 'game-task-info
+            :name "wascity-pre-game-2"
+            :text-name (text-id progress-missions-wascityb-game)
+            :pre-play-node (game-task-node wascity-pre-game-introduction)
+            :kiosk-play-node (game-task-node wascity-pre-game-wait)
+            :pre-play-continue "deserte-pre-game-bbush"
+            :play-node (game-task-node wascity-pre-game-resolution)
+            :play-continue "deserte-pre-game-bbush"
+            :kiosk-play-continue #f
+            )
+          (new 'static 'game-task-info
+            :name "wascity-gungame-2"
+            :text-name (text-id progress-missions-wascity-gungame)
+            :pre-play-node (game-task-node wascity-gungame-introduction)
+            :kiosk-play-node (game-task-node wascity-gungame-resolution)
+            :pre-play-continue "wascityb-gungame"
+            :play-node (game-task-node wascity-gungame-resolution)
+            :play-continue "wascityb-gungame-reset"
+            :kiosk-play-continue #f
+            )
+          (new 'static 'game-task-info
+            :name "city-power-game-2"
+            :text-name (text-id progress-missions-city-power-game)
+            :pre-play-node (game-task-node city-power-game-introduction)
+            :kiosk-play-node (game-task-node city-power-game-wait)
+            :pre-play-continue "ctyinda-vinroom"
+            :play-node (game-task-node city-power-game-resolution)
+            :play-continue "vinroom-start"
             :kiosk-play-continue #f
             )
           )
@@ -2254,7 +2284,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'wascity
-            :task (game-task wascity-pre-game)
+            :task (game-task wascity-pre-game-2)
             :name "wascity-pre-game-post-game"
             :when-open (new 'static 'boxed-array :type game-task-event
               (new 'static 'game-task-event
@@ -2289,7 +2319,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'wascity
-            :task (game-task wascity-pre-game)
+            :task (game-task wascity-pre-game-2)
             :name "wascity-pre-game-bronze"
             :when-open #f
             :flags (game-task-node-flag no-restart act1)
@@ -2311,7 +2341,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'wascity
-            :task (game-task wascity-pre-game)
+            :task (game-task wascity-pre-game-2)
             :name "wascity-pre-game-silver"
             :when-open #f
             :flags (game-task-node-flag no-restart act1)
@@ -2333,7 +2363,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'wascity
-            :task (game-task wascity-pre-game)
+            :task (game-task wascity-pre-game-2)
             :name "wascity-pre-game-gold"
             :when-open #f
             :flags (game-task-node-flag no-restart act1)
@@ -4185,7 +4215,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'wascity
-            :task (game-task wascity-gungame)
+            :task (game-task wascity-gungame-2)
             :name "wascity-gungame-play-for-fun"
             :when-open (new 'static 'boxed-array :type game-task-event
               (new 'static 'game-task-event
@@ -4241,7 +4271,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'wascity
-            :task (game-task wascity-gungame)
+            :task (game-task wascity-gungame-2)
             :name "wascity-gungame-bronze"
             :when-open #f
             :flags (game-task-node-flag no-restart act1)
@@ -4263,7 +4293,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'wascity
-            :task (game-task wascity-gungame)
+            :task (game-task wascity-gungame-2)
             :name "wascity-gungame-silver"
             :when-open #f
             :flags (game-task-node-flag no-restart act1)
@@ -4285,7 +4315,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'wascity
-            :task (game-task wascity-gungame)
+            :task (game-task wascity-gungame-2)
             :name "wascity-gungame-gold"
             :when-open #f
             :flags (game-task-node-flag no-restart act1)
@@ -9921,7 +9951,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'city
-            :task (game-task city-power-game)
+            :task (game-task city-power-game-2)
             :name "city-power-game-post-game"
             :when-open (new 'static 'boxed-array :type game-task-event
               (new 'static 'game-task-event
@@ -9950,7 +9980,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'city
-            :task (game-task city-power-game)
+            :task (game-task city-power-game-2)
             :name "city-power-game-bronze"
             :when-open #f
             :flags (game-task-node-flag no-restart act2)
@@ -9972,7 +10002,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'city
-            :task (game-task city-power-game)
+            :task (game-task city-power-game-2)
             :name "city-power-game-silver"
             :when-open #f
             :flags (game-task-node-flag no-restart act2)
@@ -9994,7 +10024,7 @@
             )
           (new 'static 'game-task-node-info
             :level 'city
-            :task (game-task city-power-game)
+            :task (game-task city-power-game-2)
             :name "city-power-game-gold"
             :when-open #f
             :flags (game-task-node-flag no-restart act2)
@@ -21822,7 +21852,7 @@
                 :flags (resetter-flag auto-reset text-message no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'try :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-air-time-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -21834,7 +21864,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-air-time-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -21846,7 +21876,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-air-time-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -21858,7 +21888,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-air-time-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -21950,7 +21980,7 @@
                 :flags (resetter-flag auto-reset text-message no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'try :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-total-air-time-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -21962,7 +21992,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-total-air-time-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -21974,7 +22004,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-total-air-time-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -21986,7 +22016,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-total-air-time-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22078,7 +22108,7 @@
                 :flags (resetter-flag auto-reset text-message no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'try :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-jump-distance-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22090,7 +22120,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-jump-distance-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22102,7 +22132,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-jump-distance-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22114,7 +22144,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-jump-distance-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22206,7 +22236,7 @@
                 :flags (resetter-flag auto-reset text-message no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'try :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-total-jump-distance-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22218,7 +22248,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-total-jump-distance-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22230,7 +22260,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-total-jump-distance-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22242,7 +22272,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-toad"
                   :node (game-task-node desert-bbush-total-jump-distance-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22334,7 +22364,7 @@
                 :flags (resetter-flag auto-reset text-message no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'try :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-mirage"
                   :node (game-task-node desert-bbush-roll-count-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22346,7 +22376,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-mirage"
                   :node (game-task-node desert-bbush-roll-count-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22358,7 +22388,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-mirage"
                   :node (game-task-node desert-bbush-roll-count-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22370,7 +22400,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desc-4"
+                  :continue "desert-bbush-desc-4-mirage"
                   :node (game-task-node desert-bbush-roll-count-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -22906,7 +22936,7 @@
             :task (game-task city-gun-course-play-for-fun)
             :name "city-gun-course-play-for-fun-introduction"
             :when-open #f
-            :flags (game-task-node-flag auto-close save-on-life bbush)
+            :flags (game-task-node-flag save-on-life bbush)
             :parent-node (new 'static 'array game-task-node 4
               (game-task-node city-gun-course-1-resolution)
               (game-task-node none)
@@ -23314,7 +23344,7 @@
                 :flags (resetter-flag auto-reset text-message no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'try :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desb-4"
+                  :continue "desert-bbush-desb-4-toad"
                   :node (game-task-node desert-bbush-destroy-interceptors-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -23326,7 +23356,7 @@
                 :flags (resetter-flag auto-reset no-audio-first)
                 :fail (new 'static 'resetter-spec :continue #f :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desb-4"
+                  :continue "desert-bbush-desb-4-toad"
                   :node (game-task-node desert-bbush-destroy-interceptors-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -23336,9 +23366,9 @@
               :fail-info (new 'static 'resetter-params
                 :message (resetter-message mission-fail-or-retry)
                 :flags (resetter-flag auto-reset no-audio-first)
-                :fail (new 'static 'resetter-spec :continue "desert-bbush-desb-4" :reset-mode 'life :execute #f)
+                :fail (new 'static 'resetter-spec :continue "desert-bbush-desb-4-toad" :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desb-4"
+                  :continue "desert-bbush-desb-4-toad"
                   :node (game-task-node desert-bbush-destroy-interceptors-resolution)
                   :reset-mode 'try
                   :execute #f
@@ -23348,9 +23378,9 @@
               :death-info (new 'static 'resetter-params
                 :message (resetter-message mission-fail-or-retry)
                 :flags (resetter-flag auto-reset no-audio-first)
-                :fail (new 'static 'resetter-spec :continue "desert-bbush-desb-4" :reset-mode 'life :execute #f)
+                :fail (new 'static 'resetter-spec :continue "desert-bbush-desb-4-toad" :reset-mode 'life :execute #f)
                 :retry (new 'static 'resetter-spec
-                  :continue "desert-bbush-desb-4"
+                  :continue "desert-bbush-desb-4-toad"
                   :node (game-task-node desert-bbush-destroy-interceptors-resolution)
                   :reset-mode 'try
                   :execute #f
