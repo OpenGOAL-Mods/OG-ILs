@@ -13407,6 +13407,46 @@
                      :want-sound (new 'static 'array symbol 3 'wasall1 'desert1 'desert2)
                      )
                    (new 'static 'continue-point
+                     :name "desert-bbush-desc-4-mirage"
+                     :level 'desert
+                     :flags (continue-flags no-auto race)
+                     :trans (new 'static 'vector :x 4222015.5 :y 415771.03 :z 7156819.0 :w 1.0)
+                     :camera-trans (new 'static 'vector :x 4181632.5 :y 435030.03 :z 7138538.0 :w 1.0)
+                     :quat (new 'static 'vector4h :data (new 'static 'array int16 4 36 #x7a0e -26 -9856))
+                     :camera-rot (new 'static 'array int16 9 #x2cae 0 -30702 #x1116 #x7ead #x65c #x76b4 -4669 #x2c3c)
+                     :on-goto #f
+                     :vis-nick 'desert
+                     :vehicle-type (vehicle-type v-mirage)
+                     :want-count 4
+                     :want (new 'static 'inline-array level-buffer-state-small 4
+                       (new 'static 'level-buffer-state-small :name 'wasall :display? 'special)
+                       (new 'static 'level-buffer-state-small :name 'desert-game :display? 'display)
+                       (new 'static 'level-buffer-state-small :name 'desertc :display? 'display)
+                       (new 'static 'level-buffer-state-small :name 'desertf :display? #f)
+                       )
+                     :want-sound (new 'static 'array symbol 3 'wasall1 'desert1 'desert2)
+                     )
+                   (new 'static 'continue-point
+                     :name "desert-bbush-desc-4-toad"
+                     :level 'desert
+                     :flags (continue-flags no-auto race)
+                     :trans (new 'static 'vector :x 4222015.5 :y 415771.03 :z 7156819.0 :w 1.0)
+                     :camera-trans (new 'static 'vector :x 4181632.5 :y 435030.03 :z 7138538.0 :w 1.0)
+                     :quat (new 'static 'vector4h :data (new 'static 'array int16 4 36 #x7a0e -26 -9856))
+                     :camera-rot (new 'static 'array int16 9 #x2cae 0 -30702 #x1116 #x7ead #x65c #x76b4 -4669 #x2c3c)
+                     :on-goto #f
+                     :vis-nick 'desert
+                     :vehicle-type (vehicle-type v-toad)
+                     :want-count 4
+                     :want (new 'static 'inline-array level-buffer-state-small 4
+                       (new 'static 'level-buffer-state-small :name 'wasall :display? 'special)
+                       (new 'static 'level-buffer-state-small :name 'desert-game :display? 'display)
+                       (new 'static 'level-buffer-state-small :name 'desertc :display? 'display)
+                       (new 'static 'level-buffer-state-small :name 'desertf :display? #f)
+                       )
+                     :want-sound (new 'static 'array symbol 3 'wasall1 'desert1 'desert2)
+                     )
+                   (new 'static 'continue-point
                      :name "desert-bbush-desc-5"
                      :level 'desert
                      :flags (continue-flags no-auto race)
@@ -13537,6 +13577,26 @@
                      :on-goto #f
                      :vis-nick 'desertb
                      :vehicle-type #x1c
+                     :want-count 4
+                     :want (new 'static 'inline-array level-buffer-state-small 4
+                       (new 'static 'level-buffer-state-small :name 'wasall :display? 'special)
+                       (new 'static 'level-buffer-state-small :name 'desert-game :display? 'display)
+                       (new 'static 'level-buffer-state-small :name 'desertb :display? 'display)
+                       (new 'static 'level-buffer-state-small :name 'deserta :display? #f)
+                       )
+                     :want-sound (new 'static 'array symbol 3 'wasall1 'desert1 'desert2)
+                     )
+                   (new 'static 'continue-point
+                     :name "desert-bbush-desb-4-toad"
+                     :level 'desert
+                     :flags (continue-flags no-auto race)
+                     :trans (new 'static 'vector :x 9106742.0 :y 100738.25 :z 3052560.5 :w 1.0)
+                     :camera-trans (new 'static 'vector :x 9059008.0 :y 121065.88 :z 3044976.2 :w 1.0)
+                     :quat (new 'static 'vector4h :data (new 'static 'array int16 4 -3 #x6f96 6 #x3eae))
+                     :camera-rot (new 'static 'array int16 9 #x12b6 0 -32413 #xee2 #x7f19 #x233 #x7dbb -3853 #x1292)
+                     :on-goto #f
+                     :vis-nick 'desertb
+                     :vehicle-type (vehicle-type v-toad)
                      :want-count 4
                      :want (new 'static 'inline-array level-buffer-state-small 4
                        (new 'static 'level-buffer-state-small :name 'wasall :display? 'special)
@@ -14579,6 +14639,26 @@
                       :flags (continue-flags no-auto)
                       :trans (new 'static 'vector :x 2060730.0 :y 86208.1 :z 14319676.0 :w 1.0)
                       :camera-trans (new 'static 'vector :x 2053753.6 :y 107276.695 :z 14370413.0 :w 1.0)
+                      :quat (new 'static 'vector4h :data (new 'static 'array int16 4 0 #x7dd1 0 #x176f))
+                      :camera-rot (new 'static 'array int16 9 -32455 0 -4502 #x21c #x7f0f -3905 #x1175 -3941 -32219)
+                      :on-goto #f
+                      :vis-nick 'desert
+                      :vehicle-type #x1b
+                      :want-count 4
+                      :want (new 'static 'inline-array level-buffer-state-small 4
+                        (new 'static 'level-buffer-state-small :name 'wasall :display? 'special)
+                        (new 'static 'level-buffer-state-small :name 'desert-game :display? 'display)
+                        (new 'static 'level-buffer-state-small :name 'deserte :display? 'display)
+                        (new 'static 'level-buffer-state-small :name 'desertf :display? 'display)
+                        )
+                      :want-sound (new 'static 'array symbol 3 'wasall1 'desert1 'desert2)
+                      )
+                    (new 'static 'continue-point
+                      :name "deserte-pre-game-bbush"
+                      :level 'deserte
+                      :flags (continue-flags no-auto)
+                      :trans (new 'static 'vector :x (meters 703.5671) :y (meters 41.9869) :z (meters 3631.1401) :w 1.0)
+                      :camera-trans (new 'static 'vector :x (meters 690.1066) :y (meters 48.3326) :z (meters 3656.6420) :w 1.0)
                       :quat (new 'static 'vector4h :data (new 'static 'array int16 4 0 #x7dd1 0 #x176f))
                       :camera-rot (new 'static 'array int16 9 -32455 0 -4502 #x21c #x7f0f -3905 #x1175 -3941 -32219)
                       :on-goto #f

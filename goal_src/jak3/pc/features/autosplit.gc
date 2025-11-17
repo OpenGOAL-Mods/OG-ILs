@@ -24,15 +24,15 @@
 (defmacro autosplit-flag-task-complete! (field-name task-name)
   "Given a field name in the autosplitter struct, and a [[game-task]] name to check, sets either a 0 or a 1"
   `(begin
-    (if (!= (-> this ,field-name) (if (task-complete? *game-info* (game-task ,task-name)) 1 0))
-      (format 0 "AUTOSPLIT for ~A~%" (quote ,task-name)))
+    ;; (if (!= (-> this ,field-name) (if (task-complete? *game-info* (game-task ,task-name)) 1 0))
+    ;;   (format 0 "AUTOSPLIT for ~A~%" (quote ,task-name)))
     (set! (-> this ,field-name) (if (task-complete? *game-info* (game-task ,task-name)) 1 0))))
 
 (defmacro autosplit-flag-task-node-closed! (field-name task-node-name)
   "Given a field name in the autosplitter struct, and a [[game-task-node]] name to check, sets either a 0 or a 1"
   `(begin
-    (if (!= (-> this ,field-name) (if (task-node-closed? (game-task-node ,task-node-name)) 1 0))
-      (format 0 "AUTOSPLIT for ~A~%" (quote ,task-node-name)))
+    ;; (if (!= (-> this ,field-name) (if (task-node-closed? (game-task-node ,task-node-name)) 1 0))
+    ;;   (format 0 "AUTOSPLIT for ~A~%" (quote ,task-node-name)))
     (set! (-> this ,field-name) (if (task-node-closed? (game-task-node ,task-node-name)) 1 0))))
 
 (defmethod update! ((this autosplit-info))

@@ -912,7 +912,7 @@
         )
       )
     )
-  (format 0 "ERROR: attempting to query resolution-closed? of unknown game-task ~A.~%" arg0)
+  ;; (format 0 "ERROR: attempting to query resolution-closed? of unknown game-task ~A.~%" arg0)
   #f
   )
 
@@ -1205,6 +1205,7 @@
   )
 
 (defun task-node-open! ((arg0 game-task-node) (arg1 symbol))
+  ;; (format 0 "task-node-open! ~D ~A ~%" arg0 (enum->string game-task-node arg0))
   (let ((s5-0 (-> *game-info* sub-task-list arg0)))
     (dotimes (s4-0 4)
       (if (nonzero? (-> s5-0 parent-node s4-0))

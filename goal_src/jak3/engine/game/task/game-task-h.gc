@@ -149,7 +149,10 @@
   (city-jetboard-bbush 136)
   (desert-bbush-destroy-interceptors 137)
   (terraformer 138)
-  (max 139)
+  (wascity-pre-game-2 139)
+  (wascity-gungame-2 140)
+  (city-power-game-2 141)
+  (max 142)
   )
 ;; ---game-task
 

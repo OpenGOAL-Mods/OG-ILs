@@ -2023,6 +2023,7 @@
       ((not (task-node-closed? (the-as game-task-node (-> this task-bronze))))
        (cond
          ((>= (-> *game-info* score) (the float (-> this score-gold)))
+          (maybe-stop-timer-for-retryable-task (game-task wascity-gungame-2))
           (set! (-> *game-info* goal) (-> *game-info* score))
           (let ((s5-2 format)
                 (gp-2 (clear (-> gp-0 strings 1 text)))
@@ -2067,6 +2068,7 @@
       ((not (task-node-closed? (the-as game-task-node (-> this task-silver))))
        (cond
          ((>= (-> *game-info* score) (the float (-> this score-gold)))
+          (maybe-stop-timer-for-retryable-task (game-task wascity-gungame-2))
           (set! (-> *game-info* goal) (-> *game-info* score))
           (let ((s5-6 format)
                 (gp-6 (clear (-> gp-0 strings 1 text)))
@@ -2101,6 +2103,7 @@
       ((not (task-node-closed? (the-as game-task-node (-> this task-gold))))
        (cond
          ((>= (-> *game-info* score) (the float (-> this score-gold)))
+          (maybe-stop-timer-for-retryable-task (game-task wascity-gungame-2))
           (set! (-> *game-info* goal) (-> *game-info* score))
           (let ((s5-9 format)
                 (gp-9 (clear (-> gp-0 strings 1 text)))

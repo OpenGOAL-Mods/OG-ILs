@@ -298,12 +298,16 @@
       (-> *pc-settings* pb-time-city-bbush-port-attack))
     (((speedrun-category desert-rescue-bbush))
       (-> *pc-settings* pb-time-desert-rescue-bbush))
-    (((speedrun-category city-gun-course-play-for-fun))
-      (-> *pc-settings* pb-time-city-gun-course-play-for-fun))
     (((speedrun-category city-jetboard-bbush))
       (-> *pc-settings* pb-time-city-jetboard-bbush))
     (((speedrun-category desert-bbush-destroy-interceptors))
       (-> *pc-settings* pb-time-desert-bbush-destroy-interceptors))
+    (((speedrun-category wascity-pre-game-2))
+      (-> *pc-settings* pb-time-wascity-pre-game-2))
+    (((speedrun-category wascity-gungame-2))
+      (-> *pc-settings* pb-time-wascity-gungame-2))
+    (((speedrun-category city-power-game-2))
+      (-> *pc-settings* pb-time-city-power-game-2))
     (else
       ;; dont update anything
       -1.0)
@@ -567,12 +571,16 @@
             (set! (-> *pc-settings* pb-time-city-bbush-port-attack) (-> this recorded-time)))
           (((speedrun-category desert-rescue-bbush))
             (set! (-> *pc-settings* pb-time-desert-rescue-bbush) (-> this recorded-time)))
-          (((speedrun-category city-gun-course-play-for-fun))
-            (set! (-> *pc-settings* pb-time-city-gun-course-play-for-fun) (-> this recorded-time)))
           (((speedrun-category city-jetboard-bbush))
             (set! (-> *pc-settings* pb-time-city-jetboard-bbush) (-> this recorded-time)))
           (((speedrun-category desert-bbush-destroy-interceptors))
             (set! (-> *pc-settings* pb-time-desert-bbush-destroy-interceptors) (-> this recorded-time)))
+          (((speedrun-category wascity-pre-game-2))
+            (set! (-> *pc-settings* pb-time-wascity-pre-game-2) (-> this recorded-time)))
+          (((speedrun-category wascity-gungame-2))
+            (set! (-> *pc-settings* pb-time-wascity-gungame-2) (-> this recorded-time)))
+          (((speedrun-category city-power-game-2))
+            (set! (-> *pc-settings* pb-time-city-power-game-2) (-> this recorded-time)))
           )
         ;; save settings with PB times
         (commit-to-file *pc-settings*)
@@ -767,7 +775,7 @@
   (start 'play (get-continue-by-name *game-info* (play-task tsk 'debug 'play)))
   (set-master-mode 'game)
   ;; spawn a process that suspends until jak is properly spawned, before starting timer
-  (process-spawn-function process (lambda :behavior process ()
+  (process-spawn-function process (lambda :behavior process ((side-mish? symbol))
     (let ((target-continued? #f))
       (until (and target-continued?
                   (< (-> *game-info* blackout-time) (get-current-time)) 
@@ -777,13 +785,47 @@
         (when (and *target* (!= (-> *target* next-state name) 'target-continue))
           (true! target-continued?)))
       )
+    ;; never ended up using this, we'd need to pass it into the lambda to properly use it
+    ;; (logior! (-> *game-info* secrets) secrets) 
     (when side-mish?
       ;; post-game for side missions
-      (task-close! "city-win-resolution"))
-    ;; (set! (-> *game-info* secrets) secrets)
+      (task-close! "city-win-resolution")
+      ;; give most of the standard hero-mode secrets by default
+      (logior! (-> *game-info* secrets) (game-secrets endless-ammo
+                                                      invulnerable
+                                                      endless-dark
+                                                      endless-light
+                                                      unlimited-turbos
+                                                      vehicle-hit-points
+                                                      board-fast
+                                                      vehicle-fox
+                                                      vehicle-mirage
+                                                      vehicle-x-ride
+                                                      darkjak-tracking
+                                                      button-invis
+                                                      gun-upgrade-red-1
+                                                      gun-upgrade-red-2
+                                                      gun-upgrade-red-3
+                                                      gun-upgrade-yellow-1
+                                                      gun-upgrade-yellow-2
+                                                      gun-upgrade-yellow-3
+                                                      gun-upgrade-blue-1
+                                                      gun-upgrade-blue-2
+                                                      gun-upgrade-blue-3
+                                                      gun-upgrade-dark-1
+                                                      gun-upgrade-dark-2
+                                                      gun-upgrade-dark-3
+                                                      gun-upgrade-ammo-red
+                                                      gun-upgrade-ammo-yellow
+                                                      gun-upgrade-ammo-blue
+                                                      gun-upgrade-ammo-dark
+                                                      ))
+      (logior! (-> *game-info* purchase-secrets) (-> *game-info* secrets))
+      (logior! (-> *game-info* vehicles) (game-vehicles v-fox v-mirage v-x-ride))
+      )
     (set-percent-warped! #f)
     (set! (-> *speedrun-info* avg-speed) 0.0)
-    (start! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))))
+    (start! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))) side-mish?)
   (none)
   )
 
@@ -1151,12 +1193,16 @@
       (start-individual-level-run! this (game-task city-bbush-port-attack) #t (game-secrets)))
     (((speedrun-category desert-rescue-bbush))
       (start-individual-level-run! this (game-task desert-rescue-bbush) #t (game-secrets)))
-    (((speedrun-category city-gun-course-play-for-fun))
-      (start-individual-level-run! this (game-task city-gun-course-play-for-fun) #t (game-secrets)))
     (((speedrun-category city-jetboard-bbush))
       (start-individual-level-run! this (game-task city-jetboard-bbush) #t (game-secrets)))
     (((speedrun-category desert-bbush-destroy-interceptors))
       (start-individual-level-run! this (game-task desert-bbush-destroy-interceptors) #t (game-secrets)))
+    (((speedrun-category wascity-pre-game-2))
+      (start-individual-level-run! this (game-task wascity-pre-game-2) #t (game-secrets)))
+    (((speedrun-category wascity-gungame-2))
+      (start-individual-level-run! this (game-task wascity-gungame-2) #t (game-secrets)))
+    (((speedrun-category city-power-game-2))
+      (start-individual-level-run! this (game-task city-power-game-2) #t (game-secrets)))
     (((speedrun-category custom))
      (process-spawn-function process
        (lambda :behavior process ()
@@ -1569,6 +1615,9 @@
               (new 'static 'popup-menu-flag :label "Timer Race 2 (Spargus)"
                 :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-bbush-timer-chase-2)))
                 :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-bbush-timer-chase-2))))
+              (new 'static 'popup-menu-flag :label "Turret Challenge (Gold)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-gungame-2)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-gungame-2))))
               )
             )
           (new 'static 'popup-menu-submenu :label "Side Missions - Wasteland"
@@ -1630,22 +1679,6 @@
               (new 'static 'popup-menu-flag :label "Timer Race 1 (Wasteland)"
                 :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-timer-chase-1)))
                 :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-timer-chase-1))))
-              ;; can't really speedrun these, just leaving them out for now
-              ;; (new 'static 'popup-menu-flag :label "Single Hang Time Challenge"
-              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-air-time)))
-              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-air-time))))
-              ;; (new 'static 'popup-menu-flag :label "Total Hang Time Challenge"
-              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-total-air-time)))
-              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-total-air-time))))
-              ;; (new 'static 'popup-menu-flag :label "Single Distance Challenge"
-              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-jump-distance)))
-              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-jump-distance))))
-              ;; (new 'static 'popup-menu-flag :label "Total Distance Challenge"
-              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-total-jump-distance)))
-              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-total-jump-distance))))
-              ;; (new 'static 'popup-menu-flag :label "Roll Challenge"
-              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-roll-count)))
-              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-roll-count))))
               (new 'static 'popup-menu-flag :label "Wasteland Racetrack Time Trial"
                 :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-time-trial-1)))
                 :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-time-trial-1))))
@@ -1655,10 +1688,27 @@
               (new 'static 'popup-menu-flag :label "Rescue More Wastelanders"
                 :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-rescue-bbush)))
                 :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-rescue-bbush))))
-              ;; can't really speedrun this, just leaving out for now
-              ;; (new 'static 'popup-menu-flag :label "Destroy Marauders ?"
-              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-destroy-interceptors)))
-              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-destroy-interceptors))))
+              (new 'static 'popup-menu-flag :label "Single Hang Time (Gold)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-air-time)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-air-time))))
+              (new 'static 'popup-menu-flag :label "Total Hang Time (Gold)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-total-air-time)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-total-air-time))))
+              (new 'static 'popup-menu-flag :label "Single Distance (Gold)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-jump-distance)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-jump-distance))))
+              (new 'static 'popup-menu-flag :label "Total Distance (Gold)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-total-jump-distance)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-total-jump-distance))))
+              (new 'static 'popup-menu-flag :label "Roll Challenge (Gold)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-roll-count)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-roll-count))))
+              (new 'static 'popup-menu-flag :label "Destroy Marauders (Gold)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-destroy-interceptors)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-destroy-interceptors))))
+              (new 'static 'popup-menu-flag :label "Satellite (Gold)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category wascity-pre-game-2)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category wascity-pre-game-2))))
               )
             )
           (new 'static 'popup-menu-submenu :label "Side Missions - Haven"
@@ -1732,13 +1782,12 @@
               (new 'static 'popup-menu-flag :label "Port Missile Challenge"
                 :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-bbush-port-attack)))
                 :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-bbush-port-attack))))
-              ;; maybe add Ratchet and Clank courses?
-              ;; (new 'static 'popup-menu-flag :label "Gun Course ?"
-              ;;   :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-gun-course-play-for-fun)))
-              ;;   :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-gun-course-play-for-fun))))
-              (new 'static 'popup-menu-flag :label "JET-Board Challenge"
+              (new 'static 'popup-menu-flag :label "JET-Board Challenge (Gold)"
                 :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-jetboard-bbush)))
                 :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-jetboard-bbush))))
+              (new 'static 'popup-menu-flag :label "Eco Grid (Gold)"
+                :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category city-power-game-2)))
+                :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category city-power-game-2))))
               )
             )
           )
@@ -2027,7 +2076,9 @@
 
 (defun maybe-stop-timer-for-retryable-task ((tsk game-task))
   ;; if we have an end task that matches, stop timer 
-  (when (= (-> *speedrun-info* active-practice-objective end-task) tsk)
+  (when (and (= (-> *speedrun-info* active-practice-objective end-task) tsk)
+             (not (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) stopped?)))
+    ;; (format 0 "finishing IL run because maybe-stop-timer-for-retryable-task ~A~%" (enum->string game-task (-> *speedrun-info* active-practice-objective end-task)))
     (stop! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer)))))
   (none))
 
@@ -2077,7 +2128,9 @@
       ;; ensure timer is shown
       (set! (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) draw?) #t)
       ;; stop timer if player finished the end-task
-      (when (task-resolution-closed? (-> *speedrun-info* active-practice-objective end-task))
+      (when (and (task-resolution-closed? (-> *speedrun-info* active-practice-objective end-task))
+                 (not (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) stopped?)))
+        ;; (format 0 "finishing IL run because task-resolution-closed ~A~%" (enum->string game-task (-> *speedrun-info* active-practice-objective end-task)))
         (stop! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))))
     
     ;; Draw info to the screen

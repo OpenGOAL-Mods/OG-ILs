@@ -2777,6 +2777,8 @@
 (defmethod task-manager-bbush-board-method-33 ((this task-manager-bbush-board))
   (when (< (-> *game-info* goal) (-> this score))
     (set! (-> this new-high-score) #t)
+    (when (<= (the-as uint 3) (-> this goal-cup))
+      (maybe-stop-timer-for-retryable-task (-> this node-info task)))
     (when (>= (the-as uint 3) (-> this goal-cup))
       (sound-play "special-pickup")
       (+! (-> this goal-cup) 1)

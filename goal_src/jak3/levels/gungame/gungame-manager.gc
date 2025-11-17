@@ -736,6 +736,7 @@
           (+! (-> self egg-amount) 1)
           )
         (when (and (>= (-> self goal-amount) 3) (not (task-node-closed? (-> self task-gold))))
+          (maybe-stop-timer-for-retryable-task (-> *game-info* sub-task-list (-> self task-gold) task))
           (task-node-close! (-> self task-gold) 'event)
           (+! (-> self egg-amount) 1)
           )

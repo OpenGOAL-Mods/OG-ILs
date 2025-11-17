@@ -377,6 +377,8 @@
         (task-manager-vehicle-bbush-method-34 this)
         (when (>= (-> this score) (-> this goal))
           (set! (-> this new-high-score) #t)
+          (when (<= (the-as uint 3) (-> this goal-cup))
+            (maybe-stop-timer-for-retryable-task (-> this node-info task)))
           (when (>= (the-as uint 3) (-> this goal-cup))
             (sound-play "special-pickup")
             (+! (-> this goal-cup) 1)

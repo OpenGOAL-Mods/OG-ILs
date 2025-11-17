@@ -240,9 +240,11 @@
    (pb-time-desert-bbush-rally float)
    (pb-time-city-bbush-port-attack float)
    (pb-time-desert-rescue-bbush float)
-   (pb-time-city-gun-course-play-for-fun float)
    (pb-time-city-jetboard-bbush float)
    (pb-time-desert-bbush-destroy-interceptors float)
+   (pb-time-wascity-pre-game-2 float)
+   (pb-time-wascity-gungame-2 float)
+   (pb-time-city-power-game-2 float)
 	 )
 
   (:methods
