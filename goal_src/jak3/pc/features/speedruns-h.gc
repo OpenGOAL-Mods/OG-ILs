@@ -380,6 +380,7 @@
    (run-started-at                      time-frame)
    (percent-warped?                     symbol)
    (avg-speed                           float)
+   (override-vehicle                    vehicle-type)
    )
   (:methods
    (set-category! (_type_ speedrun-category) object)

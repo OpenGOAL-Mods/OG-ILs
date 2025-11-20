@@ -786,42 +786,49 @@
           (true! target-continued?)))
       )
     ;; never ended up using this, we'd need to pass it into the lambda to properly use it
-    ;; (logior! (-> *game-info* secrets) secrets) 
-    (when side-mish?
-      ;; post-game for side missions
-      (task-close! "city-win-resolution")
-      ;; give most of the standard hero-mode secrets by default
-      (logior! (-> *game-info* secrets) (game-secrets endless-ammo
-                                                      invulnerable
-                                                      endless-dark
-                                                      endless-light
-                                                      unlimited-turbos
-                                                      vehicle-hit-points
-                                                      board-fast
-                                                      vehicle-fox
-                                                      vehicle-mirage
-                                                      vehicle-x-ride
-                                                      darkjak-tracking
-                                                      button-invis
-                                                      gun-upgrade-red-1
-                                                      gun-upgrade-red-2
-                                                      gun-upgrade-red-3
-                                                      gun-upgrade-yellow-1
-                                                      gun-upgrade-yellow-2
-                                                      gun-upgrade-yellow-3
-                                                      gun-upgrade-blue-1
-                                                      gun-upgrade-blue-2
-                                                      gun-upgrade-blue-3
-                                                      gun-upgrade-dark-1
-                                                      gun-upgrade-dark-2
-                                                      gun-upgrade-dark-3
-                                                      gun-upgrade-ammo-red
-                                                      gun-upgrade-ammo-yellow
-                                                      gun-upgrade-ammo-blue
-                                                      gun-upgrade-ammo-dark
-                                                      ))
-      (logior! (-> *game-info* purchase-secrets) (-> *game-info* secrets))
-      (logior! (-> *game-info* vehicles) (game-vehicles v-fox v-mirage v-x-ride))
+    ;; (logior! (-> *game-info* secrets) secrets)
+
+    (cond
+      (side-mish?
+        ;; post-game for side missions
+        (task-close! "city-win-resolution")
+        ;; give most of the standard hero-mode secrets by default
+        (logior! (-> *game-info* secrets) (game-secrets endless-ammo
+                                                        invulnerable
+                                                        endless-dark
+                                                        endless-light
+                                                        unlimited-turbos
+                                                        vehicle-hit-points
+                                                        board-fast
+                                                        vehicle-fox
+                                                        vehicle-mirage
+                                                        vehicle-x-ride
+                                                        darkjak-tracking
+                                                        button-invis
+                                                        gun-upgrade-red-1
+                                                        gun-upgrade-red-2
+                                                        gun-upgrade-red-3
+                                                        gun-upgrade-yellow-1
+                                                        gun-upgrade-yellow-2
+                                                        gun-upgrade-yellow-3
+                                                        gun-upgrade-blue-1
+                                                        gun-upgrade-blue-2
+                                                        gun-upgrade-blue-3
+                                                        gun-upgrade-dark-1
+                                                        gun-upgrade-dark-2
+                                                        gun-upgrade-dark-3
+                                                        gun-upgrade-ammo-red
+                                                        gun-upgrade-ammo-yellow
+                                                        gun-upgrade-ammo-blue
+                                                        gun-upgrade-ammo-dark
+                                                        ))
+        (logior! (-> *game-info* purchase-secrets) (-> *game-info* secrets))
+        (logior! (-> *game-info* vehicles) (game-vehicles v-fox v-mirage v-x-ride))
+        )
+      (else
+        ;; not side mish
+        (set! (-> *speedrun-info* override-vehicle) (the-as vehicle-type 0)) ;; override vehicles should only apply for side missions
+        )
       )
     (set-percent-warped! #f)
     (set! (-> *speedrun-info* avg-speed) 0.0)
@@ -1364,6 +1371,9 @@
       (deactivate self)))
   (cam-master-activate-slave #f))
 
+(defun get-override-vehicle ()
+  (-> *speedrun-info* override-vehicle))
+
 (define *speedrun-popup-menu-entries*
   (new 'static
        'boxed-array
@@ -1621,7 +1631,45 @@
               )
             )
           (new 'static 'popup-menu-submenu :label "Side Missions - Wasteland"
-            :entries (new 'static 'boxed-array :type popup-menu-entry 
+            :entries (new 'static 'boxed-array :type popup-menu-entry
+              ;; let you choose the active vehicle for wasteland side missions
+              (new 'static 'popup-menu-submenu :label "Set Wasteland Vehicle"
+                :entries (new 'static 'boxed-array :type popup-menu-entry
+                  (new 'static 'popup-menu-flag :label "On Foot"
+                    :on-confirm (lambda () (set! (-> *speedrun-info* override-vehicle) (vehicle-type vt27)))
+                    :is-toggled? (lambda () (= (-> *speedrun-info* override-vehicle) (vehicle-type vt27))))
+                  (new 'static 'popup-menu-flag :label "Tough Puppy"
+                    :on-confirm (lambda () (set! (-> *speedrun-info* override-vehicle) (vehicle-type v-turtle)))
+                    :is-toggled? (lambda () (= (-> *speedrun-info* override-vehicle) (vehicle-type v-turtle))))
+                  (new 'static 'popup-menu-flag :label "Sand Shark"
+                    :on-confirm (lambda () (set! (-> *speedrun-info* override-vehicle) (vehicle-type v-snake)))
+                    :is-toggled? (lambda () (= (-> *speedrun-info* override-vehicle) (vehicle-type v-snake))))
+                  (new 'static 'popup-menu-flag :label "Dune Hopper"
+                    :on-confirm (lambda () (set! (-> *speedrun-info* override-vehicle) (vehicle-type v-toad)))
+                    :is-toggled? (lambda () (= (-> *speedrun-info* override-vehicle) (vehicle-type v-toad))))
+                  (new 'static 'popup-menu-flag :label "Gila Stomper"
+                    :on-confirm (lambda () (set! (-> *speedrun-info* override-vehicle) (vehicle-type v-scorpion)))
+                    :is-toggled? (lambda () (= (-> *speedrun-info* override-vehicle) (vehicle-type v-scorpion))))
+                  (new 'static 'popup-menu-flag :label "Slam Dozer"
+                    :on-confirm (lambda () (set! (-> *speedrun-info* override-vehicle) (vehicle-type v-rhino)))
+                    :is-toggled? (lambda () (= (-> *speedrun-info* override-vehicle) (vehicle-type v-rhino))))
+                  (new 'static 'popup-menu-flag :label "Heat Seeker"
+                    :on-confirm (lambda () (set! (-> *speedrun-info* override-vehicle) (vehicle-type v-fox)))
+                    :is-toggled? (lambda () (= (-> *speedrun-info* override-vehicle) (vehicle-type v-fox))))
+                  (new 'static 'popup-menu-flag :label "Dust Demon"
+                    :on-confirm (lambda () (set! (-> *speedrun-info* override-vehicle) (vehicle-type v-mirage)))
+                    :is-toggled? (lambda () (= (-> *speedrun-info* override-vehicle) (vehicle-type v-mirage))))
+                  (new 'static 'popup-menu-flag :label "Desert Screamer"
+                    :on-confirm (lambda () (set! (-> *speedrun-info* override-vehicle) (vehicle-type v-x-ride)))
+                    :is-toggled? (lambda () (= (-> *speedrun-info* override-vehicle) (vehicle-type v-x-ride))))
+                  (new 'static 'popup-menu-flag :label "Marauder"
+                    :on-confirm (lambda () (set! (-> *speedrun-info* override-vehicle) (vehicle-type v-marauder)))
+                    :is-toggled? (lambda () (= (-> *speedrun-info* override-vehicle) (vehicle-type v-marauder))))
+                  (new 'static 'popup-menu-flag :label "Factory Car"
+                    :on-confirm (lambda () (set! (-> *speedrun-info* override-vehicle) (vehicle-type v-faccar)))
+                    :is-toggled? (lambda () (= (-> *speedrun-info* override-vehicle) (vehicle-type v-faccar))))
+                  )
+                )
               (new 'static 'popup-menu-flag :label "Orb Search 1 (Wasteland NE)"
                 :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category desert-bbush-get-to-1)))
                 :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category desert-bbush-get-to-1))))
