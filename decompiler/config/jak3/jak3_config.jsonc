@@ -88,6 +88,13 @@
 
   "old_all_types_file": "decompiler/config/jak2/all-types.gc",
 
+  
+  // art groups that should always be possible to access, e.g. "common_art_groups": ["eichar-racer+0-ag", "racer-ag", "ef-plane-ag"]
+  "common_art_groups": ["faccar-ag"],
+
+  // tpages that should always be possible to access, e.g. "common_tpages": [1119],
+  "common_tpages": [2573,2867],
+
   ////////////////////////////
   // CONFIG FILES
   ////////////////////////////

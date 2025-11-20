@@ -37,6 +37,8 @@
   (the-as continue-point #f)
   )
 
+(define-extern get-override-vehicle (function vehicle-type))
+
 ;; WARN: Found some very strange gotos. Check result carefully, this is not well tested.
 (defbehavior arrive-at-continue target ((arg0 continue-point))
   (cond
@@ -184,12 +186,20 @@
          )
        )
      )
+    ((and (logtest? (continue-flags race) (-> arg0 flags))
+          (= (-> arg0 vehicle-type) 28)
+          (= (get-override-vehicle) (vehicle-type vt27)))
+      ;; don't set pilot mode / vehicle-type
+      )
     ((and (logtest? (continue-flags race) (-> arg0 flags)) (!= (-> arg0 vehicle-type) 27))
      (set! (-> self mode-cache) 'pilot)
      (set! (-> self mode-param1) (the-as handle #f))
      (set! (-> self mode-param2) (-> arg0 vehicle-type))
      (when (= (-> arg0 vehicle-type) 28)
        (let ((v1-172 (cond
+                       ((nonzero? (get-override-vehicle))
+                        (get-override-vehicle)
+                        )
                        ((have-vehicle-v-type? (the-as vehicle-type (-> self game current-vehicle)))
                         (the-as int (-> self game current-vehicle))
                         )

@@ -46,6 +46,12 @@
   "wasall-obs.o"
   "wasall-tasks.o"
   "waswide-mood.o"
+
+  "wcar-faccar.o"
+  "faccar-ag.go"
+;;   "tpage-2573.go"
+;;   "tpage-2867.go"
+
   "jak-tentacle+0-ag.go"
   "jak-pilot+0-ag.go"
   "jak-pilot-wcar+0-ag.go"

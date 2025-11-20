@@ -49,6 +49,8 @@
     (set! (-> v1-0 vehicle-levels 17) a1-0)
     (set! (-> v1-0 vehicle-levels 18) a1-0)
     (set! (-> v1-0 vehicle-levels 19) a1-0)
+    (set! (-> v1-0 vehicle-levels 21) a1-0)
+
     )
   (vehicle-manager-start (the-as process *entity-pool*))
   0
