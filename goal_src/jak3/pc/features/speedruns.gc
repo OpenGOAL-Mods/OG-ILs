@@ -770,6 +770,17 @@
 (defmethod set-category! ((this speedrun-info) (category speedrun-category))
   (set! (-> this category) category))
 
+(defun il-speedrun? ()
+  (case (-> *speedrun-info* category)
+    (((speedrun-category newgame-normal) (speedrun-category newgame-heromode))
+      #f
+      )
+    (else
+      #t
+      )
+    )
+  )
+
 (defmethod start-individual-level-run! ((this speedrun-info) (tsk game-task) (side-mish? symbol) (secrets game-secrets))
   (set! (-> this active-practice-objective end-task) tsk)
   (start 'play (get-continue-by-name *game-info* (play-task tsk 'debug 'play)))

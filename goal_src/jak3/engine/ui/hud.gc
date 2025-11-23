@@ -745,6 +745,7 @@
   (none)
   )
 
+(define-extern il-speedrun? (function symbol))
 (defmethod update-values! ((this hud))
   (with-pp
     (let ((s5-0 #f))
@@ -760,8 +761,8 @@
         (set! v1-0 (or s5-0 v1-0))
         (when v1-0
           (dotimes (s4-0 8)
-            (when (not (time-elapsed? (-> *game-info* game-start-time) (seconds 10)))
-              ;; skip any tallying in first 10s of game
+            (when (and (il-speedrun?) (= (-> this type symbol) 'hud-health))
+              ;; skip any tallying for health in IL runs (e.g. at start of run)
               (set! (-> this values s4-0 current) (-> this values s4-0 target))
               )
             (cond
