@@ -1261,6 +1261,17 @@
   (none)
   )
 
+(defun kill-all-persisters ((this setting-control))
+  (kill-matching
+    (-> this engine-pers)
+    (lambda ((arg0 engine-pers) (arg1 connection-pers) (arg2 object) (arg3 object))
+      #t
+      )
+    #f #f
+    )
+  (none)
+  )
+
 (defmethod get-setting ((this setting-control) (arg0 object))
   (let ((v1-1 (-> this engine-hi alive-list next0)))
     (-> this engine-hi)

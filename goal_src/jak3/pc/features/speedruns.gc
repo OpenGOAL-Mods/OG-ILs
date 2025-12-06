@@ -783,6 +783,8 @@
 
 (defmethod start-individual-level-run! ((this speedrun-info) (tsk game-task) (side-mish? symbol) (secrets game-secrets))
   (set! (-> this active-practice-objective end-task) tsk)
+  ;; remove any camera settings from active run
+  (kill-all-persisters *setting-control*)
   (start 'play (get-continue-by-name *game-info* (play-task tsk 'debug 'play)))
   (set-master-mode 'game)
   ;; spawn a process that suspends until jak is properly spawned, before starting timer
