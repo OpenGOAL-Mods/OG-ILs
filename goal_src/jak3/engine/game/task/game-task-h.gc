@@ -152,6 +152,8 @@
   (wascity-pre-game-2 139)
   (wascity-gungame-2 140)
   (city-power-game-2 141)
+  (palace-ruins-patrol-w-bbush 142)
+  (palace-ruins-attack-w-bbush 143)
   (max 142)
   )
 ;; ---game-task

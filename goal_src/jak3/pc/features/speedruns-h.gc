@@ -76,7 +76,7 @@
    (draw-info (_type_) object)
    (reset! (_type_) object)))
 
-(defconstant *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 131 :allocated-length 131
+(defconstant *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 133 :allocated-length 133
   "Normal"
   "Hero Mode"
   ;; Act 1 ILs
@@ -212,6 +212,150 @@
   "Satellite (Gold)"                ;; wascity-pre-game-2
   "Turret Challenge (Gold)"         ;; wascity-gungame-2
   "Eco Grid (Gold)"                 ;; city-power-game-2
+  
+  "Reach Catacombs via Palace Ruins" ;; (w/ Side Mission)" ;; palace-ruins-patrol-w-bbush
+  "Break Through Ruins" ;;  (w/ Side Mission)" ;; palace-ruins-attack-w-bbush
+  )))
+
+(defconstant *speedrun-category-names-2* (the-as (array string) (new 'static 'boxed-array :type string :length 133 :allocated-length 133
+  #f ;; "Normal"
+  #f ;; "Hero Mode"
+  ;; Act 1 ILs
+  #f ;; "Complete Arena Training Course"
+  #f ;; "Earn 1st War Amulet"
+  #f ;; "Catch Kanga-Rats"
+  #f ;; "Unlock Satellite"
+  #f ;; "Learn to Drive a Vehicle"
+  #f ;; "Beat Kleiver in Desert Race"
+  #f ;; "Race For Artifacts"
+  #f ;; "Beat Monks in Leaper Race"
+  #f ;; "Destroy Metal Head Beasts"
+  #f ;; "Earn 2nd War Amulet"
+  #f ;; "Corral Wild Leapers"
+  #f ;; "Rescue Wastelanders"
+  #f ;; "Beat Turret Challenge"
+  #f ;; "Defeat Marauders in Arena"
+  #f ;; "Destroy Eggs in Nest"
+  #f ;; "Climb Monk Temple Tower"
+  #f ;; "Glide to Volcano"
+  #f ;; "Find Satellite in Volcano"
+  #f ;; "Find Oracle in Monk Temple"
+  #f ;; "Defend Ashelin at Oasis"
+  #f ;; "Complete Monk Temple Tests"
+  #f ;; "Travel Through Catacomb Subrails"
+  #f ;; "Explore Eco Mine"
+  #f ;; "Escort Bomb Train"
+  #f ;; "Defeat Veger's Precursor Robot"
+  ;; Act 2 ILs
+  #f ;; "Reach Port via Sewer"
+  #f ;; "Destroy Incoming Blast Bots"
+  #f ;; "Destroy Barrier With Missile"
+  #f ;; "Beat Gun Course 1"
+  #f ;; "Destroy Sniper Cannons"
+  #f ;; "Reach Metal Head Area via Sewer"
+  #f ;; "Destroy Dark Eco Tanks"
+  #f ;; "Kill Dark Plants in Forest"
+  #f ;; "Destroy Eco Grid With Jinx"
+  #f ;; "Hijack Eco Vehicle"
+  #f ;; "Defend Port From Attack"
+  #f ;; "Beat Gun Course 2"
+  #f ;; "Break Barrier with Blast Bot"
+  #f ;; "Defend HQ From Attack"
+  #f ;; "Find Switch in Sewers"
+  #f ;; "Find Cypher In Eco Grid"
+  #f ;; "Race For More Artifacts"
+  #f ;; "Destroy Metal-pedes in Nest"
+  #f ;; "Chase Down Metal Head Beasts"
+  #f ;; "Defend Spargus' Front Gate"
+  #f ;; "Take Out Marauder Stronghold"
+  #f ;; "Beat Pillar Ring Challenges"
+  #f ;; "Destroy War Factory Defenses"
+  #f ;; "Explore War Factory"
+  #f ;; "Beat Cyber-Errol Boss"
+  ;; Act 3 ILs
+  #f ;; "Rescue Seem at Temple"
+  #f ;; "Defend Spargus From Attack"
+  #f ;; "Activate Astro-Viewer in Forest"
+  #f ;; "Destroy Dark Ship Shield"
+  #f ;; "Blow Open Tower Door"
+  #f ;; "Destroy Metal Head Tower"
+  #f ;; "Reach Catacombs via Palace Ruins"
+  #f ;; "Break Through Ruins"
+  #f ;; "Reach Precursor Core"
+  #f ;; "Destroy Dark Ship"
+  #f ;; "Terraformer"
+  #f ;; "Destroy Final Boss"
+  ;; Side Missions
+  #f ;; "Orb Search 1 (Wasteland NE)"     ;; desert-bbush-get-to-1
+  #f ;; "Orb Search 2 (Wasteland W)"      ;; desert-bbush-get-to-2
+  #f ;; "Orb Search 3 (Wasteland NW)"     ;; desert-bbush-get-to-3
+  #f ;; "Orb Search 4 (Wasteland SE)"     ;; desert-bbush-get-to-4
+  #f ;; "Orb Search 5 (Wasteland SE)"     ;; desert-bbush-get-to-5
+  #f ;; "Orb Search 6 (Wasteland W)"      ;; desert-bbush-get-to-6
+  #f ;; "Orb Search 7 (Wasteland SW)"     ;; desert-bbush-get-to-7
+  #f ;; "Orb Search 8 (Wasteland NE)"     ;; desert-bbush-get-to-8
+  #f ;; "Orb Search 9 (Wasteland N)"      ;; desert-bbush-get-to-9
+  #f ;; "Orb Search 11 (Wasteland SE)"    ;; desert-bbush-get-to-11
+  #f ;; "Orb Search 12 (Wasteland E)"     ;; desert-bbush-get-to-12
+  #f ;; "Orb Search 14 (Wasteland SW)"    ;; desert-bbush-get-to-14
+  #f ;; "Orb Search 16 (Wasteland E)"     ;; desert-bbush-get-to-16
+  #f ;; "Orb Search 17 (Wasteland NE)"    ;; desert-bbush-get-to-17
+  #f ;; "Orb Search 18 (Spargus E)"       ;; wascity-bbush-get-to-18
+  #f ;; "Orb Search 19 (Spargus E)"       ;; desert-bbush-get-to-19
+  #f ;; "Orb Search 20 (Spargus E)"       ;; wascity-bbush-get-to-20
+  #f ;; "Orb Search 21 (Spargus E)"       ;; wascity-bbush-get-to-21
+  #f ;; "Orb Search 22 (Spargus W)"       ;; wascity-bbush-get-to-22
+  #f ;; "Orb Search 23 (Spargus W)"       ;; wascity-bbush-get-to-23
+  #f ;; "Orb Search 24 (Spargus W)"       ;; wascity-bbush-get-to-24
+  #f ;; "Orb Search 25 (Spargus W)"       ;; wascity-bbush-get-to-25
+  #f ;; "Orb Search 26 (Main Town Ruins)" ;; city-bbush-get-to-26
+  #f ;; "Orb Search 27 (New Haven S)"     ;; city-bbush-get-to-27
+  #f ;; "Orb Search 28 (Main Town Ruins)" ;; city-bbush-get-to-28
+  #f ;; "Orb Search 29 (Main Town Ruins)" ;; city-bbush-get-to-29
+  #f ;; "Orb Search 30 (Main Town Ruins)" ;; city-bbush-get-to-30
+  #f ;; "Orb Search 31 (New Haven S)"     ;; city-bbush-get-to-31
+  #f ;; "Orb Search 32 (New Haven N)"     ;; city-bbush-get-to-32
+  #f ;; "Orb Search 33 (New Haven N)"     ;; city-bbush-get-to-33
+  #f ;; "Orb Search 34 (Slums)"           ;; city-bbush-get-to-34
+  #f ;; "Orb Search 35 (Slums)"           ;; city-bbush-get-to-35
+  #f ;; "Orb Search 36 (Industrial N)"    ;; city-bbush-get-to-36
+  #f ;; "Orb Search 37 (Industrial N)"    ;; city-bbush-get-to-37
+  #f ;; "Orb Search 38 (Industrial S)"    ;; city-bbush-get-to-38
+  #f ;; "Orb Search 39 (Industrial S)"    ;; city-bbush-get-to-39
+  #f ;; "Orb Search 40 (Industrial S)"    ;; city-bbush-get-to-40
+  #f ;; "Orb Search 41 (Port)"            ;; city-bbush-get-to-41
+  #f ;; "Orb Search 42 (Port)"            ;; city-bbush-get-to-42
+  #f ;; "Orb Search 43 (Port)"            ;; city-bbush-get-to-43
+  #f ;; "Orb Search 44 (Port)"            ;; city-bbush-get-to-44
+  #f ;; "Ring Race 1 (Wasteland SE)"      ;; desert-bbush-ring-1
+  #f ;; "Ring Race 2 (Wasteland SW)"      ;; desert-bbush-ring-2
+  #f ;; "Ring Race 3 (Spargus W)"         ;; wascity-bbush-ring-3
+  #f ;; "Ring Race 4 (Spargus E)"         ;; wascity-bbush-ring-4
+  #f ;; "Ring Race 5 (New Haven S)"       ;; city-bbush-ring-5
+  #f ;; "Ring Race 6 (Industrial S)"      ;; city-bbush-ring-6
+  #f ;; "Pod Spider Hunt"                 ;; desert-bbush-egg-spider-1
+  #f ;; "Spirit Chase 1 (Wasteland)"      ;; desert-bbush-spirit-chase-1
+  #f ;; "Spirit Chase 2 (Spargus)"        ;; wascity-bbush-spirit-chase-2
+  #f ;; "Spirit Chase 3 (Slums)"          ;; city-bbush-spirit-chase-3
+  #f ;; "Timer Race 1 (Wasteland)"        ;; desert-bbush-timer-chase-1
+  #f ;; "Timer Race 2 (Spargus)"          ;; wascity-bbush-timer-chase-2
+  #f ;; "Single Hang Time Challenge"      ;; desert-bbush-air-time
+  #f ;; "Total Hang Time Challenge"       ;; desert-bbush-total-air-time
+  #f ;; "Single Distance Challenge"       ;; desert-bbush-jump-distance
+  #f ;; "Total Distance Challenge"        ;; desert-bbush-total-jump-distance
+  #f ;; "Roll Challenge"                  ;; desert-bbush-roll-count
+  #f ;; "Wasteland Racetrack Time Trial"  ;; desert-bbush-time-trial-1
+  #f ;; "Wasteland Rally"                 ;; desert-bbush-rally
+  #f ;; "Port Missile Challenge"          ;; city-bbush-port-attack
+  #f ;; "Rescue More Wastelanders"        ;; desert-rescue-bbush
+  #f ;; "JET-Board Challenge (Gold)"      ;; city-jetboard-bbush
+  #f ;; "Destroy Marauders (Gold)"        ;; desert-bbush-destroy-interceptors
+  #f ;; "Satellite (Gold)"                ;; wascity-pre-game-2
+  #f ;; "Turret Challenge (Gold)"         ;; wascity-gungame-2
+  #f ;; "Eco Grid (Gold)"                 ;; city-power-game-2
+  
+  "(w/ Side Mission)" ;; "Reach Catacombs via Palace Ruins (w/ Side Mission)" ;; palace-ruins-patrol-w-bbush
+  "(w/ Side Mission)" ;; "Break Through Ruins (w/ Side Mission)" ;; palace-ruins-attack-w-bbush
   )))
 
 (defenum speedrun-category
@@ -352,6 +496,8 @@
   (wascity-pre-game-2 128)
   (wascity-gungame-2 129)
   (city-power-game-2 130)
+  (palace-ruins-patrol-w-bbush 131)
+  (palace-ruins-attack-w-bbush 132)
   ;; TODO - add ILs and such later
   ;; there's no point in adding categories that just start from a new-game and have later restrictions
   ;; because we aren't going to modify the code to make that possible

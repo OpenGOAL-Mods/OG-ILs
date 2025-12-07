@@ -1321,6 +1321,26 @@
             :play-continue "vinroom-start"
             :kiosk-play-continue #f
             )
+          (new 'static 'game-task-info
+            :name "palace-ruins-patrol-w-bbush"
+            :text-name (text-id progress-missions-palace-ruins-patrol)
+            :pre-play-node (game-task-node city-bbush-get-to-28-introduction)
+            :kiosk-play-node (game-task-node city-bbush-get-to-28-resolution)
+            :pre-play-continue "stadium-tunnel"
+            :play-node (game-task-node city-bbush-get-to-28-resolution)
+            :play-continue "stadium-steps"
+            :kiosk-play-continue #f
+            )
+          (new 'static 'game-task-info
+            :name "palace-ruins-attack-w-bbush"
+            :text-name (text-id progress-missions-palace-ruins-attack)
+            :pre-play-node (game-task-node city-bbush-get-to-28-introduction)
+            :kiosk-play-node (game-task-node city-bbush-get-to-28-resolution)
+            :pre-play-continue "rubblea-start"
+            :play-node (game-task-node city-bbush-get-to-28-resolution)
+            :play-continue "rubblea-no-rhino"
+            :kiosk-play-continue #f
+            )
           )
         )
   (set! (-> game-info sub-task-list)
