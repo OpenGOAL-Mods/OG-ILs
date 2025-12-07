@@ -163,8 +163,12 @@
       (-> *pc-settings* pb-time-tower-destroy))
     (((speedrun-category palace-ruins-patrol))
       (-> *pc-settings* pb-time-palace-ruins-patrol))
+    (((speedrun-category palace-ruins-patrol-w-bbush))
+      (-> *pc-settings* pb-time-palace-ruins-patrol-w-bbush))
     (((speedrun-category palace-ruins-attack))
       (-> *pc-settings* pb-time-palace-ruins-attack))
+    (((speedrun-category palace-ruins-attack-w-bbush))
+      (-> *pc-settings* pb-time-palace-ruins-attack-w-bbush))
     (((speedrun-category comb-wild-ride))
       (-> *pc-settings* pb-time-comb-wild-ride))
     (((speedrun-category precursor-destroy-ship))
@@ -436,6 +440,10 @@
             (set! (-> *pc-settings* pb-time-tower-destroy) (-> this recorded-time)))
           (((speedrun-category palace-ruins-patrol))
             (set! (-> *pc-settings* pb-time-palace-ruins-patrol) (-> this recorded-time)))
+          (((speedrun-category palace-ruins-patrol-w-bbush))
+            (set! (-> *pc-settings* pb-time-palace-ruins-patrol-w-bbush) (-> this recorded-time)))
+          (((speedrun-category palace-ruins-attack-w-bbush))
+            (set! (-> *pc-settings* pb-time-palace-ruins-attack-w-bbush) (-> this recorded-time)))
           (((speedrun-category palace-ruins-attack))
             (set! (-> *pc-settings* pb-time-palace-ruins-attack) (-> this recorded-time)))
           (((speedrun-category comb-wild-ride))
@@ -782,68 +790,94 @@
   )
 
 (defmethod start-individual-level-run! ((this speedrun-info) (tsk game-task) (side-mish? symbol) (secrets game-secrets))
-  (set! (-> this active-practice-objective end-task) tsk)
-  (start 'play (get-continue-by-name *game-info* (play-task tsk 'debug 'play)))
-  (set-master-mode 'game)
-  ;; spawn a process that suspends until jak is properly spawned, before starting timer
-  (process-spawn-function process (lambda :behavior process ((side-mish? symbol))
-    (let ((target-continued? #f))
-      (until (and target-continued?
-                  (< (-> *game-info* blackout-time) (get-current-time)) 
-                  (= (-> *setting-control* user-default bg-a-force) 0.0))
-        ;; (if *target* (format 0 "target is in state ~A~%" (-> *target* next-state name)))
-        (suspend)
-        (when (and *target* (!= (-> *target* next-state name) 'target-continue))
-          (true! target-continued?)))
+  (let ((end-tsk (case tsk
+                  (((game-task palace-ruins-patrol-w-bbush))
+                    (game-task palace-ruins-patrol))
+                  (((game-task palace-ruins-attack-w-bbush))
+                    (game-task palace-ruins-attack))
+                  (else
+                    tsk)
+                  )))
+    (set! (-> this active-practice-objective end-task) end-tsk)
+    (start 'play (get-continue-by-name *game-info* (play-task tsk 'debug 'play)))
+    (set-master-mode 'game)
+    
+    (case tsk
+      (((game-task palace-ruins-patrol-w-bbush))
+        (format 0 "ruins bbush closing intro ~%")
+        (task-node-close! (game-task-node palace-ruins-patrol-stadium) 'event))
+      (((game-task palace-ruins-attack-w-bbush))
+        (format 0 "btr bbush closing intro ~%")
+        (task-node-close! (game-task-node palace-ruins-attack-introduction) 'event))
       )
-    ;; never ended up using this, we'd need to pass it into the lambda to properly use it
-    ;; (logior! (-> *game-info* secrets) secrets)
+    ;; spawn a process that suspends until jak is properly spawned, before starting timer
+    (process-spawn-function process 
+      (lambda :behavior process ((side-mish? symbol) (tsk game-task))
+        (let ((target-continued? #f))
+          (until (and target-continued?
+                      (< (-> *game-info* blackout-time) (get-current-time)) 
+                      (= (-> *setting-control* user-default bg-a-force) 0.0))
+            ;; (if *target* (format 0 "target is in state ~A~%" (-> *target* next-state name)))
+            (suspend)
+            (when (and *target* (!= (-> *target* next-state name) 'target-continue))
+              ;; (when (= tsk (game-task palace-ruins-attack-w-bbush))
+              ;;   (format 0 "btr bbush closing intro backup thing~%")
+              ;;   (task-node-close! (game-task-node palace-ruins-attack-introduction) 'event))
+              (true! target-continued?)))
+          )
+        ;; never ended up using this, we'd need to pass it into the lambda to properly use it
+        ;; (logior! (-> *game-info* secrets) secrets)
 
-    (cond
-      (side-mish?
-        ;; post-game for side missions
-        (task-close! "city-win-resolution")
-        ;; give most of the standard hero-mode secrets by default
-        (logior! (-> *game-info* secrets) (game-secrets endless-ammo
-                                                        invulnerable
-                                                        endless-dark
-                                                        endless-light
-                                                        unlimited-turbos
-                                                        vehicle-hit-points
-                                                        board-fast
-                                                        vehicle-fox
-                                                        vehicle-mirage
-                                                        vehicle-x-ride
-                                                        darkjak-tracking
-                                                        button-invis
-                                                        gun-upgrade-red-1
-                                                        gun-upgrade-red-2
-                                                        gun-upgrade-red-3
-                                                        gun-upgrade-yellow-1
-                                                        gun-upgrade-yellow-2
-                                                        gun-upgrade-yellow-3
-                                                        gun-upgrade-blue-1
-                                                        gun-upgrade-blue-2
-                                                        gun-upgrade-blue-3
-                                                        gun-upgrade-dark-1
-                                                        gun-upgrade-dark-2
-                                                        gun-upgrade-dark-3
-                                                        gun-upgrade-ammo-red
-                                                        gun-upgrade-ammo-yellow
-                                                        gun-upgrade-ammo-blue
-                                                        gun-upgrade-ammo-dark
-                                                        ))
-        (logior! (-> *game-info* purchase-secrets) (-> *game-info* secrets))
-        (logior! (-> *game-info* vehicles) (game-vehicles v-fox v-mirage v-x-ride))
+        (cond
+          (side-mish?
+            ;; post-game for side missions
+            (task-close! "city-win-resolution")
+            ;; give most of the standard hero-mode secrets by default
+            (logior! (-> *game-info* secrets) (game-secrets endless-ammo
+                                                            invulnerable
+                                                            endless-dark
+                                                            endless-light
+                                                            unlimited-turbos
+                                                            vehicle-hit-points
+                                                            board-fast
+                                                            vehicle-fox
+                                                            vehicle-mirage
+                                                            vehicle-x-ride
+                                                            darkjak-tracking
+                                                            button-invis
+                                                            gun-upgrade-red-1
+                                                            gun-upgrade-red-2
+                                                            gun-upgrade-red-3
+                                                            gun-upgrade-yellow-1
+                                                            gun-upgrade-yellow-2
+                                                            gun-upgrade-yellow-3
+                                                            gun-upgrade-blue-1
+                                                            gun-upgrade-blue-2
+                                                            gun-upgrade-blue-3
+                                                            gun-upgrade-dark-1
+                                                            gun-upgrade-dark-2
+                                                            gun-upgrade-dark-3
+                                                            gun-upgrade-ammo-red
+                                                            gun-upgrade-ammo-yellow
+                                                            gun-upgrade-ammo-blue
+                                                            gun-upgrade-ammo-dark
+                                                            ))
+            (logior! (-> *game-info* purchase-secrets) (-> *game-info* secrets))
+            (logior! (-> *game-info* vehicles) (game-vehicles v-fox v-mirage v-x-ride))
+            )
+          (else
+            ;; not side mish
+            (set! (-> *speedrun-info* override-vehicle) (the-as vehicle-type 0)) ;; override vehicles should only apply for side missions
+            )
+          )
+        (set-percent-warped! #f)
+        (set! (-> *speedrun-info* avg-speed) 0.0)
+        (start! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
         )
-      (else
-        ;; not side mish
-        (set! (-> *speedrun-info* override-vehicle) (the-as vehicle-type 0)) ;; override vehicles should only apply for side missions
-        )
+      side-mish?
+      tsk
       )
-    (set-percent-warped! #f)
-    (set! (-> *speedrun-info* avg-speed) 0.0)
-    (start! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))) side-mish?)
+    )
   (none)
   )
 
@@ -1075,8 +1109,12 @@
       (start-individual-level-run! this (game-task tower-destroy) #f (game-secrets)))
     (((speedrun-category palace-ruins-patrol))
       (start-individual-level-run! this (game-task palace-ruins-patrol) #f (game-secrets)))
+    (((speedrun-category palace-ruins-patrol-w-bbush))
+      (start-individual-level-run! this (game-task palace-ruins-patrol-w-bbush) #f (game-secrets)))
     (((speedrun-category palace-ruins-attack))
       (start-individual-level-run! this (game-task palace-ruins-attack) #f (game-secrets)))
+    (((speedrun-category palace-ruins-attack-w-bbush))
+      (start-individual-level-run! this (game-task palace-ruins-attack-w-bbush) #f (game-secrets)))
     (((speedrun-category comb-wild-ride))
       (start-individual-level-run! this (game-task comb-wild-ride) #f (game-secrets)))
     (((speedrun-category precursor-destroy-ship))
@@ -1579,9 +1617,15 @@
           (new 'static 'popup-menu-flag :label "Reach Catacombs via Palace Ruins"
             :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-patrol)))
             :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-patrol))))
+          (new 'static 'popup-menu-flag :label "Reach Catacombs via Palace Ruins (with Side Mission)" 
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-patrol-w-bbush)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-patrol-w-bbush))))
           (new 'static 'popup-menu-flag :label "Break Through Ruins"
             :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-attack)))
             :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-attack))))
+          (new 'static 'popup-menu-flag :label "Break Through Ruins (with Side Mission)" 
+            :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-attack-w-bbush)))
+            :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-attack-w-bbush))))
           (new 'static 'popup-menu-flag :label "Reach Precursor Core"
             :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category comb-wild-ride)))
             :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category comb-wild-ride))))

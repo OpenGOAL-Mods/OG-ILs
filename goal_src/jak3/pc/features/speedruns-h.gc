@@ -76,7 +76,7 @@
    (draw-info (_type_) object)
    (reset! (_type_) object)))
 
-(defconstant *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 131 :allocated-length 131
+(defconstant *speedrun-category-names* (the-as (array string) (new 'static 'boxed-array :type string :length 133 :allocated-length 133
   "Normal"
   "Hero Mode"
   ;; Act 1 ILs
@@ -212,6 +212,9 @@
   "Satellite (Gold)"                ;; wascity-pre-game-2
   "Turret Challenge (Gold)"         ;; wascity-gungame-2
   "Eco Grid (Gold)"                 ;; city-power-game-2
+  
+  "Reach Catacombs via Palace Ruins (with Side Mission)" ;; palace-ruins-patrol-w-bbush
+  "Break Through Ruins (with Side Mission)" ;; palace-ruins-attack-w-bbush
   )))
 
 (defenum speedrun-category
@@ -352,6 +355,8 @@
   (wascity-pre-game-2 128)
   (wascity-gungame-2 129)
   (city-power-game-2 130)
+  (palace-ruins-patrol-w-bbush 131)
+  (palace-ruins-attack-w-bbush 132)
   ;; TODO - add ILs and such later
   ;; there's no point in adding categories that just start from a new-game and have later restrictions
   ;; because we aren't going to modify the code to make that possible

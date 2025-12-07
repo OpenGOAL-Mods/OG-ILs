@@ -3904,6 +3904,26 @@
                         )
                       :want-sound (new 'static 'array symbol 3 'wasall1 'ruintsk4 'ruintsk5)
                       )
+                    (new 'static 'continue-point
+                      :name "rubblea-no-rhino"
+                      :level 'rubblea
+                      :flags (continue-flags scene-wait no-auto)
+                      :trans (new 'static 'vector :x -585186.94 :y 89194.086 :z -1169881.1 :w 1.0)
+                      :camera-trans (new 'static 'vector :x -585855.4 :y 116445.59 :z -1221524.2 :w 1.0)
+                      :quat (new 'static 'vector4h :data (new 'static 'array int16 4 #x27e -219 #x223 -32753))
+                      :camera-rot (new 'static 'array int16 9 #x7ffb 0 -419 #x93 #x77ad #x2d5f #x189 -11615 #x77a9)
+                      :on-goto #f
+                      :vis-nick 'rubblea
+                      :vehicle-type #x1b
+                      :want-count 3
+                      :want (new 'static 'inline-array level-buffer-state-small 4
+                        (new 'static 'level-buffer-state-small :name 'stadiuma :display? 'display)
+                        (new 'static 'level-buffer-state-small :name 'rubblea :display? 'display)
+                        (new 'static 'level-buffer-state-small :name 'stadiumb :display? 'display)
+                        (new 'static 'level-buffer-state-small)
+                        )
+                      :want-sound (new 'static 'array symbol 3 'wasall1 'ruintsk4 'ruintsk5)
+                      )
                     )
                   :callback-list '((33 . rubblea-login) (23 . init-mood-stadiuma) (6 . *rubblea-water-texture-anim-array*))
                   :borrow #f
