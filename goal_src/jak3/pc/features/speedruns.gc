@@ -807,6 +807,8 @@
                     tsk)
                   )))
     (set! (-> this active-practice-objective end-task) end-tsk)
+    ;; remove any camera settings from active run
+    (kill-all-persisters *setting-control*)
     (start 'play (get-continue-by-name *game-info* (play-task tsk 'debug 'play)))
     (set-master-mode 'game)
     
