@@ -814,10 +814,8 @@
     
     (case tsk
       (((game-task palace-ruins-patrol-w-bbush))
-        (format 0 "ruins bbush closing intro ~%")
         (task-node-close! (game-task-node palace-ruins-patrol-stadium) 'event))
       (((game-task palace-ruins-attack-w-bbush))
-        (format 0 "btr bbush closing intro ~%")
         (task-node-close! (game-task-node palace-ruins-attack-introduction) 'event))
       )
     ;; spawn a process that suspends until jak is properly spawned, before starting timer
@@ -830,9 +828,6 @@
             ;; (if *target* (format 0 "target is in state ~A~%" (-> *target* next-state name)))
             (suspend)
             (when (and *target* (!= (-> *target* next-state name) 'target-continue))
-              ;; (when (= tsk (game-task palace-ruins-attack-w-bbush))
-              ;;   (format 0 "btr bbush closing intro backup thing~%")
-              ;;   (task-node-close! (game-task-node palace-ruins-attack-introduction) 'event))
               (true! target-continued?)))
           )
         ;; never ended up using this, we'd need to pass it into the lambda to properly use it
