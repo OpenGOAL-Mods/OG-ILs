@@ -611,9 +611,17 @@
     ;; print mission header
     (clear *temp-string*)
     (clear *pc-encoded-temp-string*)
-    (format *temp-string* "~4L~S~%" (-> *speedrun-category-names* (-> *speedrun-info* category)))
+    (cond
+      ((-> *speedrun-category-names-2* (-> *speedrun-info* category))
+        ;; need an extra line
+        (+! lines-used 3)
+        (format *temp-string* "~4L~S~%~S~%" (-> *speedrun-category-names* (-> *speedrun-info* category)) (-> *speedrun-category-names-2* (-> *speedrun-info* category))))
+      (else
+        (+! lines-used 2)
+        (format *temp-string* "~4L~S~%" (-> *speedrun-category-names* (-> *speedrun-info* category))))
+      )
     (format *temp-string* "~6LMission Completed~%")
-    (+! lines-used 3)
+    (+! lines-used 1)
     (when (-> *speedrun-info* percent-warped?)
       (format *temp-string* "~3LPercentage Warp Used!~%")
       (+! lines-used 1))
@@ -1617,13 +1625,13 @@
           (new 'static 'popup-menu-flag :label "Reach Catacombs via Palace Ruins"
             :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-patrol)))
             :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-patrol))))
-          (new 'static 'popup-menu-flag :label "Reach Catacombs via Palace Ruins (with Side Mission)" 
+          (new 'static 'popup-menu-flag :label "Reach Catacombs via Palace Ruins (w/ Side Mission)" 
             :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-patrol-w-bbush)))
             :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-patrol-w-bbush))))
           (new 'static 'popup-menu-flag :label "Break Through Ruins"
             :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-attack)))
             :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-attack))))
-          (new 'static 'popup-menu-flag :label "Break Through Ruins (with Side Mission)" 
+          (new 'static 'popup-menu-flag :label "Break Through Ruins (w/ Side Mission)" 
             :on-confirm (lambda () (set-category! *speedrun-info* (speedrun-category palace-ruins-attack-w-bbush)))
             :is-toggled? (lambda () (= (-> *speedrun-info* category) (speedrun-category palace-ruins-attack-w-bbush))))
           (new 'static 'popup-menu-flag :label "Reach Precursor Core"
