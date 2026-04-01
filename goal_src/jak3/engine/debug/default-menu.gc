@@ -3175,13 +3175,6 @@
   (send-event *target* 'change-mode 'pilot #f arg0 #t)
   )
 
-(defun dm-game-opengoal-cheat-toggle-pick-func ((arg0 int) (arg1 debug-menu-msg))
-  (if (= arg1 (debug-menu-msg press))
-      (logxor! (-> *pc-settings* cheats) (the-as uint (/ arg0 8)))
-      )
-  (logtest? (-> *pc-settings* cheats) (/ arg0 8))
-  )
-
 (defun stop-watch-display ((arg0 object) (arg1 object))
   (let ((v1-3 (- (-> *display* base-clock frame-counter) (-> *game-info* stop-watch-start))))
     (format arg1 "Stop watch ~D:~D:~D~%" (/ v1-3 #x4650) (/ (mod v1-3 #x4650) 300) (/ (* 100 (mod v1-3 300)) 300))
