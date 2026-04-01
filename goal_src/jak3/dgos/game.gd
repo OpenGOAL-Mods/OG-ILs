@@ -490,4 +490,5 @@
   "debris.o"
   "shield-sphere.o"
   "entity-debug.o" ;; added
+  "mod-settings.o" ;; added ;;mod-base-change
  ))

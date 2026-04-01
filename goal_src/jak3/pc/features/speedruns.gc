@@ -8,7 +8,7 @@
 
 ;; do NOT change %MODVERSIONPLACEHOLDER% below, otherwise the mod-bundling-tools
 ;;   will be unable to automatically add version info to the speedrun display
-(define *mod-version-text* "%MODVERSIONPLACEHOLDER%")
+(define-extern *mod-version-text* string)
 
 (define-extern *pc-dead-pool* dead-pool)
 

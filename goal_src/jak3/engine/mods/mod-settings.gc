@@ -1,0 +1,28 @@
+;;-*-Lisp-*-
+(in-package goal)
+
+;; name: mod-common-functions.gc
+;; name in dgo: mod-common-functions
+;; dgos: TODO
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; What is this file for.
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+#| This file is a place where you can define custom functions and GOAL code
+ to call inside of mod-custom-code.gc for example I have defined a function that increases
+ the powercell count by one when it is called
+ |#
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Define Settings to use in mods
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Define Custom Settings Variables to use in mods
+;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; do NOT change %MODVERSIONPLACEHOLDER% below, otherwise the mod-bundling-tools
+;;   will be unable to automatically add version info to the speedrun display
+(define *mod-version-text* "%MODVERSIONPLACEHOLDER%")
