@@ -598,6 +598,28 @@
   (none)
   )
 
+(defun get-override-vehicle-name ()
+  (let ((v (if (nonzero? (-> *speedrun-info* override-vehicle)) (-> *speedrun-info* override-vehicle) (-> *game-info* current-vehicle))))
+    (case v
+      (((vehicle-type vt27)) "On Foot")
+      (((vehicle-type v-turtle)) "Tough Puppy")
+      (((vehicle-type v-snake)) "Sand Shark")
+      (((vehicle-type v-toad)) "Dune Hopper")
+      (((vehicle-type v-scorpion)) "Gila Stomper")
+      (((vehicle-type v-rhino)) "Slam Dozer")
+      (((vehicle-type v-fox)) "Heat Seeker")
+      (((vehicle-type v-mirage)) "Dust Demon")
+      (((vehicle-type v-x-ride)) "Desert Screamer")
+      (((vehicle-type v-marauder)) "Marauder")
+      (((vehicle-type v-faccar)) "Factory Car")
+      (else "N/A")
+      )
+    )
+  )
+
+(defun get-override-vehicle ()
+  (-> *speedrun-info* override-vehicle))
+
 (defun print-speedrun-end-results-text ((buf dma-buffer) (alpha float))
   (let* ((pb-time (get-pb-time))
          (pb-total-sec (the int pb-time))
@@ -651,10 +673,25 @@
       (set! (-> font-ctx scale) 0.5)
       (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
       (draw-string-adv *pc-encoded-temp-string* buf font-ctx))
-    
-    ;; print stats
+
     (clear *temp-string*)
     (clear *pc-encoded-temp-string*)
+
+    ;; print vehicle, for wasteland side missions
+    (case (-> *speedrun-info* category)
+      (((speedrun-category desert-bbush-get-to-1) (speedrun-category desert-bbush-get-to-2) (speedrun-category desert-bbush-get-to-3) (speedrun-category desert-bbush-get-to-4)
+        (speedrun-category desert-bbush-get-to-5) (speedrun-category desert-bbush-get-to-6) (speedrun-category desert-bbush-get-to-7) (speedrun-category desert-bbush-get-to-8)
+        (speedrun-category desert-bbush-get-to-9) (speedrun-category desert-bbush-get-to-11) (speedrun-category desert-bbush-get-to-12) (speedrun-category desert-bbush-get-to-14)
+        (speedrun-category desert-bbush-get-to-16) (speedrun-category desert-bbush-get-to-17) (speedrun-category desert-bbush-ring-1) (speedrun-category desert-bbush-ring-2)
+        (speedrun-category desert-bbush-egg-spider-1) (speedrun-category desert-bbush-spirit-chase-1) (speedrun-category desert-bbush-timer-chase-1)
+        (speedrun-category desert-bbush-time-trial-1) (speedrun-category desert-bbush-rally) (speedrun-category desert-rescue-bbush) (speedrun-category desert-bbush-air-time)
+        (speedrun-category desert-bbush-total-air-time) (speedrun-category desert-bbush-jump-distance) (speedrun-category desert-bbush-total-jump-distance)
+        (speedrun-category desert-bbush-roll-count) (speedrun-category desert-bbush-destroy-interceptors) (speedrun-category wascity-pre-game-2))
+        (format *temp-string* "~32LWasteland Vehicle: ~0L~S~%" (get-override-vehicle-name))
+        )
+      )
+    
+    ;; print stats
     (format *temp-string* "~32LAverage Speed: ~0L~,,1fm/s~%~%" (/ (-> *speedrun-info* avg-speed) 4096.0))
     ;; TODO - kill stats
     ;; (format *temp-string* "Enemies Killed: ~D~%" (get-jak-enemy-kill-count (-> *statistics* kill-stats)))
@@ -1424,9 +1461,6 @@
       (send-event *camera* 'teleport)
       (deactivate self)))
   (cam-master-activate-slave #f))
-
-(defun get-override-vehicle ()
-  (-> *speedrun-info* override-vehicle))
 
 (define *speedrun-popup-menu-entries*
   (new 'static
