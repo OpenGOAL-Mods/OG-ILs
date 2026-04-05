@@ -668,6 +668,9 @@
         (set! (-> obj flava-unlocked i) (file-stream-read-symbol file))
         )
       )
+    ;; mod stuff
+    (("speedometer") (set! (-> obj speedometer) (the-as speedometer-setting (file-stream-read-int file))))
+    (("good-weather?") (set! (-> obj good-weather?) (file-stream-read-symbol file)))
     (("pb-time-arena-training-1") (set! (-> obj pb-time-arena-training-1) (file-stream-read-float file)))
     (("pb-time-arena-fight-1") (set! (-> obj pb-time-arena-fight-1) (file-stream-read-float file)))
     (("pb-time-wascity-chase") (set! (-> obj pb-time-wascity-chase) (file-stream-read-float file)))
@@ -850,7 +853,10 @@
     (format file " #x~x" (int64<-bit-array (-> obj music-unlocked) (* i 64)))
     )
   (format file ")~%~%")
-
+  
+  ;; mod stuff
+  (format file "  (speedometer ~D)~%" (-> obj speedometer))
+  (format file "  (good-weather? ~A)~%" (-> obj good-weather?))
   (format file "  (pb-time-arena-training-1 ~F)~%" (-> obj pb-time-arena-training-1))
   (format file "  (pb-time-arena-fight-1 ~F)~%" (-> obj pb-time-arena-fight-1))
   (format file "  (pb-time-wascity-chase ~F)~%" (-> obj pb-time-wascity-chase))
