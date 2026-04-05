@@ -979,6 +979,7 @@
                 gun-upgrade-dark-ammo-2
                 board-launch
                 board-zap
+                sidekick
                 darkjak
                 darkjak-bomb0
                 darkjak-bomb1
@@ -993,6 +994,7 @@
                 lighteco
                 darkeco))
 
+(define-extern reset-arena-trainer-globals (function none))
 (defmethod start-run! ((this speedrun-info))
   ;; turn on speedrun verification display
   (true! (-> this display-run-info?))
@@ -1003,6 +1005,9 @@
   (enforce-settings! this)
   ;; reset end-task 
   (set! (-> this active-practice-objective end-task) (game-task none))
+  ;; make sure silly arena-trainer globals are reset if we're resetting from arena
+  (when (process-by-name "arena-training-1-collect" *entity-pool*)
+    (reset-arena-trainer-globals))
   ;; finalize any category specific setup code
   (case (-> this category)
     (((speedrun-category newgame-normal))
@@ -1023,6 +1028,7 @@
          (play-task (game-task arena-training-1) 'debug #f)
          (until (and *target* (= (-> *target* next-state name) 'target-stance))
            (suspend))
+         (send-event *target* 'get-pickup (pickup-type gem) 1000.0)
          (set! (-> *game-info* secrets) HERO_MODE_SECRETS)
          (set! (-> *game-info* purchase-secrets) HERO_MODE_SECRETS)
          (set! (-> *game-info* features) HERO_MODE_FEATURES))))
