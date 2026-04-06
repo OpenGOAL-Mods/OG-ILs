@@ -8,7 +8,7 @@
   - [Speedrun.com Leaderboard](https://www.speedrun.com/jak3og_missions)
   - [Points Leaderboard](http://136.0.251.17:25817/?mode=jak3)
 
-- Adds Individual Level categories to the speedrunner menu (hold `L1`+`R1`+`X` and press `Start` or `Select`)
+- Adds Individual Level categories to the speedrunner menu (hold `L1`+`R1` and press `Start` or `Select`)
 <img src="https://github.com/user-attachments/assets/2719a96a-2eae-4912-8773-28beea359423" width="800"/>
 
 - Adds in-game timer and end screen after completing each mission, with some statistics (more to come)
