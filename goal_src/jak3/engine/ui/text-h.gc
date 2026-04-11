@@ -1624,6 +1624,13 @@
   (progress-speedometer-center #x1524)
   (progress-speedometer-bottom-right #x1525)
   (progress-speedometer-bottom-left #x1526)
+  (progress-speedometer-m-s-options #x1527)
+  (progress-timer-options #x1528)
+  (progress-timer-top-left #x1529)
+  (progress-timer-top-right #x152a)
+  (progress-timer-center #x152b)
+  (progress-timer-bottom-right #x152c)
+  (progress-timer-bottom-left #x152d)
   )
 ;; ---text-id
 

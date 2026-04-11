@@ -266,11 +266,18 @@
   "1510": "Weather",
   "1511": "Default Weather",
   "1512": "Good Weather",
-  "1520": "Speedometer",
+  "1520": "Speedometer Location",
   "1521": "Off",
   "1522": "Top Left",
   "1523": "Top Right",
   "1524": "Center",
   "1525": "Bottom Right",
-  "1526": "Bottom Left"
+  "1526": "Bottom Left",
+  "1527": "Show m/s?",
+  "1528": "Timer location",
+  "1529": "Top Left",
+  "152a": "Top Right",
+  "152b": "Center",
+  "152c": "Bottom Right",
+  "152d": "Bottom Left"
 }

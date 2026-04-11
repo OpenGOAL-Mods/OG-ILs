@@ -678,6 +678,8 @@
       )
     ;; mod stuff
     (("speedometer") (set! (-> obj speedometer) (the-as speedometer-setting (file-stream-read-int file))))
+    (("speedometer-m-s") (set! (-> obj speedometer-m-s) (the-as speedometer-m-s (file-stream-read-int file))))
+    (("timer-location") (set! (-> obj timer-location) (the-as timer-location (file-stream-read-int file))))
     (("good-weather?") (set! (-> obj good-weather?) (file-stream-read-symbol file)))
     (("pb-time-arena-training-1") (set! (-> obj pb-time-arena-training-1) (file-stream-read-float file)))
     (("pb-time-arena-fight-1") (set! (-> obj pb-time-arena-fight-1) (file-stream-read-float file)))
@@ -864,6 +866,8 @@
   
   ;; mod stuff
   (format file "  (speedometer ~D)~%" (-> obj speedometer))
+  (format file "  (speedometer-m-s ~D)~%" (-> obj speedometer-m-s))
+  (format file "  (timer-location ~D)~%" (-> obj timer-location))
   (format file "  (good-weather? ~A)~%" (-> obj good-weather?))
   (format file "  (pb-time-arena-training-1 ~F)~%" (-> obj pb-time-arena-training-1))
   (format file "  (pb-time-arena-fight-1 ~F)~%" (-> obj pb-time-arena-fight-1))

@@ -90,6 +90,21 @@
   (bottom-left 5)
   )
 
+(defenum speedometer-m-s
+  :type uint32
+  (on 0)
+  (off 1)
+  )
+
+(defenum timer-location
+  :type uint32
+  (bottom-left 0)
+  (top-left 2)
+  (top-right 3)
+  (center 4)
+  (bottom-right 5)
+  )
+
 ;; The Jak 3 version of the pc-settings object.
 (deftype pc-settings-jak3 (pc-settings)
   (;; cheats
@@ -128,8 +143,10 @@
    (subtitle-language pc-language)
 
    ;; mod settings
-   (speedometer   speedometer-setting)
-   (good-weather? symbol)
+   (speedometer       speedometer-setting)
+   (speedometer-m-s   speedometer-m-s)
+   (timer-location    timer-location)
+   (good-weather?     symbol)
 
    ;; Act 1
    (pb-time-arena-training-1 float)

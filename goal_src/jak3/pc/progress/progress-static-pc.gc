@@ -592,6 +592,46 @@ This gives us more freedom to write code how we want.
             )
           (pc-settings-save)
           ))
+    (new 'static 'menu-generic-boolean-option
+      :name (text-id progress-speedometer-m-s-options)
+      :truthy-text (text-id progress-on)
+      :falsey-text (text-id progress-off)
+      :get-value-fn (lambda () (= (-> *pc-settings* speedometer-m-s) (speedometer-m-s on)))
+      :on-confirm (lambda ((val symbol))
+        (if val
+          (set! (-> *pc-settings* speedometer-m-s) (speedometer-m-s on))
+          (set! (-> *pc-settings* speedometer-m-s) (speedometer-m-s off)))
+        (pc-settings-save)))
+    (new 'static 'menu-generic-carousel-option
+      :name (text-id progress-timer-options)
+      :items (new 'static 'boxed-array :type text-id
+                (text-id progress-timer-top-left)     ;; 0
+                (text-id progress-timer-top-right)    ;; 1
+                (text-id progress-timer-center)       ;; 2
+                (text-id progress-timer-bottom-left)  ;; 3
+                (text-id progress-timer-bottom-right) ;; 4
+              )
+      :get-item-index-fn (lambda () 
+        (case (-> *pc-settings* timer-location)
+          (((timer-location top-left)) 0)
+          (((timer-location top-right)) 1)
+          (((timer-location center)) 2)
+          (((timer-location bottom-left)) 3)
+          (((timer-location bottom-right)) 4)
+          )
+        )
+      :on-confirm (lambda ((index int) (the-progress progress))
+          (set! (-> *pc-settings* timer-location)
+            (case index
+              ((0) (timer-location top-left))
+              ((1) (timer-location top-right))
+              ((2) (timer-location center))
+              ((3) (timer-location bottom-left))
+              ((4) (timer-location bottom-right))
+              )
+            )
+          (pc-settings-save)
+          ))
     ))
 
 (defmacro game-options-pc-subtitle-toggle ()
