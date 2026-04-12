@@ -1373,6 +1373,8 @@
   ;;   probably like the game to automatically set the appropriate ones for you
   ;; - If you are playing a category that forbids cheats, you wouldn't want your run invalidated because you forgot
   (case (-> this category)
+    (((speedrun-category city-jetboard-bbush))
+     (set! (-> *pc-settings* cheats) (pc-cheats board-tricks)))
     (((speedrun-category newgame-normal) (speedrun-category newgame-heromode))
      ;; disable any active cheats
      (set! (-> *pc-settings* cheats) (pc-cheats)))
@@ -1382,7 +1384,10 @@
      (logior! (-> *game-info* features) (-> *speedrun-info* active-custom-category features))
      (logclear! (-> *game-info* features) (-> *speedrun-info* active-custom-category forbidden-features))
      (logior! (-> *game-info* vehicles) (-> *speedrun-info* active-custom-category vehicles))
-     (set! (-> *pc-settings* cheats) (-> *speedrun-info* active-custom-category pc-cheats)))))
+     (set! (-> *pc-settings* cheats) (-> *speedrun-info* active-custom-category pc-cheats)))
+    (else
+     ;; disable any active cheats
+     (set! (-> *pc-settings* cheats) (pc-cheats)))))
 
 (defmethod draw-zone ((this objective-zone))
   (add-debug-box #t
