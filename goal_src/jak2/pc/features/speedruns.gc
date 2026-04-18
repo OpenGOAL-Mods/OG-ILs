@@ -441,9 +441,13 @@
     (format *temp-string* "~4L~S~%" (-> *speedrun-category-names* (-> *speedrun-info* category)))
     (format *temp-string* "~6LMission Completed~%")
     (set! lines-used 3)
-    (when (-> *speedrun-info* percent-warped?)
-      (format *temp-string* "~3LPercentage Warp Used!~%")
-      (+! lines-used 1)
+    (case (-> *speedrun-info* percent-warped?)
+      (('minor)
+        (format *temp-string* "~0LMinor Percentage Warp Used~%")
+        (+! lines-used 1))
+      (('major)
+        (format *temp-string* "~3LMajor Percentage Warp Used!~%")
+        (+! lines-used 1))
       )
     (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 84 0.0 (font-color default) (font-flags middle shadow kerning large))))
       (set! (-> font-ctx alpha) alpha)
@@ -613,6 +617,7 @@
   (-> this recorded-time))
 
 (defmethod set-category! ((this speedrun-info) (category speedrun-category))
+  (reset! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
   (set! (-> this category) category)
   (none))
 
@@ -1490,8 +1495,9 @@
   (none))
 
 (defun maybe-stop-timer-for-retryable-task ((tsk game-task))
-  ;; if we have an end task that matches, stop timer 
-  (when (= (-> *speedrun-info* active-practice-objective end-task) tsk)
+  ;; if we have an end task that matches, and timer is started, stop timer 
+  (when (and (= (-> *speedrun-info* active-practice-objective end-task) tsk)
+             (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) started?))
     (stop! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer)))))
     (none))
 
@@ -1561,8 +1567,9 @@
         )
       )
 
-    ;; if we have an end task...
-    (when (!= (-> *speedrun-info* active-practice-objective end-task) (game-task none))
+    ;; if we have an end task and timer has started...
+    (when (and (!= (-> *speedrun-info* active-practice-objective end-task) (game-task none)) 
+               (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) started?))
       ;; ensure timer is shown
       (set! (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) draw?) #t)
       ;; stop timer if player finished the end-task

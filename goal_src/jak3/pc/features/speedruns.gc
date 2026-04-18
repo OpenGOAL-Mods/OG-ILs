@@ -644,9 +644,14 @@
       )
     (format *temp-string* "~6LMission Completed~%")
     (+! lines-used 1)
-    (when (-> *speedrun-info* percent-warped?)
-      (format *temp-string* "~3LPercentage Warp Used!~%")
-      (+! lines-used 1))
+    (case (-> *speedrun-info* percent-warped?)
+      (('minor)
+        (format *temp-string* "~0LMinor Percentage Warp Used~%")
+        (+! lines-used 1))
+      (('major)
+        (format *temp-string* "~3LMajor Percentage Warp Used!~%")
+        (+! lines-used 1))
+      )
     (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 84 0.0 (font-color default) (font-flags middle shadow kerning large))))
       (set! (-> font-ctx alpha) alpha)
       (set! (-> font-ctx scale) 0.5)
@@ -865,6 +870,7 @@
   (-> this recorded-time))
 
 (defmethod set-category! ((this speedrun-info) (category speedrun-category))
+  (reset! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
   (set! (-> this category) category))
 
 (defun il-speedrun? ()
@@ -2272,9 +2278,9 @@
   (go-virtual idle))
 
 (defun maybe-stop-timer-for-retryable-task ((tsk game-task))
-  ;; if we have an end task that matches, stop timer 
+  ;; if we have an end task that matches, and timer has started, stop timer 
   (when (and (= (-> *speedrun-info* active-practice-objective end-task) tsk)
-             (not (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) stopped?)))
+             (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) started?))
     ;; (format 0 "finishing IL run because maybe-stop-timer-for-retryable-task ~A~%" (enum->string game-task (-> *speedrun-info* active-practice-objective end-task)))
     (stop! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer)))))
     (none))
@@ -2339,8 +2345,9 @@
         )
       )
 
-    ;; if we have an end task...
-    (when (!= (-> *speedrun-info* active-practice-objective end-task) (game-task none))
+    ;; if we have an end task and timer has started...
+    (when (and (!= (-> *speedrun-info* active-practice-objective end-task) (game-task none)) 
+               (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) started?))
       ;; ensure timer is shown
       (set! (-> (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))) draw?) #t)
       ;; stop timer if player finished the end-task
