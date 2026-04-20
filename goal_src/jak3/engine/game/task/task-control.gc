@@ -1056,7 +1056,7 @@
               ((and (name= (-> this name) "arena-fight-1-introduction")
                     (name= (-> *game-info* sub-task-list (-> s3-0 s2-0) name) "arena-training-1-resolution"))
                 (set-percent-warped! 'minor))
-              ((and (name= (-> this name) "desert-course-race-introduction")
+              ((and (name= (-> this name) "desert-course-race-restrict-to-turtle") ;; lol they didn't even use the next mission's intro node for this one
                     (name= (-> *game-info* sub-task-list (-> s3-0 s2-0) name) "desert-turtle-training-resolution"))
                 (set-percent-warped! 'minor))
               ((and (name= (-> this name) "desert-glide-introduction")
