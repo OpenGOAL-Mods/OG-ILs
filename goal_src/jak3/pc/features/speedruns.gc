@@ -32,6 +32,8 @@
 
 (set! (-> *speedrun-info* active-practice-objective end-zone-init-params) (new 'static 'objective-zone-init-params))
 
+(set! (-> *speedrun-info* wpg) (new 'static 'wpg-stats))
+
 ;; (defun print-timer-text ((s string) (x int) (y int))
 ;;   (pc-encode-utf8-string s *pc-encoded-temp-string*)
 ;;   (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
@@ -699,9 +701,18 @@
     ;; print stats
     (format *temp-string* "~32LAverage Speed: ~0L~,,1fm/s~%~%" (/ (-> *speedrun-info* avg-speed) 4096.0))
     ;; TODO - kill stats
-    ;; (format *temp-string* "Enemies Killed: ~D~%" (get-jak-enemy-kill-count (-> *statistics* kill-stats)))
-    ;; (format *temp-string* "Civilians Killed: ~D~%~%" (get-jak-friendly-kill-count (-> *statistics* kill-stats)))
-    ;; (format *temp-string* "Press START to continue~%")
+    ;; satellite stats
+    (when (or (= (-> *speedrun-info* category) (speedrun-category wascity-pre-game))
+              (= (-> *speedrun-info* category) (speedrun-category wascity-pre-game-2)))
+      (format *temp-string* "~6LHits: ~0L~D~%" (-> *speedrun-info* wpg hits))
+      (when (> (-> *speedrun-info* wpg misses) 0)
+        (format *temp-string* "~3LMisses: ~0L~D~%" (-> *speedrun-info* wpg misses)))
+      (format *temp-string* "~%~32LDoubles: ~0L~D~%" (-> *speedrun-info* wpg doubles))
+      (when (> (-> *speedrun-info* wpg triples) 0)
+        (format *temp-string* "~4LTriples: ~0L~D~%" (-> *speedrun-info* wpg triples)))
+      (when (= (-> *speedrun-info* category) (speedrun-category wascity-pre-game))
+        (format *temp-string* "~%~32LPairs: ~0L~D~%" (-> *speedrun-info* wpg pairs)))
+      )
     (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 (+ 90 (* lines-used 15)) 0.0 (font-color default) (font-flags middle shadow kerning large))))
       (set! (-> font-ctx alpha) alpha)
       (set! (-> font-ctx scale) 0.35)
@@ -1053,8 +1064,14 @@
   (send-event (ppointer->process *speedrun-manager*) 'start-run)
   ;; ensure any required settings are enabled
   (enforce-settings! this)
-  ;; reset end-task 
+  ;; reset end-task
   (set! (-> this active-practice-objective end-task) (game-task none))
+  ;; reset wpg stats
+  (set! (-> this wpg hits) 0)
+  (set! (-> this wpg misses) 0)
+  (set! (-> this wpg doubles) 0)
+  (set! (-> this wpg triples) 0)
+  (set! (-> this wpg pairs) 0)
   ;; make sure silly arena-trainer globals are reset if we're resetting from arena
   (when (process-by-name "arena-training-1-collect" *entity-pool*)
     (reset-arena-trainer-globals))

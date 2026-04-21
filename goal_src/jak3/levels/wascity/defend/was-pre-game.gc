@@ -13,6 +13,7 @@
 (define-extern was-pre-beam-init (function int entity-actor object :behavior was-pre-beam))
 (define-extern was-pre-heart-init (function entity-actor object :behavior was-pre-heart))
 (define-extern *was-pre-game* (pointer was-pre-game))
+(define-extern inc-wpg! (function int int int int none))
 
 ;; DECOMP BEGINS
 
@@ -2184,7 +2185,8 @@
                              (>= f0-1 (+ -0.15 (-> s4-0 min)))
                              (>= (+ 0.06 (-> s4-0 size) (-> s4-0 min)) f0-1)
                              )
-                    (if (send-event s1-0 'attack)
+                    (when (send-event s1-0 'attack)
+                        (inc-wpg! 1 0 0 0) ;; il mod - update WPG stats for hits
                         (+! s3-1 1)
                         )
                     )
@@ -2195,11 +2197,13 @@
             )
           (cond
             ((zero? s3-1)
+             (inc-wpg! 0 1 0 0) ;; il mod - update WPG stats for miss
              (sound-play "beam-miss")
              (set-time! (-> this miss-time))
              (+! (-> this miss-count) 1)
              )
             ((< 1 s3-1)
+             (inc-wpg! 0 0 s3-1 0) ;; il mod - update WPG stats for doubles/triples
              (+! (-> this score) (the float (* s3-1 s3-1)))
              )
             )
@@ -2260,6 +2264,7 @@
       (let ((s4-2 (min 4 (rand-vu-int-range (-> s5-2 bubble-count-min) (-> s5-2 bubble-count-max))))
             (s3-0 0)
             )
+        (inc-wpg! 0 0 0 s4-2) ;; il mod - update WPG stats for pairs (won't track 3 or 4 at once because idk what to call those, triple is already taken)
         (while (nonzero? s4-2)
           (+! s4-2 -1)
           (set-time! (-> this spawn-time))
@@ -2571,6 +2576,7 @@
   :event (behavior ((proc process) (argc int) (message symbol) (block event-message-block))
     (case message
       (('done)
+       (inc-wpg! 0 1 0 0) ;; il mod - update WPG stats for miss
        (set-time! (-> self miss-time))
        (let ((v0-0 (the-as number (+ (-> self miss-count) 1))))
          (set! (-> self miss-count) (the-as int v0-0))

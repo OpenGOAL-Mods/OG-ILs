@@ -515,6 +515,13 @@
    (pc-cheats          pc-cheats)
    (completed-task     game-task)))
 
+(deftype wpg-stats (structure)
+  ((hits        uint32)
+   (misses      uint32)
+   (doubles     uint32)
+   (triples     uint32)
+   (pairs       uint32)))
+
 (deftype speedrun-info (structure)
   ((category                            speedrun-category)
    (has-started? symbol)
@@ -528,6 +535,7 @@
    (percent-warped?                     symbol)
    (avg-speed                           float)
    (override-vehicle                    vehicle-type)
+   (wpg                                 wpg-stats)
    )
   (:methods
    (set-category! (_type_ speedrun-category) object)
@@ -538,6 +546,17 @@
    (draw-run-info (_type_) object)))
 
 (define-extern *speedrun-info* speedrun-info)
+
+(defun inc-wpg! ((hits int) (miss int) (mult int) (count int))
+  (+! (-> *speedrun-info* wpg hits) hits)
+  (+! (-> *speedrun-info* wpg misses) miss)
+  (case mult
+    ((2) (+! (-> *speedrun-info* wpg doubles) 1))
+    ((3) (+! (-> *speedrun-info* wpg triples) 1)))
+  (case count
+    ((2) (+! (-> *speedrun-info* wpg pairs) 1)))
+  (none)
+  )
 
 (defun set-percent-warped! ((val symbol))
   (set! (-> *speedrun-info* percent-warped?) val))
