@@ -445,18 +445,26 @@ void InitMachine_PCPort() {
                               (void*)kmachine_extras::pc_fetch_external_speedrun_times);
   make_function_symbol_from_c("pc-fetch-external-race-times",
                               (void*)kmachine_extras::pc_fetch_external_race_times);
+  make_function_symbol_from_c("pc-fetch-external-mission-times",
+                              (void*)kmachine_extras::pc_fetch_external_mission_times);
   make_function_symbol_from_c("pc-fetch-external-highscores",
                               (void*)kmachine_extras::pc_fetch_external_highscores);
   make_function_symbol_from_c("pc-get-external-speedrun-time",
                               (void*)kmachine_extras::pc_get_external_speedrun_time);
   make_function_symbol_from_c("pc-get-external-race-time",
                               (void*)kmachine_extras::pc_get_external_race_time);
+  make_function_symbol_from_c("pc-get-external-any-mission-time",
+                              (void*)kmachine_extras::pc_get_external_any_mission_time);
+  make_function_symbol_from_c("pc-get-external-warp-mission-time",
+                              (void*)kmachine_extras::pc_get_external_warp_mission_time);
   make_function_symbol_from_c("pc-get-external-highscore",
                               (void*)kmachine_extras::pc_get_external_highscore);
   make_function_symbol_from_c("pc-get-num-external-speedrun-times",
                               (void*)kmachine_extras::pc_get_num_external_speedrun_times);
   make_function_symbol_from_c("pc-get-num-external-race-times",
                               (void*)kmachine_extras::pc_get_num_external_race_times);
+  make_function_symbol_from_c("pc-get-num-external-mission-times",
+                              (void*)kmachine_extras::pc_get_num_external_mission_times);
   make_function_symbol_from_c("pc-get-num-external-highscores",
                               (void*)kmachine_extras::pc_get_num_external_highscores);
 

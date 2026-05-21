@@ -19,23 +19,30 @@ void callback_fetch_external_speedrun_times(bool success,
 void callback_fetch_external_race_times(bool success,
                                         const std::string& cache_id,
                                         std::optional<std::string> result);
+void callback_fetch_external_warp_mission_times(bool success,
+                                        const std::string& cache_id,
+                                        std::optional<std::string> result);
 void callback_fetch_external_highscores(bool success,
                                         const std::string& cache_id,
                                         std::optional<std::string> result);
 void pc_fetch_external_speedrun_times(u32 speedrun_id_ptr);
 void pc_fetch_external_race_times(u32 race_id_ptr);
+void pc_fetch_external_mission_times(u32 mission_id_ptr, u32 p_warp);
 void pc_fetch_external_highscores(u32 highscore_id_ptr);
 void pc_get_external_speedrun_time(u32 speedrun_id_ptr,
                                    s32 index,
                                    u32 name_dest_ptr,
                                    u32 time_dest_ptr);
 void pc_get_external_race_time(u32 race_id_ptr, s32 index, u32 name_dest_ptr, u32 time_dest_ptr);
+void pc_get_external_any_mission_time(u32 mission_id_ptr, s32 index, u32 name_dest_ptr, u32 time_dest_ptr);
+void pc_get_external_warp_mission_time(u32 mission_id_ptr, s32 index, u32 name_dest_ptr, u32 time_dest_ptr);
 void pc_get_external_highscore(u32 highscore_id_ptr,
                                s32 index,
                                u32 name_dest_ptr,
                                u32 time_dest_ptr);
 s32 pc_get_num_external_speedrun_times(u32 speedrun_id_ptr);
 s32 pc_get_num_external_race_times(u32 race_id_ptr);
+s32 pc_get_num_external_mission_times(u32 mission_id_ptr, u32 p_warp);
 s32 pc_get_num_external_highscores(u32 highscore_id_ptr);
 s32 pc_sr_mode_get_practice_entries_amount();
 void pc_sr_mode_get_practice_entry_name(s32 entry_index, u32 name_str_ptr);

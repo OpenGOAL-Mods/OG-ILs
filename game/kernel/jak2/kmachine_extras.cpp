@@ -492,7 +492,6 @@ void callback_fetch_external_any_mission_times(bool success,
   std::scoped_lock lock{background_task_lock};
 
   if (!success) {
-    lg::info("Failed to fetch_external_any_mission_times");
     intern_from_c("*pc-rpc-error?*")->value() = bool_to_symbol(true);
     if (result) {
       last_rpc_error = result.value();
@@ -513,7 +512,6 @@ void callback_fetch_external_any_mission_times(bool success,
   const auto data = safe_parse_json(result.value());
   if (!data || !data->contains("data") || !data->at("data").contains("players") ||
       !data->at("data").at("players").contains("data") || !data->at("data").contains("runs")) {
-    lg::info("No data!");
     intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(false);
     return;
   }
@@ -531,11 +529,9 @@ void callback_fetch_external_any_mission_times(bool success,
     } else {
       time_info.first = "Unknown";
     }
-    lg::info("Found run from {}", time_info.first);
     if (run_info.contains("run") && run_info.at("run").contains("times") &&
         run_info.at("run").at("times").contains("primary_t")) {
       time_info.second = run_info.at("run").at("times").at("primary_t");
-      lg::info("  Run time is {}", time_info.second);
       times.push_back(time_info);
     }
   }
@@ -656,7 +652,6 @@ void pc_fetch_external_mission_times(u32 mission_id_ptr, u32 p_warp) {
       WebRequestJobPayload req;
       req.callback = callback_fetch_external_any_mission_times;
       req.url = std::format("https://www.speedrun.com/api/v1/leaderboards/3dxyee56/level/{}/w2079g5k?embed=players&max=200", mission_level_ids.at(mission_id));
-      lg::info("Requesting mission times via {}", req.url);
       req.cache_id = mission_id;
       g_background_worker.enqueue_webrequest(req);
     }
@@ -769,9 +764,9 @@ void pc_get_external_warp_mission_time(u32 mission_id_ptr,
     const auto& runs = warp_mission_times_cache.at(mission_id);
     if (index < (int)runs.size()) {
       const auto& run_info = warp_mission_times_cache.at(mission_id).at(index);
-      std::string converted =
-          get_font_bank(GameTextVersion::JAK2)->convert_utf8_to_game(run_info.first);
-      strcpy(Ptr<String>(name_dest_ptr).c()->data(), converted.c_str());
+      // std::string converted =
+      //     get_font_bank(GameTextVersion::JAK2)->convert_utf8_to_game(run_info.first);
+      strcpy(Ptr<String>(name_dest_ptr).c()->data(), run_info.first.c_str());
       *(Ptr<float>(time_dest_ptr).c()) = run_info.second;
     } else {
       std::string converted = get_font_bank(GameTextVersion::JAK2)->convert_utf8_to_game("");
