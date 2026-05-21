@@ -212,6 +212,10 @@ std::unordered_map<std::string, std::vector<std::pair<std::string, float>>>
     external_race_time_cache = {};
 std::unordered_map<std::string, std::vector<std::pair<std::string, float>>>
     external_highscores_cache = {};
+std::unordered_map<std::string, std::vector<std::pair<std::string, float>>>
+    any_mission_times_cache = {};
+std::unordered_map<std::string, std::vector<std::pair<std::string, float>>>
+    warp_mission_times_cache = {};
 
 // clang-format off
 // TODO - eventually don't depend on SRC
@@ -239,6 +243,102 @@ const std::unordered_map<std::string, std::string> external_highscores_lookup_ur
     {"jetboard", "https://api.jakspeedruns.workers.dev/v1/highscores/6"},
     {"onin", "https://api.jakspeedruns.workers.dev/v1/highscores/7"},
     {"mash", "https://api.jakspeedruns.workers.dev/v1/highscores/8"}};
+const std::unordered_map<std::string, std::string> mission_level_ids = {
+    {"fortress-escape", "9gy2rk29"},
+    {"city-help-kid", "9x1nkm7d"},
+    {"ruins-tower", "95k6yv49"},
+    {"atoll-water", "dqzjg6gd"},
+    {"fortress-dump", "d7yvl6ed"},
+    {"city-krew-delivery", "wj753o1w"},
+    {"city-red-gun-training", "wo70lg39"},
+    {"atoll-sig", "d1j76vyd"},
+    {"sewer-enemy", "wp7jek4w"},
+    {"strip-rescue", "9m5jyk0d"},
+    {"atoll-battle", "wkkj8gxw"},
+    {"mountain-lens", "920z3v6d"},
+    {"mountain-gear", "9vm3j1x9"},
+    {"mountain-shard", "d40jnv89"},
+    {"mountain-collection", "9m5jyzxd"},
+    {"city-keira-delivery", "d0kglvj9"},
+    {"stadium-board1", "w6q4rk6d"},
+    {"city-krew-collection", "93q782rw"},
+    {"city-yellow-gun-training", "98r6e21d"},
+    {"drill-eggs", "dno0rk6w"},
+    {"city-power", "dy1yj47d"},
+    {"palace-cable", "drpegpkw"},
+    {"palace-boss", "wlglngg9"},
+    {"city-shuttle", "we21n24w"},
+    {"ruins-enemy", "9zp3xp4w"},
+    {"forest-scouts", "9gy2ry29"},
+    {"city-escort-kid", "9x1nk17d"},
+    {"dig-knock-down", "95k6yk49"},
+    {"strip-grenade", "dqzjgzgd"},
+    {"drill-ship", "d7yvlyed"},
+    {"city-port-run", "wj75371w"},
+    {"city-meet-brutter", "wo70l739"},
+    {"sewer-board", "d1j76jyd"},
+    {"forest-hunt", "wp7je74w"},
+    {"city-intercept-tanker", "9m5jy50d"},
+    {"stadium-race-class3", "wkkj8kxw"},
+    {"city-protect-water-slums", "920z306d"},
+    {"dig-find-totem", "9vm3jmx9"},
+    {"city-destroy-guard-vehicles", "d40jn089"},
+    {"city-play-onin-game", "d0kglkj9"},
+    {"canyon-insert-items", "w6q4rq6d"},
+    {"tomb-poles", "93q78qrw"},
+    {"tomb-water", "98r6er1d"},
+    {"tomb-boss", "dno0ro6w"},
+    {"fortress-save-friends", "dy1yj17d"},
+    {"sewer-escort", "drpegjkw"},
+    {"stadium-race-class2", "wlgln6g9"},
+    {"city-stop-bomb-bots", "we21n44w"},
+    {"city-errol-challenge", "9zp3xr4w"},
+    {"strip-drop", "9gy2rz29"},
+    {"ruins-mech", "9x1nk27d"},
+    {"forest-protect", "95k6yj49"},
+    {"drill-mech", "dqzjg0gd"},
+    {"city-save-lurkers", "d7yvl7ed"},
+    {"stadium-race-class", "wj753y1w"},
+    {"palace-sneak-in", "wo70lk39"},
+    {"castle-break-in", "d1j760yd"},
+    {"castle-boss", "wp7jep4w"},
+    {"city-whack", "9m5jye0d"},
+    {"under-mech", "wkkj82xw"},
+    {"under-sig", "920z3j6d"},
+    {"city-defend-stadium", "9vm3jyx9"},
+    {"consite-find-baron", "d40jn689"},
+    {"nest-get-to-gun", "d0kgl0j9"},
+    {"nest-enter", "w6q4rv6d"},
+    {"nest-boss", "93q780rw"},
+    {"city-burning-bush-get-to-1", "95k6yl29"},
+    {"city-burning-bush-get-to-2", "dqzjg5md"},
+    {"city-burning-bush-get-to-3", "d7yvlz5d"},
+    {"city-burning-bush-get-to-4", "wj7531rw"},
+    {"city-burning-bush-get-to-5", "wo70lqv9"},
+    {"city-burning-bush-get-to-6", "wp7je0lw"},
+    {"city-burning-bush-get-to-7", "9m5jy1ld"},
+    {"city-burning-bush-get-to-8", "wkkj815w"},
+    {"city-burning-bush-get-to-9", "920z3ngd"},
+    {"city-burning-bush-get-to-10", "9vm3jz19"},
+    {"city-burning-bush-get-to-11", "d40jnk09"},
+    {"city-burning-bush-get-to-12", "d0kgl409"},
+    {"city-burning-bush-get-to-13", "w6q4rmnd"},
+    {"city-burning-bush-get-to-14", "93q78m7w"},
+    {"city-burning-bush-get-to-15", "98r6em7d"},
+    {"city-burning-bush-collection-1", "dno0rqnw"},
+    {"city-burning-bush-collection-2", "dy1yj3jd"},
+    {"city-burning-bush-collection-3", "drpegy8w"},
+    {"city-burning-bush-bombbot-1", "wlgln2p9"},
+    {"city-burning-bush-racepoint-1", "we21nqqw"},
+    {"city-burning-bush-shuttle-1", "9zp3x86w"},
+    {"city-burning-bush-ring-1", "9gy2r7q9"},
+    {"city-burning-bush-ring-2", "9x1nkx6d"},
+    {"city-burning-bush-ring-3", "95k6ym29"},
+    {"city-burning-bush-race-port", "dqzjgnmd"},
+    {"stadium-burning-bush-race-class3-r", "d7yvl25d"},
+    {"stadium-burning-bush-race-class2-r", "wj753vrw"},
+    {"stadium-burning-bush-race-class1-r", "wo70l3v9"},
+};
 // clang-format on
 
 void callback_fetch_external_speedrun_times(bool success,
@@ -386,6 +486,116 @@ void callback_fetch_external_highscores(bool success,
   intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(false);
 }
 
+void callback_fetch_external_any_mission_times(bool success,
+                                               const std::string& cache_id,
+                                               std::optional<std::string> result) {
+  std::scoped_lock lock{background_task_lock};
+
+  if (!success) {
+    lg::info("Failed to fetch_external_any_mission_times");
+    intern_from_c("*pc-rpc-error?*")->value() = bool_to_symbol(true);
+    if (result) {
+      last_rpc_error = result.value();
+    } else {
+      last_rpc_error = "Unexpected Error Occurred";
+    }
+    intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(false);
+    return;
+  }
+
+  // TODO - might be nice to have an error if we get an unexpected payload
+  if (!result) {
+    intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(false);
+    return;
+  }
+
+  // Parse the response
+  const auto data = safe_parse_json(result.value());
+  if (!data || !data->contains("data") || !data->at("data").contains("players") ||
+      !data->at("data").at("players").contains("data") || !data->at("data").contains("runs")) {
+    lg::info("No data!");
+    intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(false);
+    return;
+  }
+
+  auto& players = data->at("data").at("players").at("data");
+  auto& runs = data->at("data").at("runs");
+  std::vector<std::pair<std::string, float>> times = {};
+  for (const auto& run_info : runs) {
+    std::pair<std::string, float> time_info;
+    if (players.size() > times.size() && players.at(times.size()).contains("names") &&
+        players.at(times.size()).at("names").contains("international")) {
+      time_info.first = players.at(times.size()).at("names").at("international");
+    } else if (players.size() > times.size() && players.at(times.size()).contains("name")) {
+      time_info.first = players.at(times.size()).at("name");
+    } else {
+      time_info.first = "Unknown";
+    }
+    lg::info("Found run from {}", time_info.first);
+    if (run_info.contains("run") && run_info.at("run").contains("times") &&
+        run_info.at("run").at("times").contains("primary_t")) {
+      time_info.second = run_info.at("run").at("times").at("primary_t");
+      lg::info("  Run time is {}", time_info.second);
+      times.push_back(time_info);
+    }
+  }
+  any_mission_times_cache[cache_id] = times;
+  intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(false);
+}
+
+void callback_fetch_external_warp_mission_times(bool success,
+                                               const std::string& cache_id,
+                                               std::optional<std::string> result) {
+  std::scoped_lock lock{background_task_lock};
+
+  if (!success) {
+    intern_from_c("*pc-rpc-error?*")->value() = bool_to_symbol(true);
+    if (result) {
+      last_rpc_error = result.value();
+    } else {
+      last_rpc_error = "Unexpected Error Occurred";
+    }
+    intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(false);
+    return;
+  }
+
+  // TODO - might be nice to have an error if we get an unexpected payload
+  if (!result) {
+    intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(false);
+    return;
+  }
+
+  // Parse the response
+  const auto data = safe_parse_json(result.value());
+  if (!data || !data->contains("data") || !data->at("data").contains("players") ||
+      !data->at("data").at("players").contains("data") || !data->at("data").contains("runs")) {
+    intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(false);
+    return;
+  }
+
+  auto& players = data->at("data").at("players").at("data");
+  auto& runs = data->at("data").at("runs");
+  std::vector<std::pair<std::string, float>> times = {};
+  for (const auto& run_info : runs) {
+    std::pair<std::string, float> time_info;
+    if (players.size() > times.size() && players.at(times.size()).contains("names") &&
+        players.at(times.size()).at("names").contains("international")) {
+      time_info.first = players.at(times.size()).at("names").at("international");
+    } else if (players.size() > times.size() && players.at(times.size()).contains("name")) {
+      time_info.first = players.at(times.size()).at("name");
+    } else {
+      time_info.first = "Unknown";
+    }
+    if (run_info.contains("run") && run_info.at("run").contains("times") &&
+        run_info.at("run").at("times").contains("primary_t")) {
+      time_info.second = run_info.at("run").at("times").at("primary_t");
+      times.push_back(time_info);
+    }
+  }
+  warp_mission_times_cache[cache_id] = times;
+  intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(false);
+}
+
 void pc_fetch_external_speedrun_times(u32 speedrun_id_ptr) {
   std::scoped_lock lock{background_task_lock};
   auto speedrun_id = std::string(Ptr<String>(speedrun_id_ptr).c()->data());
@@ -425,6 +635,44 @@ void pc_fetch_external_race_times(u32 race_id_ptr) {
     req.url = external_race_lookup_urls.at(race_id);
     req.cache_id = race_id;
     g_background_worker.enqueue_webrequest(req);
+  }
+}
+
+void pc_fetch_external_mission_times(u32 mission_id_ptr, u32 p_warp) {
+  std::scoped_lock lock{background_task_lock};
+  auto mission_id = std::string(Ptr<String>(mission_id_ptr).c()->data());
+  if (mission_level_ids.find(mission_id) == mission_level_ids.end()) {
+    lg::error("No URL for mission_id: '{}'", mission_id);
+    return;
+  }
+
+  // First check to see if we've already retrieved this info
+  if (p_warp == 0) {
+    // any%
+    if (any_mission_times_cache.find(mission_id) == any_mission_times_cache.end()) {
+      intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(true);
+      intern_from_c("*pc-rpc-error?*")->value() = bool_to_symbol(false);
+      // otherwise, hit the URL
+      WebRequestJobPayload req;
+      req.callback = callback_fetch_external_any_mission_times;
+      req.url = std::format("https://www.speedrun.com/api/v1/leaderboards/3dxyee56/level/{}/w2079g5k?embed=players&max=200", mission_level_ids.at(mission_id));
+      lg::info("Requesting mission times via {}", req.url);
+      req.cache_id = mission_id;
+      g_background_worker.enqueue_webrequest(req);
+    }
+  }
+  else {
+    // major % warp
+    if (warp_mission_times_cache.find(mission_id) == warp_mission_times_cache.end()) {
+      intern_from_c("*pc-waiting-on-rpc?*")->value() = bool_to_symbol(true);
+      intern_from_c("*pc-rpc-error?*")->value() = bool_to_symbol(false);
+      // otherwise, hit the URL
+      WebRequestJobPayload req;
+      req.callback = callback_fetch_external_warp_mission_times;
+      req.url = std::format("https://www.speedrun.com/api/v1/leaderboards/3dxyee56/level/{}/wkp8rrvd?embed=players&max=200", mission_level_ids.at(mission_id));
+      req.cache_id = mission_id;
+      g_background_worker.enqueue_webrequest(req);
+    }
   }
 }
 
@@ -490,6 +738,49 @@ void pc_get_external_race_time(u32 race_id_ptr, s32 index, u32 name_dest_ptr, u3
   }
 }
 
+void pc_get_external_any_mission_time(u32 mission_id_ptr, s32 index, u32 name_dest_ptr, u32 time_dest_ptr) {
+  std::scoped_lock lock{background_task_lock};
+  auto mission_id = std::string(Ptr<String>(mission_id_ptr).c()->data());
+  // any%
+  if (any_mission_times_cache.find(mission_id) != any_mission_times_cache.end()) {
+    const auto& runs = any_mission_times_cache.at(mission_id);
+    if (index < (int)runs.size()) {
+      const auto& run_info = any_mission_times_cache.at(mission_id).at(index);
+      // std::string converted =
+      //     get_font_bank(GameTextVersion::JAK2)->convert_utf8_to_game(run_info.first);
+      strcpy(Ptr<String>(name_dest_ptr).c()->data(), run_info.first.c_str());
+      *(Ptr<float>(time_dest_ptr).c()) = run_info.second;
+    } else {
+      std::string converted = get_font_bank(GameTextVersion::JAK2)->convert_utf8_to_game("");
+      strcpy(Ptr<String>(name_dest_ptr).c()->data(), converted.c_str());
+      *(Ptr<float>(time_dest_ptr).c()) = -1.0;
+    }
+  }
+}
+
+void pc_get_external_warp_mission_time(u32 mission_id_ptr,
+                                      s32 index,
+                                      u32 name_dest_ptr,
+                                      u32 time_dest_ptr) {
+  std::scoped_lock lock{background_task_lock};
+  auto mission_id = std::string(Ptr<String>(mission_id_ptr).c()->data());
+  // major % warp
+  if (warp_mission_times_cache.find(mission_id) != warp_mission_times_cache.end()) {
+    const auto& runs = warp_mission_times_cache.at(mission_id);
+    if (index < (int)runs.size()) {
+      const auto& run_info = warp_mission_times_cache.at(mission_id).at(index);
+      std::string converted =
+          get_font_bank(GameTextVersion::JAK2)->convert_utf8_to_game(run_info.first);
+      strcpy(Ptr<String>(name_dest_ptr).c()->data(), converted.c_str());
+      *(Ptr<float>(time_dest_ptr).c()) = run_info.second;
+    } else {
+      std::string converted = get_font_bank(GameTextVersion::JAK2)->convert_utf8_to_game("");
+      strcpy(Ptr<String>(name_dest_ptr).c()->data(), converted.c_str());
+      *(Ptr<float>(time_dest_ptr).c()) = -1.0;
+    }
+  }
+}
+
 void pc_get_external_highscore(u32 highscore_id_ptr,
                                s32 index,
                                u32 name_dest_ptr,
@@ -526,6 +817,23 @@ s32 pc_get_num_external_race_times(u32 race_id_ptr) {
   auto race_id = std::string(Ptr<String>(race_id_ptr).c()->data());
   if (external_race_time_cache.find(race_id) != external_race_time_cache.end()) {
     return external_race_time_cache.at(race_id).size();
+  }
+  return 0;
+}
+
+s32 pc_get_num_external_mission_times(u32 mission_id_ptr, u32 p_warp) {
+  std::scoped_lock lock{background_task_lock};
+  auto mission_id = std::string(Ptr<String>(mission_id_ptr).c()->data());
+  if (p_warp == 0) {
+    // any%
+    if (any_mission_times_cache.find(mission_id) != any_mission_times_cache.end()) {
+      return any_mission_times_cache.at(mission_id).size();
+    }
+  } else {
+    // major % warp
+    if (warp_mission_times_cache.find(mission_id) != warp_mission_times_cache.end()) {
+      return warp_mission_times_cache.at(mission_id).size();
+    }
   }
   return 0;
 }

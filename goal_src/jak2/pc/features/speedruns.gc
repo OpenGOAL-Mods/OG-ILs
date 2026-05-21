@@ -434,7 +434,21 @@
          (timer (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
          (cur-total-sec (the int (-> timer recorded-time)))
          (cur-min (/ cur-total-sec 60))
-         (cur-sec (- cur-total-sec (* cur-min 60))))
+         (cur-sec (- cur-total-sec (* cur-min 60)))
+         (font-ctx (new 'stack 'font-context *font-default-matrix* 256 84 0.0 (font-color default) (font-flags middle shadow kerning large)))
+         )
+    ;; (try to) fetch WR
+    (clear *pc-cpp-temp-string*)
+    (set! (-> *progress-pc-generic-store* custom-highscore-score) -1.0)
+    (if (= (-> *speedrun-info* percent-warped?) 'major)
+      (pc-get-external-warp-mission-time 
+        (enum->string speedrun-category (-> *speedrun-info* category))
+        0 *pc-cpp-temp-string* (&-> *progress-pc-generic-store* custom-highscore-score))
+      (pc-get-external-any-mission-time 
+        (enum->string speedrun-category (-> *speedrun-info* category))
+        0 *pc-cpp-temp-string* (&-> *progress-pc-generic-store* custom-highscore-score))
+      )
+
     ;; print mission header
     (clear *temp-string*)
     (clear *pc-encoded-temp-string*)
@@ -449,11 +463,11 @@
         (format *temp-string* "~3LMajor Percentage Warp Used!~%")
         (+! lines-used 1))
       )
-    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 84 0.0 (font-color default) (font-flags middle shadow kerning large))))
-      (set! (-> font-ctx alpha) alpha)
-      (set! (-> font-ctx scale) 0.5)
-        (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
-      (draw-string-adv *pc-encoded-temp-string* buf font-ctx))
+
+    (set! (-> font-ctx alpha) alpha)
+    (set! (-> font-ctx scale) 0.5)
+    (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+    (draw-string-adv *pc-encoded-temp-string* buf font-ctx)
 
     ;; print time
     (clear *temp-string*)
@@ -469,12 +483,41 @@
         (format *temp-string* "~32LPersonal Best: ~0L~D:~2,'0D~%~%" pb-min pb-sec)
         )
       )
-    (+! lines-used 2)
-    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 (+ 90 (* (- lines-used 2) 12)) 0.0 (font-color default) (font-flags middle shadow kerning large))))
-      (set! (-> font-ctx alpha) alpha)
-      (set! (-> font-ctx scale) 0.5)
-      (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
-      (draw-string-adv *pc-encoded-temp-string* buf font-ctx))
+    (+! lines-used 3)
+
+    (set-origin! font-ctx 256 (+ 84 (* (- lines-used 3) 15)))
+    (set! (-> font-ctx alpha) alpha)
+    (set! (-> font-ctx scale) 0.5)
+    (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+    (draw-string-adv *pc-encoded-temp-string* buf font-ctx)
+
+    ;; print WR stuff
+    (when (> (-> *progress-pc-generic-store* custom-highscore-score) 0)
+      (let* ((wr-total-sec (the int (-> *progress-pc-generic-store* custom-highscore-score)))
+             (wr-min (/ wr-total-sec 60))
+             (wr-sec (- wr-total-sec (* wr-min 60)))
+             (tmp-lines 2))
+        (clear *temp-string*)
+        (clear *pc-encoded-temp-string*)
+        (format *temp-string* "~32LWorld Record: ~0L~D:~2,'0D (~S)~%" wr-min wr-sec *pc-cpp-temp-string*)
+        (cond
+          ((< (max cur-total-sec 1) wr-total-sec)
+            (format *temp-string* "~14LUNTIED WORLD RECORD!~0L~%~%")
+            (+! tmp-lines 1)
+            )
+          ((= (max cur-total-sec 1) wr-total-sec)
+            (format *temp-string* "~14LTIED WORLD RECORD!~0L~%~%")
+            (+! tmp-lines 1)
+            )
+          )
+        (+! lines-used tmp-lines)
+        (set-origin! font-ctx 256 (+ 84 (* (- lines-used tmp-lines) 15)))
+        (set! (-> font-ctx alpha) alpha)
+        (set! (-> font-ctx scale) 0.5)
+        (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+        (draw-string-adv *pc-encoded-temp-string* buf font-ctx)
+        )
+      )
     
     ;; print stats
     (clear *temp-string*)
@@ -486,12 +529,12 @@
         (format *temp-string* "~%~%~32LCivilians Killed: ~0L~D" civ-kills)))
     (format *temp-string* "~%~%")
     (print-kill-stats-awards (-> *statistics* kill-stats) *temp-string*)
-    (let ((font-ctx (new 'stack 'font-context *font-default-matrix* 256 (+ 90 (* lines-used 15)) 0.0 (font-color default) (font-flags middle shadow kerning large))))
-      (set! (-> font-ctx alpha) alpha)
-      (set! (-> font-ctx scale) 0.35)
-      (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
-      (draw-string-adv *pc-encoded-temp-string* buf font-ctx)
-      )
+
+    (set-origin! font-ctx 256 (+ 84 (* lines-used 15)))
+    (set! (-> font-ctx alpha) alpha)
+    (set! (-> font-ctx scale) 0.35)
+    (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+    (draw-string-adv *pc-encoded-temp-string* buf font-ctx)
     )
   )
 
@@ -599,6 +642,10 @@
             (tmp-mode (-> *setting-control* user-current sound-mode)))
         ;; make sure user didnt manage to reset already
         (when (and timer (-> timer stopped?))
+          ;; try to load times from SRC
+          (pc-fetch-external-mission-times 
+            (enum->string speedrun-category (-> *speedrun-info* category)) 
+            (if (= (-> *speedrun-info* percent-warped?) 'major) 1 0))
           (activate-progress *dproc* 'speedrun-end-results)
           (play-music 'race (the uint 0) (the uint 0))
           (print-stats (-> *statistics* kill-stats) #t)
