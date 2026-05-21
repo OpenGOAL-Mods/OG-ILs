@@ -651,7 +651,7 @@ void pc_fetch_external_mission_times(u32 mission_id_ptr, u32 p_warp) {
       // otherwise, hit the URL
       WebRequestJobPayload req;
       req.callback = callback_fetch_external_any_mission_times;
-      req.url = std::format("https://www.speedrun.com/api/v1/leaderboards/3dxyee56/level/{}/w2079g5k?embed=players&max=200", mission_level_ids.at(mission_id));
+      req.url = fmt::format("https://www.speedrun.com/api/v1/leaderboards/3dxyee56/level/{}/w2079g5k?embed=players&max=200", mission_level_ids.at(mission_id));
       req.cache_id = mission_id;
       g_background_worker.enqueue_webrequest(req);
     }
@@ -664,7 +664,7 @@ void pc_fetch_external_mission_times(u32 mission_id_ptr, u32 p_warp) {
       // otherwise, hit the URL
       WebRequestJobPayload req;
       req.callback = callback_fetch_external_warp_mission_times;
-      req.url = std::format("https://www.speedrun.com/api/v1/leaderboards/3dxyee56/level/{}/wkp8rrvd?embed=players&max=200", mission_level_ids.at(mission_id));
+      req.url = fmt::format("https://www.speedrun.com/api/v1/leaderboards/3dxyee56/level/{}/wkp8rrvd?embed=players&max=200", mission_level_ids.at(mission_id));
       req.cache_id = mission_id;
       g_background_worker.enqueue_webrequest(req);
     }

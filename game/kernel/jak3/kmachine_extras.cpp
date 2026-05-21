@@ -14,6 +14,8 @@
 #include "game/kernel/common/kscheme.h"
 #include "game/overlord/jak3/iso_cd.h"
 
+#include <sstream>
+
 namespace jak3 {
 namespace kmachine_extras {
 AutoSplitterBlock g_auto_splitter_block_jak3;
@@ -729,7 +731,7 @@ void pc_fetch_external_mission_times(u32 mission_id_ptr, u32 p_warp) {
       // otherwise, hit the URL
       WebRequestJobPayload req;
       req.callback = callback_fetch_external_any_mission_times;
-      req.url = std::format("https://www.speedrun.com/api/v1/leaderboards/j1l7q0zd/level/{}/rkl7n8qd?embed=players&max=200", mission_level_ids.at(mission_id));
+      req.url = fmt::format("https://www.speedrun.com/api/v1/leaderboards/j1l7q0zd/level/{}/rkl7n8qd?embed=players&max=200", mission_level_ids.at(mission_id));
       req.cache_id = mission_id;
       g_background_worker.enqueue_webrequest(req);
     }
@@ -742,7 +744,7 @@ void pc_fetch_external_mission_times(u32 mission_id_ptr, u32 p_warp) {
       // otherwise, hit the URL
       WebRequestJobPayload req;
       req.callback = callback_fetch_external_warp_mission_times;
-      req.url = std::format("https://www.speedrun.com/api/v1/leaderboards/j1l7q0zd/level/{}/7dgw7742?embed=players&max=200", mission_level_ids.at(mission_id));
+      req.url = fmt::format("https://www.speedrun.com/api/v1/leaderboards/j1l7q0zd/level/{}/7dgw7742?embed=players&max=200", mission_level_ids.at(mission_id));
       req.cache_id = mission_id;
       g_background_worker.enqueue_webrequest(req);
     }
