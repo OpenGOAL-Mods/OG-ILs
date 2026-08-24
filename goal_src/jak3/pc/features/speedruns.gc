@@ -12,6 +12,12 @@
 
 (define-extern *pc-dead-pool* dead-pool)
 
+;; ghost recorder hooks (implemented in ghost.gc)
+(define-extern ghost-on-run-start! (function none))
+(define-extern ghost-record-frame! (function none))
+(define-extern ghost-stop-recording! (function none))
+(define-extern ghost-discard-recording! (function none))
+
 (define *speedrun-info* (new 'static 'speedrun-info))
 
 (set! (-> *speedrun-info* active-custom-category) (new 'static 'speedrun-custom-category))
@@ -887,6 +893,8 @@
   (when (not (-> this stopped?))
     (false! (-> this started?))
     (true! (-> this stopped?))
+    ;; finalize any ghost recording for this run
+    (ghost-stop-recording!)
     (set! (-> this end-time) (get-real-current-time))
     (set! (-> this recorded-time) (* (the float (- (-> this end-time) (-> this start-time))) 0.0033333334))
     (maybe-update-best-time this)
@@ -1100,6 +1108,8 @@
 
 (define-extern reset-arena-trainer-globals (function none))
 (defmethod start-run! ((this speedrun-info))
+  ;; abandon any in-progress ghost recording from a previous attempt
+  (ghost-discard-recording!)
   ;; turn on speedrun verification display
   (true! (-> this display-run-info?))
   ;; reset has-started? flag so we can flip it back to #t when jak touches ground/out of blackout
@@ -2368,6 +2378,9 @@
                (or (logtest? (-> *target* control status) (collide-status on-ground on-surface on-water))
                    (= (-> *target* next-state name) 'target-hit-ground)))
       (mark-speedrun-started)
+      ;; spawn the previous attempt's ghost (if any) and start recording this one
+      (when (il-speedrun?)
+        (ghost-on-run-start!))
       ;; spawn a process that resets autosplitter after suspending for 1 frame
       (process-spawn-function process
         (lambda ()
@@ -2375,6 +2388,8 @@
           (reset! *autosplit-info-jak3*))))
     ;; Update auto-splitter struct
     (update! *autosplit-info-jak3*)
+    ;; sample player state for the ghost recording (no-op unless a run is recording)
+    (ghost-record-frame!)
     ;; see if we should stop drawing the run info (when you finish arena training, but also make sure at least 10s have passed)
     (when (and (!= (-> this category) (speedrun-category custom))
                (task-complete? *game-info* (game-task arena-training-1))

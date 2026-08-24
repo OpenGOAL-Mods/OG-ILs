@@ -1,0 +1,532 @@
+;;-*-Lisp-*-
+(in-package goal)
+
+;; Ghost recorder + playback for Individual Level (IL) runs.
+;;
+;; While an IL run is active, we sample the player's position/orientation/velocity/
+;; animation/state every frame into an in-memory buffer. When the run completes we:
+;;   - dump the samples to a JSON file (out/<data>/ghost/ghost-<category>.json), and
+;;   - pin the first completed run until explicitly cleared, so later attempts
+;;     cannot overwrite the replay while ghost processes are still reading it.
+;;
+;; Double-buffered: `play-samples` holds the pinned run being watched, `rec-samples`
+;; remains scratch space for every later attempt. The buffers swap only when there is
+;; no pinned replay and a run completes.
+;;
+;; Integration hooks live in speedruns.gc:
+;;   - ghost-on-run-start!     : called when an IL run begins (spawns ghost + starts recording)
+;;   - ghost-record-frame!     : called every frame from (update! *speedrun-info*)
+;;   - ghost-stop-recording!   : called when the timer stops (run completed)
+;;   - ghost-discard-recording!: called when a run is reset (abandons the in-progress recording)
+;;
+;; Manual controls (REPL): (ghost-play), (ghost-stop-playback), (ghost-clear-replay!).
+
+(define-extern *mod-version-text* string)
+
+;; how many frames we can hold. 18000 = 5 minutes @ 60fps. covers essentially every IL.
+(defconstant GHOST_MAX_FRAMES 18000)
+
+;; stress-test playback pack. 33 ghosts are arranged as an 11x3 grid around
+;; the recorded path, with the middle ghost exactly on the original line.
+(defconstant GHOST_MAX_PLAYERS 33)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Types
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(deftype ghost-sample (structure)
+  "A single recorded frame of player state. Stored inline in a big array."
+  ((pos        vector       :inline)  ;; world position (game units)
+   (quat       quaternion   :inline)  ;; orientation
+   (transv     vector       :inline)  ;; velocity (game units)
+   (anim-idx   int32)                 ;; index of the base anim within the jak art-group (stable across reloads); -1 = none
+   (anim-frame float)                 ;; base-channel frame-num
+   (state      symbol)                ;; target's current state name
+   (status     uint32)                ;; collide-status flags
+   (xz-vel     float)                 ;; horizontal speed
+   ))
+
+(deftype ghost-recording (basic)
+  "Double-buffered recording state: one buffer is pinned while the other records."
+  ((rec-samples  (inline-array ghost-sample))  ;; run currently being recorded
+   (play-samples (inline-array ghost-sample))  ;; pinned completed run (the ghost)
+   (capacity     int32)
+   (rec-count    int32)
+   (play-count   int32)
+   (recording?   symbol)
+   (have-ghost?  symbol)                        ;; a completed run is available to replay
+   (category     speedrun-category)             ;; category the ghost was recorded on
+   (start-time   time-frame)
+   (last-anim    art-joint-anim)                ;; cache: last frame-group seen while recording
+   (last-anim-idx int32)                        ;; cache: its resolved art-group index
+   ))
+
+(deftype ghost-replay (basic)
+  "One imported JSON replay and its independently-owned sample buffer."
+  ((samples (inline-array ghost-sample))
+   (count   int32)))
+
+(deftype ghost-json-reader (structure)
+  "Cursor used by the small parser for ghost JSON files."
+  ((data   (pointer uint8))
+   (pos    int32)
+   (length int32)))
+
+(define-extern *ghost-recording* ghost-recording)
+(define-extern ghost-stop-playback (function none))
+
+(deftype ghost-player (process-drawable)
+  "A translucent replay of a recorded IL run using the real Jak model."
+  ((idx      int32)
+   (frames   int32)
+   (samples  (inline-array ghost-sample))         ;; points at the pinned playback buffer
+   (offset   vector :inline))
+  (:state-methods
+   idle))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Globals
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; master switch for automatic recording during IL runs
+(define *ghost-record-enabled?* #t)
+
+;; the recording buffers (allocated once, reused every run)
+(define *ghost-recording* (new 'global 'ghost-recording))
+(set! (-> *ghost-recording* rec-samples) (new 'global 'inline-array 'ghost-sample GHOST_MAX_FRAMES))
+(set! (-> *ghost-recording* play-samples) (new 'global 'inline-array 'ghost-sample GHOST_MAX_FRAMES))
+(set! (-> *ghost-recording* capacity) GHOST_MAX_FRAMES)
+(set! (-> *ghost-recording* rec-count) 0)
+(set! (-> *ghost-recording* play-count) 0)
+(set! (-> *ghost-recording* recording?) #f)
+(set! (-> *ghost-recording* have-ghost?) #f)
+
+;; Tunable from the REPL for smaller tests. The pool still caps this at 33.
+(define *ghost-playback-count* GHOST_MAX_PLAYERS)
+(define *ghost-playback-spacing* (meters 1.5))
+
+;; Imported replay pack. Each entry owns a separate sample array loaded from
+;; ghost/ghost-<category>-01.json through -33.json.
+(define *ghost-replays* (new 'global 'boxed-array ghost-replay GHOST_MAX_PLAYERS))
+(define *ghost-replay-count* 0)
+(define *ghost-replay-category* (the-as speedrun-category -1))
+
+;; JSON files are currently about 125 KiB. Reusing one read buffer avoids
+;; retaining a second full copy of every file after its samples are decoded.
+(define *ghost-json-buffer* (new 'global 'string #x40000 (the-as string #f)))
+(define *ghost-json-token* (new 'global 'string 128 (the-as string #f)))
+(define *ghost-json-path* (new 'global 'string 256 (the-as string #f)))
+(define *ghost-json-count-key* "\"count\"")
+(define *ghost-json-frames-key* "\"frames\"")
+
+;; A manipy rendering the same character fits in a #x20000 process. Keeping a
+;; fixed pool of 33 avoids consuming the shared variable-sized process heap.
+(define *ghost-dead-pool* (new 'global 'dead-pool GHOST_MAX_PLAYERS #x20000 "*ghost-dead-pool*"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; JSON replay import
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun ghost-json-number-char? ((c uint))
+  (or (and (>= c #x30) (<= c #x39))
+      (= c #x2d) ;; -
+      (= c #x2b) ;; +
+      (= c #x2e) ;; .
+      (= c #x45) ;; E
+      (= c #x65))) ;; e
+
+(defun ghost-json-seek-key! ((reader ghost-json-reader) (key string))
+  "Move reader just after key."
+  (while (< (-> reader pos) (-> reader length))
+    (when (charp-prefix= (-> key data) (&-> (-> reader data) (-> reader pos)))
+      (+! (-> reader pos) (length key))
+      (return #t))
+    (+! (-> reader pos) 1))
+  #f)
+
+(defun ghost-json-read-number-token! ((reader ghost-json-reader))
+  "Read the next JSON number into the shared token string."
+  (while (and (< (-> reader pos) (-> reader length))
+              (not (ghost-json-number-char? (-> reader data (-> reader pos)))))
+    (+! (-> reader pos) 1))
+  (let ((out (-> *ghost-json-token* data))
+        (n 0))
+    (while (and (< (-> reader pos) (-> reader length))
+                (ghost-json-number-char? (-> reader data (-> reader pos)))
+                (< n 127))
+      (set! (-> out n) (-> reader data (-> reader pos)))
+      (+! n 1)
+      (+! (-> reader pos) 1))
+    (set! (-> out n) 0))
+  *ghost-json-token*)
+
+(defun ghost-json-read-string! ((reader ghost-json-reader))
+  "Read the next unescaped JSON string into the shared token string."
+  (while (and (< (-> reader pos) (-> reader length))
+              (!= (-> reader data (-> reader pos)) #x22))
+    (+! (-> reader pos) 1))
+  (+! (-> reader pos) 1)
+  (let ((out (-> *ghost-json-token* data))
+        (n 0))
+    (while (and (< (-> reader pos) (-> reader length))
+                (!= (-> reader data (-> reader pos)) #x22)
+                (< n 127))
+      (set! (-> out n) (-> reader data (-> reader pos)))
+      (+! n 1)
+      (+! (-> reader pos) 1))
+    (set! (-> out n) 0)
+    (+! (-> reader pos) 1))
+  *ghost-json-token*)
+
+(defun ghost-load-json-replay! ((filename string))
+  "Load one exported ghost JSON file into an independent replay buffer."
+  (let ((file (new 'stack 'file-stream filename 'read)))
+    (when (not (file-stream-valid? file))
+      (return (the-as ghost-replay #f)))
+    (let ((file-size (length file)))
+      (when (>= file-size (-> *ghost-json-buffer* allocated-length))
+        (file-stream-close file)
+        (format 0 "ghost: JSON too large: ~S (~D bytes)~%" filename file-size)
+        (return (the-as ghost-replay #f)))
+      (clear *ghost-json-buffer*)
+      (let ((read-size (file-stream-read file (-> *ghost-json-buffer* data) file-size)))
+        (file-stream-close file)
+        (set! (-> *ghost-json-buffer* data read-size) 0)
+        (let ((reader (new 'stack 'ghost-json-reader)))
+          (set! (-> reader data) (-> *ghost-json-buffer* data))
+          (set! (-> reader pos) 0)
+          (set! (-> reader length) read-size)
+          (when (not (ghost-json-seek-key! reader *ghost-json-count-key*))
+            (return (the-as ghost-replay #f)))
+          (let ((count (min GHOST_MAX_FRAMES (string->int (ghost-json-read-number-token! reader)))))
+            (when (or (<= count 0)
+                      (not (ghost-json-seek-key! reader *ghost-json-frames-key*)))
+              (return (the-as ghost-replay #f)))
+            (let ((replay (new 'global 'ghost-replay)))
+              (set! (-> replay samples) (new 'global 'inline-array 'ghost-sample count))
+              (set! (-> replay count) count)
+              (dotimes (i count)
+                (let ((sample (-> replay samples i)))
+                  ;; time
+                  (ghost-json-read-number-token! reader)
+                  ;; position (JSON is meters; GOAL transforms use 4096 units/meter)
+                  (set! (-> sample pos x) (* (string->float (ghost-json-read-number-token! reader)) 4096.0))
+                  (set! (-> sample pos y) (* (string->float (ghost-json-read-number-token! reader)) 4096.0))
+                  (set! (-> sample pos z) (* (string->float (ghost-json-read-number-token! reader)) 4096.0))
+                  (set! (-> sample pos w) 1.0)
+                  ;; root quaternion
+                  (set! (-> sample quat x) (string->float (ghost-json-read-number-token! reader)))
+                  (set! (-> sample quat y) (string->float (ghost-json-read-number-token! reader)))
+                  (set! (-> sample quat z) (string->float (ghost-json-read-number-token! reader)))
+                  (set! (-> sample quat w) (string->float (ghost-json-read-number-token! reader)))
+                  ;; velocity and remaining numeric state
+                  (set! (-> sample transv x) (* (string->float (ghost-json-read-number-token! reader)) 4096.0))
+                  (set! (-> sample transv y) (* (string->float (ghost-json-read-number-token! reader)) 4096.0))
+                  (set! (-> sample transv z) (* (string->float (ghost-json-read-number-token! reader)) 4096.0))
+                  (set! (-> sample transv w) 0.0)
+                  (set! (-> sample xz-vel) (* (string->float (ghost-json-read-number-token! reader)) 4096.0))
+                  (set! (-> sample status) (the-as uint32 (string->int (ghost-json-read-number-token! reader))))
+                  (set! (-> sample anim-frame) (string->float (ghost-json-read-number-token! reader)))
+                  ;; State is exported for tools but is not needed to pose the model.
+                  (ghost-json-read-string! reader)
+                  (set! (-> sample state) #f)
+                  ;; Resolve the exported animation name against the loaded Jak art.
+                  (ghost-json-read-string! reader)
+                  (set! (-> sample anim-idx)
+                        (if (and *target* (nonzero? (-> *target* draw)))
+                            (get-art-idx-by-name-method
+                              (-> *target* draw art-group)
+                              *ghost-json-token*
+                              art-joint-anim)
+                            -1))))
+              replay)))))))
+
+(defun ghost-load-json-pack! ((category speedrun-category))
+  "Load ghost-<category>-01.json through -33.json once for this category."
+  (when (and (> *ghost-replay-count* 0) (= *ghost-replay-category* category))
+    (return *ghost-replay-count*))
+  (set! *ghost-replay-count* 0)
+  (set! *ghost-replay-category* category)
+  (let ((cat-name (enum->string speedrun-category category)))
+    (dotimes (i GHOST_MAX_PLAYERS)
+      (if (< i 9)
+          (format (clear *ghost-json-path*) "ghost/ghost-~S-0~D.json" cat-name (+ i 1))
+          (format (clear *ghost-json-path*) "ghost/ghost-~S-~D.json" cat-name (+ i 1)))
+      (let ((replay (ghost-load-json-replay! *ghost-json-path*)))
+        (when replay
+          (set! (-> *ghost-replays* i) replay)
+          (+! *ghost-replay-count* 1))))
+    (when (> *ghost-replay-count* 0)
+      (format 0 "ghost: loaded ~D independent JSON replays for ~S~%"
+              *ghost-replay-count* cat-name)))
+  *ghost-replay-count*)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Recording
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun ghost-start-recording! ()
+  "Begin a fresh recording for the current speedrun category."
+  (when *ghost-record-enabled?*
+    (set! (-> *ghost-recording* rec-count) 0)
+    (set! (-> *ghost-recording* recording?) #t)
+    (set! (-> *ghost-recording* last-anim) (the-as art-joint-anim #f))
+    (set! (-> *ghost-recording* last-anim-idx) -1)
+    (set! (-> *ghost-recording* start-time) (get-real-current-time)))
+  (none))
+
+(defun ghost-discard-recording! ()
+  "Abandon any in-progress recording (e.g. on run reset). Keeps the last completed ghost."
+  (set! (-> *ghost-recording* recording?) #f)
+  (set! (-> *ghost-recording* rec-count) 0)
+  (none))
+
+(defun ghost-record-frame! ()
+  "Capture one frame of player state. Safe to call every frame; no-ops unless recording."
+  (when (and (-> *ghost-recording* recording?)
+             *target*
+             (nonzero? (-> *target* skel))
+             (< (-> *ghost-recording* rec-count) (-> *ghost-recording* capacity)))
+    (let ((s (-> *ghost-recording* rec-samples (-> *ghost-recording* rec-count)))
+          (ctrl (-> *target* control))
+          (ch (-> *target* skel root-channel 0)))
+      (vector-copy! (-> s pos) (-> ctrl trans))
+      ;; The visible Jak skeleton is rooted from control.trans as a transformq, so
+      ;; record control.quat (the render/root quaternion), not quat-for-control
+      ;; (the gameplay-facing heading quaternion).
+      (vector-copy! (the-as vector (-> s quat)) (the-as vector (-> ctrl quat)))
+      (vector-copy! (-> s transv) (-> ctrl transv))
+      ;; resolve the current base anim to a stable art-group index (cached per anim)
+      (let ((fg (-> ch frame-group)))
+        (cond
+          ((= fg (-> *ghost-recording* last-anim))
+           (set! (-> s anim-idx) (-> *ghost-recording* last-anim-idx)))
+          ((and fg (nonzero? fg) (nonzero? (-> *target* draw)))
+           (let ((idx (get-art-idx-by-name-method (-> *target* draw art-group) (-> fg name) art-joint-anim)))
+             (set! (-> s anim-idx) idx)
+             (set! (-> *ghost-recording* last-anim) fg)
+             (set! (-> *ghost-recording* last-anim-idx) idx)))
+          (else
+           (set! (-> s anim-idx) -1))))
+      (set! (-> s anim-frame) (-> ch frame-num))
+      (set! (-> s state) (if (-> *target* next-state) (-> *target* next-state name) #f))
+      (set! (-> s status) (the-as uint32 (-> ctrl status)))
+      (set! (-> s xz-vel) (-> ctrl ctrl-xz-vel)))
+    (+! (-> *ghost-recording* rec-count) 1))
+  (none))
+
+(defun ghost-write-json! ()
+  "Dump the current ghost (play buffer) to a JSON file for external tools."
+  (let ((cat-name (enum->string speedrun-category (-> *ghost-recording* category)))
+        (cnt (-> *ghost-recording* play-count)))
+    ;; build the output path
+    (format (clear *temp-string*) "ghost/ghost-~S.json" cat-name)
+    (let ((file (new 'stack 'file-stream *temp-string* 'write)))
+      (when (>= (-> file file) 0)
+        ;; header
+        (format file "{~%")
+        (format file "  \"version\": 1,~%")
+        (format file "  \"category\": \"~S\",~%" cat-name)
+        (format file "  \"mod_version\": \"~S\",~%" *mod-version-text*)
+        (format file "  \"fps\": 60,~%")
+        (format file "  \"count\": ~D,~%" cnt)
+        (format file "  \"units\": \"meters\",~%")
+        (format file "  \"keys\": [\"t\",\"px\",\"py\",\"pz\",\"qx\",\"qy\",\"qz\",\"qw\",\"vx\",\"vy\",\"vz\",\"xzvel\",\"status\",\"frame\",\"state\",\"anim\"],~%")
+        (format file "  \"frames\": [~%")
+        ;; frames
+        (dotimes (i cnt)
+          (let ((s (-> *ghost-recording* play-samples i))
+                (t (/ (the float i) 60.0)))
+            (when (> i 0)
+              (format file ",~%"))
+            (format file "    [~f,~f,~f,~f," t (/ (-> s pos x) 4096.0) (/ (-> s pos y) 4096.0) (/ (-> s pos z) 4096.0))
+            (format file "~f,~f,~f,~f," (-> s quat x) (-> s quat y) (-> s quat z) (-> s quat w))
+            (format file "~f,~f,~f,~f," (/ (-> s transv x) 4096.0) (/ (-> s transv y) 4096.0) (/ (-> s transv z) 4096.0) (/ (-> s xz-vel) 4096.0))
+            (format file "~D,~f," (-> s status) (-> s anim-frame))
+            (format file "\"~S\",\"~S\"]"
+                    (if (-> s state) (-> s state) 'none)
+                    ;; resolve the anim index to a name via the currently-loaded jak art
+                    (if (and *target* (nonzero? (-> *target* draw)) (>= (-> s anim-idx) 0)
+                             (< (-> s anim-idx) (-> *target* draw art-group length)))
+                        (-> (the-as art-element (-> *target* draw art-group data (-> s anim-idx))) name)
+                        "none"))))
+        (format file "~%  ]~%}~%")
+        (file-stream-close file)
+        (format 0 "ghost: wrote ~D frames to ~S~%" cnt *temp-string*))))
+  (none))
+
+(defun ghost-stop-recording! ()
+  "Finish recording. The first completed replay stays pinned until explicitly cleared."
+  (when (-> *ghost-recording* recording?)
+    (set! (-> *ghost-recording* recording?) #f)
+    (when (> (-> *ghost-recording* rec-count) 0)
+      (cond
+        ((not (-> *ghost-recording* have-ghost?))
+         ;; Promote only the first completed run. rec-samples remains the scratch
+         ;; buffer for later attempts, so active ghosts never get overwritten.
+         (let ((tmp (-> *ghost-recording* rec-samples)))
+           (set! (-> *ghost-recording* rec-samples) (-> *ghost-recording* play-samples))
+           (set! (-> *ghost-recording* play-samples) tmp))
+         (set! (-> *ghost-recording* play-count) (-> *ghost-recording* rec-count))
+         (set! (-> *ghost-recording* category) (-> *speedrun-info* category))
+         (set! (-> *ghost-recording* have-ghost?) #t)
+         (ghost-write-json!))
+        (else
+         (format 0 "ghost: preserving pinned replay; completed attempt was not promoted~%")))))
+  (none))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Playback
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defstate idle (ghost-player)
+  :virtual #t
+  :code
+  (behavior ()
+    (until #f
+      (when (> (-> self frames) 0)
+        (let* ((cnt (-> self frames))
+               (i (-> self idx))
+               (s (-> self samples i)))
+          ;; drive root transform straight from the recording
+          (vector-copy! (-> self root trans) (-> s pos))
+          (+! (-> self root trans x) (-> self offset x))
+          (+! (-> self root trans y) (-> self offset y))
+          (+! (-> self root trans z) (-> self offset z))
+          (vector-copy! (the-as vector (-> self root quat)) (the-as vector (-> s quat)))
+          ;; resolve the recorded anim index against OUR (current, valid) art-group,
+          ;; then scrub the base channel to that anim + frame. set the group only when
+          ;; it changes; otherwise just move frame-num and let ja-post re-pose.
+          (when (and (>= (-> s anim-idx) 0)
+                     (nonzero? (-> self skel))
+                     (nonzero? (-> self draw))
+                     (< (-> s anim-idx) (-> self draw art-group length)))
+            (let ((anim (the-as art-joint-anim (-> self draw art-group data (-> s anim-idx)))))
+              ;; guard exactly like the engine's own anim validity check
+              (when (and anim (nonzero? anim) (= (-> anim type) art-joint-anim))
+                (when (!= (ja-group) anim)
+                  (ja-channel-set! 1)
+                  (joint-control-channel-group-eval! (-> self skel root-channel 0) anim num-func-identity))
+                (set! (-> self skel root-channel 0 frame-num) (-> s anim-frame)))))
+          ;; advance, looping back to the start
+          (set! (-> self idx) (if (>= (+ i 1) cnt) 0 (+ i 1)))))
+      (ja-post)
+      (suspend))))
+
+(defbehavior ghost-player-init-by-other ghost-player ((clone-idx int))
+  (stack-size-set! (-> self main-thread) 512)
+  (set! (-> self idx) 0)
+  (cond
+    ((< clone-idx *ghost-replay-count*)
+     ;; The imported JSON copies already contain their spatial offsets.
+     (let ((replay (-> *ghost-replays* clone-idx)))
+       (set! (-> self samples) (-> replay samples))
+       (set! (-> self frames) (-> replay count)))
+     (vector-zero! (-> self offset)))
+    (else
+     ;; Fallback for a freshly recorded in-memory replay without a JSON pack.
+     (set! (-> self samples) (-> *ghost-recording* play-samples))
+     (set! (-> self frames) (-> *ghost-recording* play-count))
+     (set-vector!
+       (-> self offset)
+       (* (the float (- (mod clone-idx 11) 5)) *ghost-playback-spacing*)
+       0.0
+       (* (the float (- (/ clone-idx 11) 1)) *ghost-playback-spacing*)
+       0.0)))
+  (set! (-> self root) (new 'process 'trsqv))
+  ;; a fresh trsqv has scale 0 - without this the whole model collapses to a point!
+  (vector-identity! (-> self root scale))
+  (quaternion-identity! (-> self root quat))
+  ;; associate with the level jak is in so art loading/drawing works
+  (set! (-> self level) (level-get-target-inside *level*))
+  ;; start at the first recorded sample
+  (when (> (-> self frames) 0)
+    (let ((s (-> self samples 0)))
+      (vector-copy! (-> self root trans) (-> s pos))
+      (+! (-> self root trans x) (-> self offset x))
+      (+! (-> self root trans z) (-> self offset z))
+      (vector-copy! (the-as vector (-> self root quat)) (the-as vector (-> s quat)))))
+  ;; Match the geometry currently selected for the real target.  "skel-jchar"
+  ;; is only the bootstrap geometry; normal gameplay swaps it to the Jak 2,
+  ;; classic, or Jak 3 body selected by target-skel-group.
+  (initialize-skeleton self (target-skel-group) (the-as pair 0))
+  ;; The cloth engine has only 32 slots. Keep the Jak 3 body mesh, but do not
+  ;; submit cloth simulations for 33 ghosts plus the real player.
+  (set! (-> self draw cloth-instances) (the-as (array cloth-system) #f))
+  ;; wire the root cspace (bone 0) to follow our root trsqv's full transform
+  ;; (trans+quat+scale). without this the root bone is garbage and the mesh collapses.
+  (let ((nl (-> self node-list data)))
+    (set! (-> nl 0 param0) (the-as (function cspace transformq none) cspace<-transformq+trans!))
+    (set! (-> nl 0 param1) (the-as basic (-> self root trans)))
+    (set! (-> nl 0 param2) (the-as basic *null-vector*)))
+  ;; pose the skeleton every frame + light it like a normal actor
+  (logior! (-> self skel status) (joint-control-status sync-math))
+  (set! (-> self draw light-index) (the-as uint 30))
+  (set! (-> self draw lod-set max-lod) 0)
+  ;; ghost look: blue tint (translucency via force-fade can be re-enabled once visible)
+  (set-vector! (the-as vector (-> self draw color-mult)) 0.4 0.7 1.0 1.0)
+  ;; debug: confirm the skeleton actually loaded (check the goalc/game console)
+  (format 0 "ghost: spawned skel=~A jgeo=~A mgeo=~A frames=~D~%"
+          (-> self skel)
+          (if (nonzero? (-> self draw)) (-> self draw jgeo) #f)
+          (if (nonzero? (-> self draw)) (-> self draw mgeo) #f)
+          (-> self frames))
+  (go-virtual idle))
+
+(defun ghost-stop-playback ()
+  "Remove every active ghost clone. The pinned replay data is retained."
+  (kill-by-type ghost-player *pc-pool*)
+  (none))
+
+(defun ghost-spawn-playback! ()
+  "Restart the playback pack from frame zero."
+  (ghost-stop-playback)
+  (let ((available (if (> *ghost-replay-count* 0)
+                       *ghost-replay-count*
+                       GHOST_MAX_PLAYERS))
+        (want 0)
+        (spawned 0))
+    (set! want (max 1 (min available (min GHOST_MAX_PLAYERS *ghost-playback-count*))))
+    (dotimes (i want)
+      (when (process-spawn ghost-player i :from *ghost-dead-pool* :to *pc-pool*)
+        (+! spawned 1)))
+    (format 0 "ghost: spawned ~D/~D independent replay players~%" spawned want))
+  (none))
+
+(defun ghost-clear-replay! ()
+  "Discard the pinned replay so the next completed run becomes the new replay."
+  (ghost-stop-playback)
+  (set! (-> *ghost-recording* have-ghost?) #f)
+  (set! (-> *ghost-recording* play-count) 0)
+  (set! *ghost-replay-count* 0)
+  (set! *ghost-replay-category* (the-as speedrun-category -1))
+  (format 0 "ghost: pinned replay cleared; next completed run will be kept~%")
+  (none))
+
+(defun ghost-play ()
+  "Spawn the offset pack that replays the pinned IL recording."
+  (when *target*
+    (ghost-load-json-pack! (-> *speedrun-info* category)))
+  (cond
+    ((and (= *ghost-replay-count* 0)
+          (not (-> *ghost-recording* have-ghost?)))
+     (format 0 "ghost: no completed recording to play~%"))
+    ((not *target*)
+     (format 0 "ghost: no player loaded~%"))
+    (else
+     (ghost-spawn-playback!)))
+  (none))
+
+(defun ghost-on-run-start! ()
+  "Called when an IL run begins: replay the pinned ghost (same category),
+   then start recording the new attempt."
+  (when *target*
+    (ghost-load-json-pack! (-> *speedrun-info* category))
+    ;; Prefer an imported pack; otherwise use a pinned replay from this mission.
+    (when (or (> *ghost-replay-count* 0)
+              (and (-> *ghost-recording* have-ghost?)
+                   (= (-> *ghost-recording* category) (-> *speedrun-info* category))))
+      (ghost-spawn-playback!)))
+  ;; begin recording the new attempt (into the other buffer)
+  (ghost-start-recording!)
+  (none))

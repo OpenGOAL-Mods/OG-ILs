@@ -351,6 +351,7 @@
   "menu.o"
   "popup-menu.o" ;; added
   "speedruns.o" ;; added
+  "ghost.o" ;; added
   "drawable.o"
   "drawable-group.o"
   "drawable-inline-array.o"
