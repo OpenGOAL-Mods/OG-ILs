@@ -453,6 +453,12 @@
   ;; The cloth engine has only 32 slots. Keep the Jak 3 body mesh, but do not
   ;; submit cloth simulations for 33 ghosts plus the real player.
   (set! (-> self draw cloth-instances) (the-as (array cloth-system) #f))
+  ;; Shadow2 has one fixed-size vertex buffer for all foreground actors.  The
+  ;; projected shadows from 33 full Jak skeletons overflow it, so replay ghosts
+  ;; do not submit shadows.  Do not edit the shared target shadow-control object:
+  ;; the real player's shadow should remain enabled.
+  (set! (-> self draw shadow-ctrl) #f)
+  (set! (-> self draw shadow) #f)
   ;; wire the root cspace (bone 0) to follow our root trsqv's full transform
   ;; (trans+quat+scale). without this the root bone is garbage and the mesh collapses.
   (let ((nl (-> self node-list data)))
