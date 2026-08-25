@@ -32,9 +32,9 @@ jobs:
           HOMEBREW_NO_INSTALL_CLEANUP: 1
           HOMEBREW_NO_ANALYTICS: 1
         run: |
-          if ! brew install ninja nasm; then
+          if ! brew install ninja nasm openssl@3 brotli nghttp2; then
             brew update
-            brew install ninja nasm
+            brew install ninja nasm openssl@3 brotli nghttp2
           fi
 
       - name: Setup sccache
