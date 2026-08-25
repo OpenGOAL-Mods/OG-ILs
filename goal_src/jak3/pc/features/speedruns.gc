@@ -321,7 +321,7 @@
   )
 
 (defun maybe-update-best-time ((this speedrun-timer))
-  (when (not (or *debug-segment* *cheat-mode*))
+  (when #t ;; (not (or *debug-segment* *cheat-mode*))
     (let ((pb-time (get-pb-time)))
       (when (or (= pb-time 0.0) (< (-> this recorded-time) pb-time))
         (case (-> *speedrun-info* category)
@@ -774,98 +774,230 @@
   (none)
   )
 
-(defun fmt-timer-string (out (total-sec float))
+(defun fmt-timer-string (out (total-sec float) (wr-x? symbol))
   (let* ((minutes (/ (the int total-sec) 60))
          (sec (- total-sec (* minutes 60))))
-    (if (> minutes 0)
-      (if (>= sec 10) ;; too lazy to figure out zero padding for floats
-        (format out "~D:~,,2f~%" minutes sec) ;; MM:SS.ms
-        (format out "~D:0~,,2f~%" minutes sec) ;; MM:SS.ms
+    (if wr-x?
+      (if (> minutes 0)
+        (if (>= sec 10) ;; too lazy to figure out zero padding for floats
+          (format out "~D:~,,0f.x~%" minutes sec) ;; MM:SS.x
+          (format out "~D:0~,,0f.x~%" minutes sec) ;; MM:0S.x
+          )
+        (format out "~,,0f.x~%" total-sec) ;; (S)S.xs
         )
-      (format out "~,,2fs~%" total-sec) ;; SS.ms
+      (if (> minutes 0)
+        (if (>= sec 10) ;; too lazy to figure out zero padding for floats
+          (format out "~D:~,,2f~%" minutes sec) ;; MM:SS.ms
+          (format out "~D:0~,,2f~%" minutes sec) ;; MM:0S.ms
+          )
+        (format out "~,,2fs~%" total-sec) ;; SS.ms
+        )
       )
     )
   )
 
 (defmethod draw-timer ((this speedrun-timer))
-  ;; show timer
-  (clear *temp-string*)
-  (clear *pc-encoded-temp-string*)
-  (cond
-    ((-> this started?)
-      (fmt-timer-string *temp-string* (* (the float (- (get-real-current-time) (-> this start-time))) 0.0033333334))
-      )
-    ((-> this stopped?)
-      (fmt-timer-string *temp-string* (-> this recorded-time))
-      )
-    (else
-      (fmt-timer-string *temp-string* 0.0)
-      )
-    )
-  ;; figure out if speedometer and timer are in same location, so we can do offsets
+  ;; (try to) fetch WR
+  (clear *pc-cpp-temp-string*)
+  (set! (-> *progress-pc-generic-store* custom-highscore-score) -1.0)
+  (pc-get-external-any-mission-time 
+        (enum->string speedrun-category (-> *speedrun-info* category))
+        0 *pc-cpp-temp-string* (&-> *progress-pc-generic-store* custom-highscore-score))
+  ;; print appropriate strings to different sections of the screen
   (let* ((sloc (-> *pc-settings* speedometer))
          (tloc (-> *pc-settings* timer-location))
-         (same-location? (or (and (= sloc (speedometer-setting top-left)) (= tloc (timer-location top-left)))
-                             (and (= sloc (speedometer-setting top-right)) (= tloc (timer-location top-right)))
-                             (and (= sloc (speedometer-setting bottom-left)) (= tloc (timer-location bottom-left)))
-                             (and (= sloc (speedometer-setting bottom-right)) (= tloc (timer-location bottom-right)))
-                             (and (= sloc (speedometer-setting center)) (= tloc (timer-location center)))
-                             )))
-    (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
-    (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
-      ;; reset bucket settings prior to drawing - font won't do this for us, and
-      ;; draw-raw-image can sometimes mess them up. (intro sequence)
-      (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
-      (let* ((x (case tloc
-                      (((timer-location top-left) (timer-location bottom-left)) 2)
-                      (((timer-location top-right) (timer-location bottom-right)) 510)
-                      (((timer-location center)) 256)
-                      ))
-             (y (case tloc
-                      (((timer-location top-right) (timer-location top-left)) 2)
-                      (((timer-location bottom-left)) (- (if *display-sha* 396 406) (if same-location? 10 0)))
-                      (((timer-location bottom-right)) (- (if (and (-> *pc-settings* speedrunner-mode?) (-> *speedrun-info* display-run-info?)) 387 406) (if same-location? 10 0)))
-                      (((timer-location center)) (- 210 (if same-location? 5 0)))
-                      ))
-             (font-ctx (new 'stack 'font-context *font-default-matrix* x y 0.0 (font-color default) 
-              (case tloc
-                    (((timer-location top-left) (timer-location bottom-left)) (font-flags shadow kerning large))
-                    (((timer-location top-right) (timer-location bottom-right)) (font-flags shadow kerning large right))
-                    (((timer-location center)) (font-flags shadow kerning large middle))
-                    ))))
-        (set! (-> font-ctx scale) 0.25)
-        (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
-
-    ;; show speed in practice mode
-    (when (!= (-> *pc-settings* speedometer) (speedometer-setting off))
-      (clear *temp-string*)
-      (clear *pc-encoded-temp-string*)
-      (when (and *target*) ;; (-> *speedrun-info* practicing?))
-        (format *temp-string* "~,,1f~S~%" (/ (-> *target* control ctrl-xz-vel) 4096.0) (if (= (-> *pc-settings* speedometer-m-s) (speedometer-m-s on)) "m/s" ""))
-        (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
-        (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
-          ;; reset bucket settings prior to drawing - font won't do this for us, and
-          ;; draw-raw-image can sometimes mess them up. (intro sequence)
-          (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
-          (let* ((x (case sloc
-                      (((speedometer-setting top-left) (speedometer-setting bottom-left)) 2)
-                      (((speedometer-setting top-right) (speedometer-setting bottom-right)) 510)
-                      (((speedometer-setting center)) 256)
-                      ))
-                  (y (case sloc
-                      (((speedometer-setting top-right) (speedometer-setting top-left)) (+ 2 (if same-location? 10 0)))
-                      (((speedometer-setting bottom-left)) (if *display-sha* 396 406))
-                      (((speedometer-setting bottom-right)) (if (and (-> *pc-settings* speedrunner-mode?) (-> *speedrun-info* display-run-info?)) 387 406))
-                      (((speedometer-setting center)) (+ 210 (if same-location? 5 0)))
-                      ))
-                  (font-ctx (new 'stack 'font-context *font-default-matrix* x y 0.0 (font-color default) 
-                    (case sloc
-                      (((speedometer-setting top-left) (speedometer-setting bottom-left)) (font-flags shadow kerning large))
-                      (((speedometer-setting top-right) (speedometer-setting bottom-right)) (font-flags shadow kerning large right))
-                      (((speedometer-setting center)) (font-flags shadow kerning large middle))
-                      ))))
-            (set! (-> font-ctx scale) 0.25)
-            (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
+         (ploc (-> *pc-settings* pb-location))
+         (wloc (-> *pc-settings* wr-location))
+         (timer-total-sec (cond
+                  ((-> this started?) (* (the float (- (get-real-current-time) (-> this start-time))) 0.0033333334))
+                  ((-> this stopped?) (-> this recorded-time))
+                  (else 0.0)
+                  ))
+         (pb-total-sec (get-pb-time))
+         (wr-total-sec (-> *progress-pc-generic-store* custom-highscore-score))
+         )
+    ;; (format 0 "category ~D / pb: ~F s / wr: ~F s~%" (-> *speedrun-info* category) pb-total-sec wr-total-sec)
+    (dotimes (cur (speedometer-setting max))
+      (when (!= cur (speedometer-setting off))
+        (clear *temp-string*)
+        (clear *pc-encoded-temp-string*)
+        (let ((lines 0)
+              (x 0)
+              (y 0))
+          (case cur
+            (((speedometer-setting off))) ;; ignore this one
+            (((speedometer-setting top-left))
+              ;; speedometer
+              (when (and *target* (= sloc (speedometer-setting top-left)))
+                (format *temp-string* "~,,2f~S~%" (/ (-> *target* control ctrl-xz-vel) 4096.0) (if (= (-> *pc-settings* speedometer-m-s) (speedometer-m-s on)) "m/s" ""))
+                (+! lines 1)
+                )
+              ;; timer
+              (when (= tloc (timer-location top-left))
+                (fmt-timer-string *temp-string* timer-total-sec #f)
+                (+! lines 1)
+                )
+              ;; pb
+              (when (= ploc (pb-wr-location top-left))
+                (format *temp-string* "PB: ")
+                (if (nonzero? pb-total-sec)
+                  (fmt-timer-string *temp-string* pb-total-sec #f)
+                  (format *temp-string* "N/A~%"))
+                (+! lines 1)
+                )
+              ;; wr
+              (when (= wloc (pb-wr-location top-left))
+                (format *temp-string* "WR: ")
+                (if (>= wr-total-sec 0.0)
+                  (fmt-timer-string *temp-string* wr-total-sec #t) ;; show .XX
+                  (format *temp-string* "N/A~%"))
+                (+! lines 1)
+                )
+              ;; we've written everything to temp-string, setup draw coords
+              (set! x 2)
+              (set! y 2)
+              )
+            (((speedometer-setting top-right))
+              ;; speedometer
+              (when (and *target* (= sloc (speedometer-setting top-right)))
+                (format *temp-string* "~,,2f~S~%" (/ (-> *target* control ctrl-xz-vel) 4096.0) (if (= (-> *pc-settings* speedometer-m-s) (speedometer-m-s on)) "m/s" ""))
+                (+! lines 1)
+                )
+              ;; timer
+              (when (= tloc (timer-location top-right))
+                (fmt-timer-string *temp-string* timer-total-sec #f)
+                (+! lines 1)
+                )
+              ;; pb
+              (when (= ploc (pb-wr-location top-right))
+                (format *temp-string* "PB: ")
+                (if (nonzero? pb-total-sec)
+                  (fmt-timer-string *temp-string* pb-total-sec #f)
+                  (format *temp-string* "N/A~%"))
+                (+! lines 1)
+                )
+              ;; wr
+              (when (= wloc (pb-wr-location top-right))
+                (format *temp-string* "WR: ")
+                (if (>= wr-total-sec 0.0)
+                  (fmt-timer-string *temp-string* wr-total-sec #t) ;; show .XX
+                  (format *temp-string* "N/A~%"))
+                (+! lines 1)
+                )
+              ;; we've written everything to temp-string, setup draw coords
+              (set! x 510)
+              (set! y 2)
+              )
+            (((speedometer-setting center))
+              ;; speedometer
+              (when (and *target* (= sloc (speedometer-setting center)))
+                (format *temp-string* "~,,2f~S~%" (/ (-> *target* control ctrl-xz-vel) 4096.0) (if (= (-> *pc-settings* speedometer-m-s) (speedometer-m-s on)) "m/s" ""))
+                (+! lines 1)
+                )
+              ;; timer
+              (when (= tloc (timer-location center))
+                (fmt-timer-string *temp-string* timer-total-sec #f)
+                (+! lines 1)
+                )
+              ;; pb
+              (when (= ploc (pb-wr-location center))
+                (format *temp-string* "PB: ")
+                (if (nonzero? pb-total-sec)
+                  (fmt-timer-string *temp-string* pb-total-sec #f)
+                  (format *temp-string* "N/A~%"))
+                (+! lines 1)
+                )
+              ;; wr
+              (when (= wloc (pb-wr-location center))
+                (format *temp-string* "WR: ")
+                (if (>= wr-total-sec 0.0)
+                  (fmt-timer-string *temp-string* wr-total-sec #t) ;; show .XX
+                  (format *temp-string* "N/A~%"))
+                (+! lines 1)
+                )
+              ;; we've written everything to temp-string, setup draw coords
+              (set! x 256)
+              (set! y (- 215 (* lines 5)))
+              )
+            (((speedometer-setting bottom-left))
+              ;; speedometer
+              (when (and *target* (= sloc (speedometer-setting bottom-left)))
+                (format *temp-string* "~,,2f~S~%" (/ (-> *target* control ctrl-xz-vel) 4096.0) (if (= (-> *pc-settings* speedometer-m-s) (speedometer-m-s on)) "m/s" ""))
+                (+! lines 1)
+                )
+              ;; timer
+              (when (= tloc (timer-location bottom-left))
+                (fmt-timer-string *temp-string* timer-total-sec #f)
+                (+! lines 1)
+                )
+              ;; pb
+              (when (= ploc (pb-wr-location bottom-left))
+                (format *temp-string* "PB: ")
+                (if (nonzero? pb-total-sec)
+                  (fmt-timer-string *temp-string* pb-total-sec #f)
+                  (format *temp-string* "N/A~%"))
+                (+! lines 1)
+                )
+              ;; wr
+              (when (= wloc (pb-wr-location bottom-left))
+                (format *temp-string* "WR: ")
+                (if (>= wr-total-sec 0.0)
+                  (fmt-timer-string *temp-string* wr-total-sec #t) ;; show .XX
+                  (format *temp-string* "N/A~%"))
+                (+! lines 1)
+                )
+              ;; we've written everything to temp-string, setup draw coords
+              (set! x 2)
+              (set! y (- (if *display-sha* 406 415) (* lines 8)))
+              )
+            (((speedometer-setting bottom-right))
+              ;; speedometer
+              (when (and *target* (= sloc (speedometer-setting bottom-right)))
+                (format *temp-string* "~,,2f~S~%" (/ (-> *target* control ctrl-xz-vel) 4096.0) (if (= (-> *pc-settings* speedometer-m-s) (speedometer-m-s on)) "m/s" ""))
+                (+! lines 1)
+                )
+              ;; timer
+              (when (= tloc (timer-location bottom-right))
+                (fmt-timer-string *temp-string* timer-total-sec #f)
+                (+! lines 1)
+                )
+              ;; pb
+              (when (= ploc (pb-wr-location bottom-right))
+                (format *temp-string* "PB: ")
+                (if (nonzero? pb-total-sec)
+                  (fmt-timer-string *temp-string* pb-total-sec #f)
+                  (format *temp-string* "N/A~%"))
+                (+! lines 1)
+                )
+              ;; wr
+              (when (= wloc (pb-wr-location bottom-right))
+                (format *temp-string* "WR: ")
+                (if (>= wr-total-sec 0.0)
+                  (fmt-timer-string *temp-string* wr-total-sec #t) ;; show .XX
+                  (format *temp-string* "N/A~%"))
+                (+! lines 1)
+                )
+              ;; we've written everything to temp-string, setup draw coords
+              (set! x 510)
+              (set! y (- (if (and (-> *pc-settings* speedrunner-mode?) (-> *speedrun-info* display-run-info?)) 396 415) (* lines 8)))
+              )
+            )
+          
+          ;; time to draw this bish
+          (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+          (with-dma-buffer-add-bucket ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf1))
+            ;; reset bucket settings prior to drawing - font won't do this for us, and
+            ;; draw-raw-image can sometimes mess them up. (intro sequence)
+            (dma-buffer-add-gs-set-flusha buf (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1)) (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
+            (let* ((font-ctx (new 'stack 'font-context *font-default-matrix* x y 0.0 (font-color default)
+                    (case cur
+                          (((speedometer-setting top-left) (speedometer-setting bottom-left)) (font-flags shadow kerning large))
+                          (((speedometer-setting top-right) (speedometer-setting bottom-right)) (font-flags shadow kerning large right))
+                          (((speedometer-setting center)) (font-flags shadow kerning large middle))
+                          ))))
+              (set! (-> font-ctx scale) 0.25)
+              (draw-string-adv *pc-encoded-temp-string* buf font-ctx)))
+          )
         )
       )
     )
@@ -1105,6 +1237,10 @@
   ;; reset has-started? flag so we can flip it back to #t when jak touches ground/out of blackout
   (false! (-> *speedrun-info* has-started?))
   (send-event (ppointer->process *speedrun-manager*) 'start-run)
+  ;; try to load times from SRC
+  (pc-fetch-external-mission-times 
+    (enum->string speedrun-category (-> *speedrun-info* category)) 
+    0)
   ;; ensure any required settings are enabled
   (enforce-settings! this)
   ;; reset end-task

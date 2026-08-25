@@ -632,6 +632,72 @@ This gives us more freedom to write code how we want.
             )
           (pc-settings-save)
           ))
+    (new 'static 'menu-generic-carousel-option
+      :name (text-id progress-timer-pb-options)
+      :items (new 'static 'boxed-array :type text-id
+                (text-id progress-speedometer-off)     ;; 0
+                (text-id progress-speedometer-top-left)     ;; 1
+                (text-id progress-speedometer-top-right)    ;; 2
+                (text-id progress-speedometer-center)       ;; 3
+                (text-id progress-speedometer-bottom-left)  ;; 4
+                (text-id progress-speedometer-bottom-right) ;; 5
+              )
+      :get-item-index-fn (lambda () 
+        (case (-> *pc-settings* pb-location)
+          (((pb-wr-location off)) 0)
+          (((pb-wr-location top-left)) 1)
+          (((pb-wr-location top-right)) 2)
+          (((pb-wr-location center)) 3)
+          (((pb-wr-location bottom-left)) 4)
+          (((pb-wr-location bottom-right)) 5)
+          )
+        )
+      :on-confirm (lambda ((index int) (the-progress progress))
+          (set! (-> *pc-settings* pb-location)
+            (case index
+              ((0) (pb-wr-location off))
+              ((1) (pb-wr-location top-left))
+              ((2) (pb-wr-location top-right))
+              ((3) (pb-wr-location center))
+              ((4) (pb-wr-location bottom-left))
+              ((5) (pb-wr-location bottom-right))
+              )
+            )
+          (pc-settings-save)
+          ))
+    (new 'static 'menu-generic-carousel-option
+      :name (text-id progress-timer-wr-options)
+      :items (new 'static 'boxed-array :type text-id
+                (text-id progress-speedometer-off)     ;; 0
+                (text-id progress-speedometer-top-left)     ;; 1
+                (text-id progress-speedometer-top-right)    ;; 2
+                (text-id progress-speedometer-center)       ;; 3
+                (text-id progress-speedometer-bottom-left)  ;; 4
+                (text-id progress-speedometer-bottom-right) ;; 5
+              )
+      :get-item-index-fn (lambda () 
+        (case (-> *pc-settings* wr-location)
+          (((pb-wr-location off)) 0)
+          (((pb-wr-location top-left)) 1)
+          (((pb-wr-location top-right)) 2)
+          (((pb-wr-location center)) 3)
+          (((pb-wr-location bottom-left)) 4)
+          (((pb-wr-location bottom-right)) 5)
+          )
+        )
+      :on-confirm (lambda ((index int) (the-progress progress))
+          (set! (-> *pc-settings* wr-location)
+            (case index
+              ((0) (pb-wr-location off))
+              ((1) (pb-wr-location top-left))
+              ((2) (pb-wr-location top-right))
+              ((3) (pb-wr-location center))
+              ((4) (pb-wr-location bottom-left))
+              ((5) (pb-wr-location bottom-right))
+              )
+            )
+          (pc-settings-save)
+          ))
     ))
 
 (defmacro game-options-pc-subtitle-toggle ()

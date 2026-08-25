@@ -1642,6 +1642,8 @@
   (progress-timer-center #x152b)
   (progress-timer-bottom-right #x152c)
   (progress-timer-bottom-left #x152d)
+  (progress-timer-pb-options #x152e)
+  (progress-timer-wr-options #x152f)
   )
 ;; ---text-id
 
