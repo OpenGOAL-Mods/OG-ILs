@@ -75,6 +75,42 @@
   (custom 999) ;; temp
   )
 
+(defenum speedometer-setting
+  :type uint32
+  (bottom-right 0)
+  (off 1)
+  (top-left 2)
+  (top-right 3)
+  (center 4)
+  (bottom-left 5)
+  (max 6)
+  )
+
+(defenum speedometer-m-s
+  :type uint32
+  (on 0)
+  (off 1)
+  )
+
+(defenum timer-location
+  :type uint32
+  (bottom-left 0)
+  (top-left 2)
+  (top-right 3)
+  (center 4)
+  (bottom-right 5)
+  )
+
+(defenum pb-wr-location
+  :type uint32
+  (off 0)
+  (bottom-left 1)
+  (top-left 2)
+  (top-right 3)
+  (center 4)
+  (bottom-right 5)
+  )
+
 ;; The Jak 2 version of the pc-settings object.
 (deftype pc-settings-jak2 (pc-settings)
   (;; cheats
@@ -108,6 +144,14 @@
 
    (text-language pc-language) ;; language for game text
    (subtitle-language pc-language)
+
+   ;; mod settings
+   (speedometer       speedometer-setting)
+   (speedometer-m-s   speedometer-m-s)
+   (timer-location    timer-location)
+   (pb-location       pb-wr-location)
+   (wr-location       pb-wr-location)
+  ;;  (good-weather?     symbol)
 
    ;; Act 1 IL times
    (pb-time-fortress-escape float)

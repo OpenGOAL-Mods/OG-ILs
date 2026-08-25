@@ -806,6 +806,13 @@
           )
         )
       )
+    ;; mod stuff
+    (("speedometer") (set! (-> obj speedometer) (the-as speedometer-setting (file-stream-read-int file))))
+    (("speedometer-m-s") (set! (-> obj speedometer-m-s) (the-as speedometer-m-s (file-stream-read-int file))))
+    (("timer-location") (set! (-> obj timer-location) (the-as timer-location (file-stream-read-int file))))
+    (("pb-location") (set! (-> obj pb-location) (the-as pb-wr-location (file-stream-read-int file))))
+    (("wr-location") (set! (-> obj wr-location) (the-as pb-wr-location (file-stream-read-int file))))
+    ;; (("good-weather?") (set! (-> obj good-weather?) (file-stream-read-symbol file)))
     (("pb-time-fortress-escape") (set! (-> obj pb-time-fortress-escape) (file-stream-read-float file)))
     (("pb-time-city-help-kid") (set! (-> obj pb-time-city-help-kid) (file-stream-read-float file)))
     (("pb-time-ruins-tower") (set! (-> obj pb-time-ruins-tower) (file-stream-read-float file)))
@@ -937,6 +944,13 @@
     )
   (format file ")~%~%")
 
+  ;; mod stuff
+  (format file "  (speedometer ~D)~%" (-> obj speedometer))
+  (format file "  (speedometer-m-s ~D)~%" (-> obj speedometer-m-s))
+  (format file "  (timer-location ~D)~%" (-> obj timer-location))
+  (format file "  (pb-location ~D)~%" (-> obj pb-location))
+  (format file "  (wr-location ~D)~%" (-> obj wr-location))
+  ;; (format file "  (good-weather? ~A)~%" (-> obj good-weather?))
   (format file "  (pb-time-fortress-escape ~F)~%" (-> obj pb-time-fortress-escape))
   (format file "  (pb-time-city-help-kid ~F)~%" (-> obj pb-time-city-help-kid))
   (format file "  (pb-time-ruins-tower ~F)~%" (-> obj pb-time-ruins-tower))
