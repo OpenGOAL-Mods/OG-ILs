@@ -321,7 +321,7 @@
   )
 
 (defun maybe-update-best-time ((this speedrun-timer))
-  (whe (not (or *debug-segment* *cheat-mode*))
+  (when (not (or *debug-segment* *cheat-mode*))
     (let ((pb-time (get-pb-time)))
       (when (or (= pb-time 0.0) (< (-> this recorded-time) pb-time))
         (case (-> *speedrun-info* category)
