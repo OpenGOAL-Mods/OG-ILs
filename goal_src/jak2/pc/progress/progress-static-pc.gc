@@ -360,6 +360,178 @@ This gives us more freedom to write code how we want.
         (update-mouse-controls! *pc-settings*)
         (pc-settings-save)))))
 
+(defmacro game-options-pc-mod-options ()
+  `(progress-new-generic-link-to-scrolling-page (text-id progress-menu-mod-options)
+    ;; (new 'static 'menu-generic-carousel-option
+    ;;   :name (text-id progress-weather-options)
+    ;;   :items (new 'static 'boxed-array :type text-id
+    ;;             (text-id progress-weather-default) ;;0 
+    ;;             (text-id progress-weather-good) ;; 1
+    ;;           )
+    ;;   :get-item-index-fn (lambda () (if (-> *pc-settings* good-weather?) 1 0))
+    ;;   :on-confirm (lambda ((index int) (the-progress progress))
+    ;;       (set! (-> *pc-settings* good-weather?) (= index 1)) 
+    ;;       (pc-settings-save)
+    ;;       ))
+    ;; (new 'static 'menu-generic-carousel-option
+    ;;   :name (text-id progress-timeofday-options)
+    ;;   :items (new 'static 'boxed-array :type text-id
+    ;;             (text-id progress-timeofday-7am)  ;; 0 (matching debug menu)
+    ;;             (text-id progress-timeofday-10am) ;; 1
+    ;;             (text-id progress-timeofday-12pm) ;; 2
+    ;;             (text-id progress-timeofday-2pm)  ;; 3
+    ;;             (text-id progress-timeofday-6pm)  ;; 4
+    ;;             (text-id progress-timeofday-7pm)  ;; 5
+    ;;             (text-id progress-timeofday-11pm) ;; 6
+    ;;             (text-id progress-timeofday-4am)  ;; 7
+    ;;             (text-id progress-timeofday-default) ;; 8 
+    ;;             (text-id progress-timeofday-fast) ;; 9
+    ;;           )
+    ;;   :get-item-index-fn (lambda () (prog-get-time-of-day-option))
+    ;;   :on-confirm (lambda ((index int) (the-progress progress))
+    ;;       (prog-set-time-of-day-func index)
+    ;;       ))
+    (new 'static 'menu-generic-carousel-option
+      :name (text-id progress-speedometer-options)
+      :items (new 'static 'boxed-array :type text-id
+                (text-id progress-speedometer-off)          ;; 0
+                (text-id progress-speedometer-top-left)     ;; 1
+                (text-id progress-speedometer-top-right)    ;; 2
+                (text-id progress-speedometer-center)       ;; 3
+                (text-id progress-speedometer-bottom-left)  ;; 4
+                (text-id progress-speedometer-bottom-right) ;; 5
+              )
+      :get-item-index-fn (lambda () 
+        (case (-> *pc-settings* speedometer)
+          (((speedometer-setting off)) 0)
+          (((speedometer-setting top-left)) 1)
+          (((speedometer-setting top-right)) 2)
+          (((speedometer-setting center)) 3)
+          (((speedometer-setting bottom-left)) 4)
+          (((speedometer-setting bottom-right)) 5)
+          )
+        )
+      :on-confirm (lambda ((index int) (the-progress progress))
+          (set! (-> *pc-settings* speedometer)
+            (case index
+              ((0) (speedometer-setting off))
+              ((1) (speedometer-setting top-left))
+              ((2) (speedometer-setting top-right))
+              ((3) (speedometer-setting center))
+              ((4) (speedometer-setting bottom-left))
+              ((5) (speedometer-setting bottom-right))
+              )
+            )
+          (pc-settings-save)
+          ))
+    (new 'static 'menu-generic-boolean-option
+      :name (text-id progress-speedometer-m-s-options)
+      :truthy-text (text-id progress-on)
+      :falsey-text (text-id progress-off)
+      :get-value-fn (lambda () (= (-> *pc-settings* speedometer-m-s) (speedometer-m-s on)))
+      :on-confirm (lambda ((val symbol))
+        (if val
+          (set! (-> *pc-settings* speedometer-m-s) (speedometer-m-s on))
+          (set! (-> *pc-settings* speedometer-m-s) (speedometer-m-s off)))
+        (pc-settings-save)))
+    (new 'static 'menu-generic-carousel-option
+      :name (text-id progress-timer-options)
+      :items (new 'static 'boxed-array :type text-id
+                (text-id progress-timer-top-left)     ;; 0
+                (text-id progress-timer-top-right)    ;; 1
+                (text-id progress-timer-center)       ;; 2
+                (text-id progress-timer-bottom-left)  ;; 3
+                (text-id progress-timer-bottom-right) ;; 4
+              )
+      :get-item-index-fn (lambda () 
+        (case (-> *pc-settings* timer-location)
+          (((timer-location top-left)) 0)
+          (((timer-location top-right)) 1)
+          (((timer-location center)) 2)
+          (((timer-location bottom-left)) 3)
+          (((timer-location bottom-right)) 4)
+          )
+        )
+      :on-confirm (lambda ((index int) (the-progress progress))
+          (set! (-> *pc-settings* timer-location)
+            (case index
+              ((0) (timer-location top-left))
+              ((1) (timer-location top-right))
+              ((2) (timer-location center))
+              ((3) (timer-location bottom-left))
+              ((4) (timer-location bottom-right))
+              )
+            )
+          (pc-settings-save)
+          ))
+    (new 'static 'menu-generic-carousel-option
+      :name (text-id progress-timer-pb-options)
+      :items (new 'static 'boxed-array :type text-id
+                (text-id progress-speedometer-off)     ;; 0
+                (text-id progress-speedometer-top-left)     ;; 1
+                (text-id progress-speedometer-top-right)    ;; 2
+                (text-id progress-speedometer-center)       ;; 3
+                (text-id progress-speedometer-bottom-left)  ;; 4
+                (text-id progress-speedometer-bottom-right) ;; 5
+              )
+      :get-item-index-fn (lambda () 
+        (case (-> *pc-settings* pb-location)
+          (((pb-wr-location off)) 0)
+          (((pb-wr-location top-left)) 1)
+          (((pb-wr-location top-right)) 2)
+          (((pb-wr-location center)) 3)
+          (((pb-wr-location bottom-left)) 4)
+          (((pb-wr-location bottom-right)) 5)
+          )
+        )
+      :on-confirm (lambda ((index int) (the-progress progress))
+          (set! (-> *pc-settings* pb-location)
+            (case index
+              ((0) (pb-wr-location off))
+              ((1) (pb-wr-location top-left))
+              ((2) (pb-wr-location top-right))
+              ((3) (pb-wr-location center))
+              ((4) (pb-wr-location bottom-left))
+              ((5) (pb-wr-location bottom-right))
+              )
+            )
+          (pc-settings-save)
+          ))
+    (new 'static 'menu-generic-carousel-option
+      :name (text-id progress-timer-wr-options)
+      :items (new 'static 'boxed-array :type text-id
+                (text-id progress-speedometer-off)     ;; 0
+                (text-id progress-speedometer-top-left)     ;; 1
+                (text-id progress-speedometer-top-right)    ;; 2
+                (text-id progress-speedometer-center)       ;; 3
+                (text-id progress-speedometer-bottom-left)  ;; 4
+                (text-id progress-speedometer-bottom-right) ;; 5
+              )
+      :get-item-index-fn (lambda () 
+        (case (-> *pc-settings* wr-location)
+          (((pb-wr-location off)) 0)
+          (((pb-wr-location top-left)) 1)
+          (((pb-wr-location top-right)) 2)
+          (((pb-wr-location center)) 3)
+          (((pb-wr-location bottom-left)) 4)
+          (((pb-wr-location bottom-right)) 5)
+          )
+        )
+      :on-confirm (lambda ((index int) (the-progress progress))
+          (set! (-> *pc-settings* wr-location)
+            (case index
+              ((0) (pb-wr-location off))
+              ((1) (pb-wr-location top-left))
+              ((2) (pb-wr-location top-right))
+              ((3) (pb-wr-location center))
+              ((4) (pb-wr-location bottom-left))
+              ((5) (pb-wr-location bottom-right))
+              )
+            )
+          (pc-settings-save)
+          ))
+    ))
+
 (defmacro game-options-pc-subtitle-toggle ()
   `(new 'static 'menu-generic-boolean-option
       :name (text-id progress-subtitles)
@@ -497,6 +669,7 @@ This gives us more freedom to write code how we want.
 
 (define *game-options-pc*
   (progress-new-generic-scrolling-page (text-id progress-root-game-options)
+    (game-options-pc-mod-options)
     (game-options-pc-input-options)
     (game-options-pc-subtitle-toggle)
     (game-options-pc-hint-subtitle-toggle)

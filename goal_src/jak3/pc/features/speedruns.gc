@@ -321,7 +321,7 @@
   )
 
 (defun maybe-update-best-time ((this speedrun-timer))
-  (when #t ;; (not (or *debug-segment* *cheat-mode*))
+  (whe (not (or *debug-segment* *cheat-mode*))
     (let ((pb-time (get-pb-time)))
       (when (or (= pb-time 0.0) (< (-> this recorded-time) pb-time))
         (case (-> *speedrun-info* category)
@@ -783,7 +783,7 @@
           (format out "~D:~,,0f.x~%" minutes sec) ;; MM:SS.x
           (format out "~D:0~,,0f.x~%" minutes sec) ;; MM:0S.x
           )
-        (format out "~,,0f.x~%" total-sec) ;; (S)S.xs
+        (format out "~,,0f.xs~%" total-sec) ;; (S)S.xs
         )
       (if (> minutes 0)
         (if (>= sec 10) ;; too lazy to figure out zero padding for floats
