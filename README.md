@@ -3,10 +3,10 @@
 - Play now via the JakMods mod list! https://jakmods.dev
 - Jak II
   - [Speedrun.com Leaderboard](https://www.speedrun.com/jak2og_missions)
-  - [Points Leaderboard](http://136.0.251.17:25817/?mode=jak2)
+  - [Points Leaderboard](https://ils.jakmods.dev/?mode=jak2)
 - Jak 3
   - [Speedrun.com Leaderboard](https://www.speedrun.com/jak3og_missions)
-  - [Points Leaderboard](http://136.0.251.17:25817/?mode=jak3)
+  - [Points Leaderboard](https://ils.jakmods.dev/?mode=jak3)
 
 Adds Individual Level categories to the speedrunner menu (hold `L1`+`R1` and press `Start` or `Select`)
 <img src="https://github.com/user-attachments/assets/2719a96a-2eae-4912-8773-28beea359423" width="800"/>
