@@ -26,8 +26,7 @@
 ;; how many frames we can hold. 18000 = 5 minutes @ 60fps. covers essentially every IL.
 (defconstant GHOST_MAX_FRAMES 18000)
 
-;; stress-test playback pack. 33 ghosts are arranged as an 11x3 grid around
-;; the recorded path, with the middle ghost exactly on the original line.
+;; Up to 33 independently-selected server replays race on their recorded lines.
 (defconstant GHOST_MAX_PLAYERS 33)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -80,7 +79,11 @@
   ((idx      int32)
    (frames   int32)
    (samples  (inline-array ghost-sample))         ;; points at the pinned playback buffer
-   (offset   vector :inline))
+   (offset   vector :inline)
+   (runner-name string)
+   (runner-font font-context)
+   (runner-screen vector4w :inline)
+   (runner-on-screen? symbol))
   (:state-methods
    idle))
 
@@ -105,15 +108,15 @@
 (define *ghost-playback-count* GHOST_MAX_PLAYERS)
 (define *ghost-playback-spacing* (meters 1.5))
 
-;; Imported replay pack. Each entry owns a separate sample array loaded from
-;; ghost/ghost-<category>-01.json through -33.json.
+;; Replays selected in the in-game Replay Server menu.
 (define *ghost-replays* (new 'global 'boxed-array ghost-replay GHOST_MAX_PLAYERS))
 (define *ghost-replay-count* 0)
 (define *ghost-replay-category* (the-as speedrun-category -1))
+(define *ghost-replay-generation* 0)
 
-;; JSON files are currently about 125 KiB. Reusing one read buffer avoids
-;; retaining a second full copy of every file after its samples are decoded.
-(define *ghost-json-buffer* (new 'global 'string #x40000 (the-as string #f)))
+;; A five-minute 60 fps replay can exceed 2.5 MiB. Reusing one 4 MiB read
+;; buffer avoids retaining a second full copy after each replay is decoded.
+(define *ghost-json-buffer* (new 'global 'string #x400000 (the-as string #f)))
 (define *ghost-json-token* (new 'global 'string 128 (the-as string #f)))
 (define *ghost-json-path* (new 'global 'string 256 (the-as string #f)))
 (define *ghost-json-count-key* "\"count\"")
@@ -242,24 +245,32 @@
               replay)))))))
 
 (defun ghost-load-json-pack! ((category speedrun-category))
-  "Load ghost-<category>-01.json through -33.json once for this category."
-  (when (and (> *ghost-replay-count* 0) (= *ghost-replay-category* category))
-    (return *ghost-replay-count*))
-  (set! *ghost-replay-count* 0)
-  (set! *ghost-replay-category* category)
-  (let ((cat-name (enum->string speedrun-category category)))
-    (dotimes (i GHOST_MAX_PLAYERS)
-      (if (< i 9)
-          (format (clear *ghost-json-path*) "ghost/ghost-~S-0~D.json" cat-name (+ i 1))
-          (format (clear *ghost-json-path*) "ghost/ghost-~S-~D.json" cat-name (+ i 1)))
+  "Load every replay selected in the native menu for this mission."
+  (let* ((cat-name (enum->string speedrun-category category))
+         (generation (pc-replay-prepare-selected cat-name))
+         (selected-count (pc-replay-selected-count)))
+    (when (= generation 0)
+      (set! *ghost-replay-count* 0)
+      (set! *ghost-replay-generation* 0)
+      (return 0))
+    (when (and (> *ghost-replay-count* 0)
+               (= *ghost-replay-category* category)
+               (= *ghost-replay-generation* generation))
+      (return *ghost-replay-count*))
+    (set! *ghost-replay-count* 0)
+    (set! *ghost-replay-category* category)
+    (set! *ghost-replay-generation* generation)
+    (dotimes (i (min selected-count GHOST_MAX_PLAYERS))
+      (format (clear *ghost-json-path*) "ghost/selected-replay-~D.json" i)
       (let ((replay (ghost-load-json-replay! *ghost-json-path*)))
         (when replay
-          (set! (-> *ghost-replays* i) replay)
+          (set! (-> *ghost-replays* *ghost-replay-count*) replay)
           (+! *ghost-replay-count* 1))))
     (when (> *ghost-replay-count* 0)
-      (format 0 "ghost: loaded ~D independent JSON replays for ~S~%"
-              *ghost-replay-count* cat-name)))
-  *ghost-replay-count*)
+      (format 0 "ghost: loaded ~D selected replays for ~S~%"
+              *ghost-replay-count*
+              cat-name))
+    (return *ghost-replay-count*)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Recording
@@ -315,10 +326,9 @@
     (+! (-> *ghost-recording* rec-count) 1))
   (none))
 
-(defun ghost-write-json! ()
-  "Dump the current ghost (play buffer) to a JSON file for external tools."
-  (let ((cat-name (enum->string speedrun-category (-> *ghost-recording* category)))
-        (cnt (-> *ghost-recording* play-count)))
+(defun ghost-write-json! ((samples (inline-array ghost-sample)) (cnt int) (category speedrun-category) (time-seconds float) (new-best? symbol))
+  "Dump one completed recording to a JSON file for external tools."
+  (let ((cat-name (enum->string speedrun-category category)))
     ;; build the output path
     (format (clear *temp-string*) "ghost/ghost-~S.json" cat-name)
     (let ((file (new 'stack 'file-stream *temp-string* 'write)))
@@ -328,6 +338,10 @@
         (format file "  \"version\": 1,~%")
         (format file "  \"category\": \"~S\",~%" cat-name)
         (format file "  \"mod_version\": \"~S\",~%" *mod-version-text*)
+        (format file "  \"time_seconds\": ~f,~%" time-seconds)
+        (format file "  \"percent_warped\": ~D,~%" (if (= (-> *speedrun-info* percent-warped?) 'major) 1 0))
+        (format file "  \"vehicle_name\": \"~S\",~%" (get-override-vehicle-name))
+        (format file "  \"is_personal_best\": ~S,~%" (if new-best? "true" "false"))
         (format file "  \"fps\": 60,~%")
         (format file "  \"count\": ~D,~%" cnt)
         (format file "  \"units\": \"meters\",~%")
@@ -335,7 +349,7 @@
         (format file "  \"frames\": [~%")
         ;; frames
         (dotimes (i cnt)
-          (let ((s (-> *ghost-recording* play-samples i))
+          (let ((s (-> samples i))
                 (t (/ (the float i) 60.0)))
             (when (> i 0)
               (format file ",~%"))
@@ -355,24 +369,32 @@
         (format 0 "ghost: wrote ~D frames to ~S~%" cnt *temp-string*))))
   (none))
 
-(defun ghost-stop-recording! ()
-  "Finish recording. The first completed replay stays pinned until explicitly cleared."
+(defun ghost-stop-recording! ((time-seconds float) (new-best? symbol))
+  "Finish recording and publish a new personal best to the local replay server."
   (when (-> *ghost-recording* recording?)
     (set! (-> *ghost-recording* recording?) #f)
     (when (> (-> *ghost-recording* rec-count) 0)
-      (cond
-        ((not (-> *ghost-recording* have-ghost?))
-         ;; Promote only the first completed run. rec-samples remains the scratch
-         ;; buffer for later attempts, so active ghosts never get overwritten.
-         (let ((tmp (-> *ghost-recording* rec-samples)))
-           (set! (-> *ghost-recording* rec-samples) (-> *ghost-recording* play-samples))
-           (set! (-> *ghost-recording* play-samples) tmp))
-         (set! (-> *ghost-recording* play-count) (-> *ghost-recording* rec-count))
-         (set! (-> *ghost-recording* category) (-> *speedrun-info* category))
-         (set! (-> *ghost-recording* have-ghost?) #t)
-         (ghost-write-json!))
-        (else
-         (format 0 "ghost: preserving pinned replay; completed attempt was not promoted~%")))))
+      (let ((category (-> *speedrun-info* category))
+            (count (-> *ghost-recording* rec-count)))
+        ;; Every completed attempt goes to the replay server. Only a PB is eligible
+        ;; for Speedrun.com submission and replaces the pinned local PB ghost.
+        (ghost-write-json! (-> *ghost-recording* rec-samples) count category time-seconds new-best?)
+        (let ((cat-name (enum->string speedrun-category category)))
+          (format (clear *ghost-json-path*) "ghost/ghost-~S.json" cat-name)
+          (pc-replay-publish *ghost-json-path*))
+        (cond
+          (new-best?
+         ;; Playback processes may still reference play-samples. Remove them before
+         ;; swapping in the new PB so their source buffer is never overwritten.
+           (ghost-stop-playback)
+           (let ((tmp (-> *ghost-recording* rec-samples)))
+             (set! (-> *ghost-recording* rec-samples) (-> *ghost-recording* play-samples))
+             (set! (-> *ghost-recording* play-samples) tmp))
+           (set! (-> *ghost-recording* play-count) count)
+           (set! (-> *ghost-recording* category) category)
+           (set! (-> *ghost-recording* have-ghost?) #t))
+          (else
+           (format 0 "ghost: uploaded completed attempt; not a new personal best~%"))))))
   (none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -381,6 +403,17 @@
 
 (defstate idle (ghost-player)
   :virtual #t
+  :trans
+  (behavior ()
+    ;; The root transform is at Jak's feet, so a positive screen-space y offset
+    ;; places the runner name directly underneath the replay model.
+    (set! (-> self runner-on-screen?)
+          (transform-point-qword! (-> self runner-screen) (-> self root trans)))
+    (when (-> self runner-on-screen?)
+      (set-origin! (-> self runner-font)
+                   (+ (/ (-> self runner-screen x) 16) -1792)
+                   (+ (/ (-> self runner-screen y) 16) -1837))
+      (set-depth! (-> self runner-font) (/ (-> self runner-screen z) 16))))
   :code
   (behavior ()
     (until #f
@@ -411,11 +444,39 @@
           ;; advance, looping back to the start
           (set! (-> self idx) (if (>= (+ i 1) cnt) 0 (+ i 1)))))
       (ja-post)
-      (suspend))))
+      (suspend)))
+  :post
+  (behavior ()
+    (when (and (-> self runner-on-screen?)
+               (nonzero? (-> self runner-name)))
+      (print-game-text (-> self runner-name) (-> self runner-font) #f 44
+                       (bucket-id debug-no-zbuf1)))))
+
+(defmethod relocate ((this ghost-player) (diff int))
+  (when (nonzero? (-> this runner-name))
+    (&+! (-> this runner-name) diff))
+  (when (nonzero? (-> this runner-font))
+    (&+! (-> this runner-font) diff))
+  (call-parent-method this diff))
 
 (defbehavior ghost-player-init-by-other ghost-player ((clone-idx int))
-  (stack-size-set! (-> self main-thread) 512)
+  (stack-size-set! (-> self main-thread) 1024)
   (set! (-> self idx) 0)
+  (set! (-> self runner-name) (new 'process 'string 2048 (the-as string #f)))
+  (clear (-> self runner-name))
+  (if (< clone-idx *ghost-replay-count*)
+      (pc-replay-get-ready-name clone-idx (-> self runner-name))
+      (format (-> self runner-name) "Personal Best"))
+  (when (string= (-> self runner-name) "")
+    (format (-> self runner-name) "Replay ~D" (+ clone-idx 1)))
+  (pc-encode-utf8-string (-> self runner-name) (-> self runner-name))
+  (set! (-> self runner-font)
+        (new 'process 'font-context *font-default-matrix* 0 0 0.0
+             (font-color font-color-32)
+             (font-flags shadow kerning large middle)))
+  (set-scale! (-> self runner-font) 0.35)
+  (set-width! (-> self runner-font) 220)
+  (set-height! (-> self runner-font) 30)
   (cond
     ((< clone-idx *ghost-replay-count*)
      ;; The imported JSON copies already contain their spatial offsets.
@@ -506,6 +567,7 @@
   (set! (-> *ghost-recording* play-count) 0)
   (set! *ghost-replay-count* 0)
   (set! *ghost-replay-category* (the-as speedrun-category -1))
+  (set! *ghost-replay-generation* 0)
   (format 0 "ghost: pinned replay cleared; next completed run will be kept~%")
   (none))
 

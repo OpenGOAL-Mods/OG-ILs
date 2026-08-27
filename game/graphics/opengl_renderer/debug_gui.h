@@ -82,6 +82,7 @@ class OpenGlDebugGui {
   bool m_draw_overlord = false;
   bool m_subtitle_editor = false;
   bool m_filters_menu = false;
+  bool m_replay_server = false;
   bool m_want_screenshot = false;
   float target_fps_input = 60.f;
 };

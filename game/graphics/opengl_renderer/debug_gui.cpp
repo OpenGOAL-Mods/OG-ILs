@@ -10,6 +10,7 @@
 #include "game/graphics/screenshot.h"
 #include "game/overlord/jak3/dma.h"
 #include "game/system/hid/sdl_util.h"
+#include "game/system/replay_client.h"
 
 #include "fmt/format.h"
 #include "third-party/imgui/imgui.h"
@@ -127,6 +128,9 @@ void OpenGlDebugGui::draw(const DmaStats& dma_stats) {
       }
       ImGui::MenuItem("Subtitle Editor", nullptr, &m_subtitle_editor);
       ImGui::MenuItem("Debug Text Filter", nullptr, &m_filters_menu);
+      if (g_game_version == GameVersion::Jak3) {
+        ImGui::MenuItem("Replay Server", nullptr, &m_replay_server);
+      }
       ImGui::EndMenu();
     }
 
@@ -252,6 +256,9 @@ void OpenGlDebugGui::draw(const DmaStats& dma_stats) {
 
   if (should_draw_overlord_debug()) {
     draw_overlord_debug_menu();
+  }
+  if (m_replay_server && g_game_version == GameVersion::Jak3) {
+    replay_client::draw_window(&m_replay_server);
   }
 }
 

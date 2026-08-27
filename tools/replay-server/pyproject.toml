@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opengoal-replay-server"
+version = "1.0.0"
+description = "Local replay dashboard and Speedrun.com submission server for OG-ILs"
+requires-python = ">=3.9"
+dependencies = ["requests>=2.31,<3"]
+
+[project.scripts]
+opengoal-replay-server = "speedrun_submitter.replay_server:main"
+
+[tool.setuptools.packages.find]
+include = ["speedrun_submitter*"]

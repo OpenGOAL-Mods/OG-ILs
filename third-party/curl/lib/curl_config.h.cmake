@@ -317,7 +317,7 @@
 #cmakedefine HAVE_IOCTLSOCKET_CAMEL_FIONBIO 1
 
 /* Define to 1 if you have a working ioctlsocket FIONBIO function. */
-#cmakedefine HAVE_IOCTLSOCKET_FIONBIO 1
+#define HAVE_IOCTLSOCKET_FIONBIO 1
 
 /* Define to 1 if you have a working ioctl FIONBIO function. */
 #cmakedefine HAVE_IOCTL_FIONBIO 1

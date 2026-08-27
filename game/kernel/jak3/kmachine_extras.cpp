@@ -2,6 +2,7 @@
 
 #include <bitset>
 #include <regex>
+#include <sstream>
 
 #include "kscheme.h"
 
@@ -13,8 +14,7 @@
 #include "game/kernel/common/kmachine.h"
 #include "game/kernel/common/kscheme.h"
 #include "game/overlord/jak3/iso_cd.h"
-
-#include <sstream>
+#include "game/system/replay_client.h"
 
 namespace jak3 {
 namespace kmachine_extras {
@@ -421,6 +421,79 @@ const std::unordered_map<std::string, std::string> mission_level_ids = {
 };
 // clang-format on
 
+u64 pc_replay_publish(u32 replay_path_ptr) {
+  try {
+    const auto replay_path = std::string(Ptr<String>(replay_path_ptr).c()->data());
+    const auto replay = safe_parse_json(file_util::read_text_file(replay_path));
+    if (!replay || !replay->is_object()) {
+      lg::error("Replay '{}' could not be parsed for publishing", replay_path);
+      return bool_to_symbol(false);
+    }
+    const auto category = replay->value("category", "");
+    const auto level = mission_level_ids.find(category);
+    if (level == mission_level_ids.end()) {
+      lg::error("No Speedrun.com mission mapping for replay category '{}'", category);
+      return bool_to_symbol(false);
+    }
+    const auto time_seconds = replay->value("time_seconds", 0.f);
+    if (time_seconds <= 0.f) {
+      lg::error("Replay '{}' has an invalid completion time", replay_path);
+      return bool_to_symbol(false);
+    }
+    replay_client::publish(replay_path, category, time_seconds, level->second,
+                           replay->value("percent_warped", 0) == 0 ? "rkl7n8qd" : "7dgw7742",
+                           replay->value("vehicle_name", "N/A"),
+                           replay->value("is_personal_best", false));
+    return bool_to_symbol(true);
+  } catch (const std::exception& e) {
+    lg::error("Could not publish completed replay: {}", e.what());
+    return bool_to_symbol(false);
+  }
+}
+
+s32 pc_replay_prepare_selected(u32 category_ptr) {
+  const auto category = std::string(Ptr<String>(category_ptr).c()->data());
+  return replay_client::prepare_selected(category);
+}
+
+s32 pc_replay_selected_count() {
+  return replay_client::selected_count();
+}
+
+void pc_replay_refresh() {
+  replay_client::refresh();
+}
+
+s32 pc_replay_mission_count() {
+  return replay_client::mission_replay_count();
+}
+
+static void copy_replay_string(u32 dest_ptr, const std::string& value) {
+  auto* dest = Ptr<String>(dest_ptr).c()->data();
+  std::strncpy(dest, value.c_str(), 2047);
+  dest[2047] = '\0';
+}
+
+void pc_replay_get_mission_label(s32 index, u32 dest_ptr) {
+  copy_replay_string(dest_ptr, replay_client::mission_replay_label(index));
+}
+
+u64 pc_replay_mission_selected(s32 index) {
+  return bool_to_symbol(replay_client::mission_replay_selected(index));
+}
+
+u64 pc_replay_toggle_mission(s32 index) {
+  return bool_to_symbol(replay_client::toggle_mission_replay(index));
+}
+
+void pc_replay_get_ready_name(s32 index, u32 dest_ptr) {
+  copy_replay_string(dest_ptr, replay_client::ready_replay_name(index));
+}
+
+void pc_replay_get_status(u32 dest_ptr) {
+  copy_replay_string(dest_ptr, replay_client::status());
+}
+
 void callback_fetch_external_speedrun_times(bool success,
                                             const std::string& cache_id,
                                             std::optional<std::string> result) {
@@ -620,8 +693,8 @@ void callback_fetch_external_any_mission_times(bool success,
 }
 
 void callback_fetch_external_warp_mission_times(bool success,
-                                               const std::string& cache_id,
-                                               std::optional<std::string> result) {
+                                                const std::string& cache_id,
+                                                std::optional<std::string> result) {
   std::scoped_lock lock{background_task_lock};
 
   if (!success) {
@@ -731,12 +804,14 @@ void pc_fetch_external_mission_times(u32 mission_id_ptr, u32 p_warp) {
       // otherwise, hit the URL
       WebRequestJobPayload req;
       req.callback = callback_fetch_external_any_mission_times;
-      req.url = fmt::format("https://www.speedrun.com/api/v1/leaderboards/j1l7q0zd/level/{}/rkl7n8qd?embed=players&max=200", mission_level_ids.at(mission_id));
+      req.url = fmt::format(
+          "https://www.speedrun.com/api/v1/leaderboards/j1l7q0zd/level/{}/"
+          "rkl7n8qd?embed=players&max=200",
+          mission_level_ids.at(mission_id));
       req.cache_id = mission_id;
       g_background_worker.enqueue_webrequest(req);
     }
-  }
-  else {
+  } else {
     // major % warp
     if (warp_mission_times_cache.find(mission_id) == warp_mission_times_cache.end()) {
       intern_from_c(-1, 0, "*pc-waiting-on-rpc?*")->value() = bool_to_symbol(true);
@@ -744,7 +819,10 @@ void pc_fetch_external_mission_times(u32 mission_id_ptr, u32 p_warp) {
       // otherwise, hit the URL
       WebRequestJobPayload req;
       req.callback = callback_fetch_external_warp_mission_times;
-      req.url = fmt::format("https://www.speedrun.com/api/v1/leaderboards/j1l7q0zd/level/{}/7dgw7742?embed=players&max=200", mission_level_ids.at(mission_id));
+      req.url = fmt::format(
+          "https://www.speedrun.com/api/v1/leaderboards/j1l7q0zd/level/{}/"
+          "7dgw7742?embed=players&max=200",
+          mission_level_ids.at(mission_id));
       req.cache_id = mission_id;
       g_background_worker.enqueue_webrequest(req);
     }
@@ -813,7 +891,10 @@ void pc_get_external_race_time(u32 race_id_ptr, s32 index, u32 name_dest_ptr, u3
   }
 }
 
-void pc_get_external_any_mission_time(u32 mission_id_ptr, s32 index, u32 name_dest_ptr, u32 time_dest_ptr) {
+void pc_get_external_any_mission_time(u32 mission_id_ptr,
+                                      s32 index,
+                                      u32 name_dest_ptr,
+                                      u32 time_dest_ptr) {
   std::scoped_lock lock{background_task_lock};
   auto mission_id = std::string(Ptr<String>(mission_id_ptr).c()->data());
   // any%
@@ -834,9 +915,9 @@ void pc_get_external_any_mission_time(u32 mission_id_ptr, s32 index, u32 name_de
 }
 
 void pc_get_external_warp_mission_time(u32 mission_id_ptr,
-                                      s32 index,
-                                      u32 name_dest_ptr,
-                                      u32 time_dest_ptr) {
+                                       s32 index,
+                                       u32 name_dest_ptr,
+                                       u32 time_dest_ptr) {
   std::scoped_lock lock{background_task_lock};
   auto mission_id = std::string(Ptr<String>(mission_id_ptr).c()->data());
   // major % warp

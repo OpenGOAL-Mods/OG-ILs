@@ -467,6 +467,24 @@ void InitMachine_PCPort() {
                               (void*)kmachine_extras::pc_get_num_external_mission_times);
   make_function_symbol_from_c("pc-get-num-external-highscores",
                               (void*)kmachine_extras::pc_get_num_external_highscores);
+  make_function_symbol_from_c("pc-replay-publish", (void*)kmachine_extras::pc_replay_publish);
+  make_function_symbol_from_c("pc-replay-prepare-selected",
+                              (void*)kmachine_extras::pc_replay_prepare_selected);
+  make_function_symbol_from_c("pc-replay-selected-count",
+                              (void*)kmachine_extras::pc_replay_selected_count);
+  make_function_symbol_from_c("pc-replay-refresh", (void*)kmachine_extras::pc_replay_refresh);
+  make_function_symbol_from_c("pc-replay-mission-count",
+                              (void*)kmachine_extras::pc_replay_mission_count);
+  make_function_symbol_from_c("pc-replay-get-mission-label",
+                              (void*)kmachine_extras::pc_replay_get_mission_label);
+  make_function_symbol_from_c("pc-replay-mission-selected",
+                              (void*)kmachine_extras::pc_replay_mission_selected);
+  make_function_symbol_from_c("pc-replay-toggle-mission",
+                              (void*)kmachine_extras::pc_replay_toggle_mission);
+  make_function_symbol_from_c("pc-replay-get-ready-name",
+                              (void*)kmachine_extras::pc_replay_get_ready_name);
+  make_function_symbol_from_c("pc-replay-get-status",
+                              (void*)kmachine_extras::pc_replay_get_status);
 
   // speedrunning stuff
   make_function_symbol_from_c("pc-sr-mode-get-practice-entries-amount",

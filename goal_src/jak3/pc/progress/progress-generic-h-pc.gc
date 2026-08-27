@@ -69,6 +69,14 @@
    ;; this is not called from the link option, but rather stored in the history entry
    (on-load (function none))))
 
+(deftype menu-generic-replay-link-option (menu-generic-link-option)
+  "Native progress-menu link to the local replay race browser."
+  ())
+
+(deftype menu-generic-replay-page (menu-generic-option)
+  "Dynamic native list of server replays for the currently selected mission."
+  ((last-move time-frame)))
+
 (deftype menu-generic-boolean-option (menu-generic-option)
   "Generic two option menu entry (ie. yes/no)"
   (;; props

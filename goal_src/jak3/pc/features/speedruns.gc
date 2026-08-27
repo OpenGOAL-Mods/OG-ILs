@@ -15,7 +15,7 @@
 ;; ghost recorder hooks (implemented in ghost.gc)
 (define-extern ghost-on-run-start! (function none))
 (define-extern ghost-record-frame! (function none))
-(define-extern ghost-stop-recording! (function none))
+(define-extern ghost-stop-recording! (function float symbol none))
 (define-extern ghost-discard-recording! (function none))
 
 (define *speedrun-info* (new 'static 'speedrun-info))
@@ -893,10 +893,15 @@
   (when (not (-> this stopped?))
     (false! (-> this started?))
     (true! (-> this stopped?))
-    ;; finalize any ghost recording for this run
-    (ghost-stop-recording!)
     (set! (-> this end-time) (get-real-current-time))
     (set! (-> this recorded-time) (* (the float (- (-> this end-time) (-> this start-time))) 0.0033333334))
+    ;; Snapshot eligibility before maybe-update-best-time overwrites the old PB.
+    (let ((pb-time (get-pb-time)))
+      (ghost-stop-recording!
+        (-> this recorded-time)
+        (and (not (or *debug-segment* *cheat-mode*))
+             (>= pb-time 0.0)
+             (or (= pb-time 0.0) (< (-> this recorded-time) pb-time)))))
     (maybe-update-best-time this)
     ;; spawn function to bring up end screen whenever we can
     (process-spawn-function process (lambda :behavior process ()
@@ -933,7 +938,10 @@
 
 (defmethod set-category! ((this speedrun-info) (category speedrun-category))
   (reset! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
-  (set! (-> this category) category))
+  (set! (-> this category) category)
+  ;; Keep the native replay browser filtered to the mission currently selected
+  ;; in the speedrun menu, before an attempt begins.
+  (pc-replay-prepare-selected (enum->string speedrun-category category)))
 
 (defun il-speedrun? ()
   (case (-> *speedrun-info* category)
@@ -2345,6 +2353,8 @@
   (set! (-> self opened-with-start?) #f)
   (set! (-> *speedrun-info* practicing?) #f)
   (set! (-> *speedrun-info* waiting-to-record-practice-attempt?) #f)
+  (pc-replay-prepare-selected
+    (enum->string speedrun-category (-> *speedrun-info* category)))
   (go-virtual idle))
 
 (defun maybe-stop-timer-for-retryable-task ((tsk game-task))

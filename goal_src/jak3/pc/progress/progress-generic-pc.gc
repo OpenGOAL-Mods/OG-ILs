@@ -185,7 +185,8 @@
       (when (and option-array (= (-> this menu-transition) 0.0))
         (let ((in-generic-page? (and (= (-> option-array length) 1)
                                      (or (type? (-> option-array 0) menu-generic-scrolling-page)
-                                         (type? (-> option-array 0) menu-generic-details-page)))))
+                                         (type? (-> option-array 0) menu-generic-details-page)
+                                         (type? (-> option-array 0) menu-generic-replay-page)))))
          (cond
           ;; If it's a scrolling menu, we have to pull from it's list of items
           (in-generic-page?
@@ -268,6 +269,48 @@
 ;; Component implementation
 
 ;; - input handling
+
+(defmethod respond-progress ((this menu-generic-replay-page) (progress progress) (selected? symbol))
+  "Navigate and toggle the server replays for the active speedrun mission."
+  (let* ((replay-count (pc-replay-mission-count))
+         ;; Row zero is always the refresh action.
+         (row-count (+ replay-count 1))
+         (hover (-> *progress-pc-generic-store* current-menu-hover-index)))
+    (when (>= hover row-count)
+      (set! hover (dec row-count))
+      (set! (-> *progress-pc-generic-store* current-menu-hover-index) hover))
+    (cond
+      ((or (cpad-pressed? 0 down l-analog-down)
+           (and (cpad-hold? 0 down l-analog-down)
+                (>= (- (current-time) (the-as int (-> this last-move))) (seconds 0.2))))
+       (set! (-> this last-move) (current-time))
+       (set! hover (mod (+ hover 1) row-count))
+       (set! (-> *progress-pc-generic-store* current-menu-hover-index) hover)
+       (sound-play "roll-over"))
+      ((or (cpad-pressed? 0 up l-analog-up)
+           (and (cpad-hold? 0 up l-analog-up)
+                (>= (- (current-time) (the-as int (-> this last-move))) (seconds 0.2))))
+       (set! (-> this last-move) (current-time))
+       (set! hover (- hover 1))
+       (when (< hover 0)
+         (set! hover (dec row-count)))
+       (set! (-> *progress-pc-generic-store* current-menu-hover-index) hover)
+       (sound-play "roll-over"))
+      ((cpad-pressed? 0 confirm)
+       (cpad-clear! 0 confirm)
+       (if (= hover 0)
+           (pc-replay-refresh)
+           (pc-replay-toggle-mission (dec hover)))
+       (sound-play "generic-beep"))
+      ((cpad-pressed? 0 square)
+       (cpad-clear! 0 square)
+       (pc-replay-refresh)
+       (sound-play "generic-beep"))
+      ((cpad-pressed? 0 triangle)
+       (when (has-history? *progress-pc-generic-store*)
+         (back! *progress-pc-generic-store* progress)
+         (sound-play "generic-beep"))))
+    0))
 
 (defmethod respond-progress ((this menu-generic-scrolling-page) (progress progress) (selected? symbol))
   "Handle progress menu navigation logic."
