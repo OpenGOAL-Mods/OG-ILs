@@ -97,9 +97,10 @@ class ReplayStore:
 
     def _empty_state(self) -> dict[str, Any]:
         return {
-            "version": 4,
+            "version": 5,
             "replays": [],
             "players": [],
+            "player_settings": {},
             "moderator": {},
             "runners": [],
             "settings": {
@@ -122,6 +123,8 @@ class ReplayStore:
             for key in ("replays", "players", "moderator", "runners"):
                 if key in data:
                     base[key] = data[key]
+            if isinstance(data.get("player_settings"), dict):
+                base["player_settings"] = data["player_settings"]
             for replay in base["replays"]:
                 if isinstance(replay, dict):
                     replay.setdefault("player_id", "")
@@ -162,6 +165,29 @@ class ReplayStore:
             if "selected_replay_ids" not in incoming_settings:
                 selected = str(incoming_settings.get("selected_replay_id") or "")
                 base["settings"]["selected_replay_ids"] = [selected] if selected else []
+            replay_ids = {
+                str(replay.get("id") or "")
+                for replay in base["replays"]
+                if isinstance(replay, dict)
+            }
+            normalized_player_settings: dict[str, dict[str, Any]] = {}
+            for player_id, settings in base["player_settings"].items():
+                if not isinstance(player_id, str) or not isinstance(settings, dict):
+                    continue
+                replay_mode = str(settings.get("replay_mode") or "default")
+                if replay_mode not in REPLAY_MODE_IDS:
+                    replay_mode = "default"
+                selected_replays: list[str] = []
+                if isinstance(settings.get("selected_replay_ids"), list):
+                    for value in settings["selected_replay_ids"]:
+                        replay_id = str(value or "")
+                        if replay_id in replay_ids and replay_id not in selected_replays:
+                            selected_replays.append(replay_id)
+                normalized_player_settings[player_id] = {
+                    "replay_mode": replay_mode,
+                    "selected_replay_ids": selected_replays,
+                }
+            base["player_settings"] = normalized_player_settings
             return base
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             backup = self.index_path.with_suffix(".corrupt.json")
@@ -180,9 +206,21 @@ class ReplayStore:
             pass
         temporary.replace(self.index_path)
 
-    def public_state(self) -> dict[str, Any]:
+    def public_state(self, player_id: str = "") -> dict[str, Any]:
         with self._lock:
             state = deepcopy(self._state)
+            if player_id:
+                player_settings = self._state["player_settings"].get(player_id, {})
+                state["settings"]["replay_mode"] = player_settings.get(
+                    "replay_mode", state["settings"]["replay_mode"]
+                )
+                state["settings"]["selected_replay_ids"] = deepcopy(
+                    player_settings.get(
+                        "selected_replay_ids",
+                        state["settings"]["selected_replay_ids"],
+                    )
+                )
+        state.pop("player_settings", None)
         if not isinstance(state.get("moderator"), dict):
             state["moderator"] = {}
         state["moderator"].pop("api_key", None)
@@ -309,7 +347,13 @@ class ReplayStore:
         if not category or not player_id:
             raise ValueError("category and player_id are required")
         with self._lock:
-            mode = str(self._state["settings"].get("replay_mode") or "default")
+            player_settings = self._state["player_settings"].get(player_id, {})
+            mode = str(
+                player_settings.get(
+                    "replay_mode", self._state["settings"].get("replay_mode")
+                )
+                or "default"
+            )
             mission = [
                 replay
                 for replay in self._state["replays"]
@@ -324,7 +368,10 @@ class ReplayStore:
                 mission_by_id = {replay.get("id"): replay for replay in mission}
                 selected = [
                     mission_by_id[replay_id]
-                    for replay_id in self._state["settings"].get("selected_replay_ids") or []
+                    for replay_id in player_settings.get(
+                        "selected_replay_ids",
+                        self._state["settings"].get("selected_replay_ids") or [],
+                    )
                     if replay_id in mission_by_id
                 ]
             elif mode == "personal_best" and own_completed:
@@ -527,6 +574,44 @@ class ReplayStore:
                 self._state["settings"]["replay_mode"] = replay_mode
             self._save()
             return deepcopy(self._state["settings"])
+
+    def update_player_settings(
+        self, player_id: str, values: dict[str, Any]
+    ) -> dict[str, Any]:
+        player_id = player_id.strip()
+        if not player_id or len(player_id) > 128 or not all(
+            character.isalnum() or character in "-_" for character in player_id
+        ):
+            raise ValueError("player_id is invalid")
+        with self._lock:
+            settings = self._state["player_settings"].setdefault(
+                player_id,
+                {
+                    "replay_mode": self._state["settings"]["replay_mode"],
+                    "selected_replay_ids": deepcopy(
+                        self._state["settings"]["selected_replay_ids"]
+                    ),
+                },
+            )
+            if "selected_replay_ids" in values:
+                replay_ids = values["selected_replay_ids"]
+                if not isinstance(replay_ids, list):
+                    raise ValueError("selected_replay_ids must be a list")
+                normalized: list[str] = []
+                for value in replay_ids:
+                    replay_id = str(value or "")
+                    if not replay_id or replay_id in normalized:
+                        continue
+                    self._find("replays", replay_id)
+                    normalized.append(replay_id)
+                settings["selected_replay_ids"] = normalized
+            if "replay_mode" in values:
+                replay_mode = str(values["replay_mode"] or "")
+                if replay_mode not in REPLAY_MODE_IDS:
+                    raise ValueError("replay_mode is invalid")
+                settings["replay_mode"] = replay_mode
+            self._save()
+            return deepcopy(settings)
 
     def should_auto_submit(self, replay_id: str) -> bool:
         with self._lock:

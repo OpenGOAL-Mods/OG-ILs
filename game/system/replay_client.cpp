@@ -4,12 +4,14 @@
 #include <array>
 #include <cctype>
 #include <condition_variable>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <mutex>
 #include <optional>
 #include <queue>
 #include <random>
+#include <stdexcept>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -26,8 +28,80 @@
 namespace replay_client {
 namespace {
 
-constexpr const char* kServerUrl = "http://127.0.0.1:7878";
+constexpr const char* kDefaultServerUrl = "http://127.0.0.1:7878";
 constexpr int kMaxSelectedReplays = 33;
+
+struct ServerConfig {
+  std::string url = kDefaultServerUrl;
+  std::string game_token;
+};
+
+std::mutex g_server_config_mutex;
+
+std::string normalized_server_url(std::string url) {
+  while (!url.empty() && std::isspace(static_cast<unsigned char>(url.front()))) {
+    url.erase(url.begin());
+  }
+  while (!url.empty() && std::isspace(static_cast<unsigned char>(url.back()))) {
+    url.pop_back();
+  }
+  while (!url.empty() && url.back() == '/') {
+    url.pop_back();
+  }
+  if (!url.starts_with("http://") && !url.starts_with("https://")) {
+    throw std::runtime_error("Replay server URL must start with http:// or https://");
+  }
+  return url;
+}
+
+fs::path server_config_path() {
+  return file_util::get_user_features_dir(g_game_version) / "replay-server.json";
+}
+
+ServerConfig load_server_config() {
+  ServerConfig config;
+  try {
+    const auto path = server_config_path();
+    if (fs::exists(path)) {
+      if (const auto parsed = safe_parse_json(file_util::read_text_file(path))) {
+        config.url = parsed->value("url", config.url);
+        config.game_token = parsed->value("game_token", "");
+      }
+    }
+  } catch (const std::exception& error) {
+    lg::warn("Could not load replay server settings: {}", error.what());
+  }
+  if (const auto* environment_url = std::getenv("OPENGOAL_REPLAY_SERVER_URL")) {
+    config.url = environment_url;
+  }
+  if (const auto* environment_token = std::getenv("OPENGOAL_REPLAY_GAME_TOKEN")) {
+    config.game_token = environment_token;
+  }
+  try {
+    config.url = normalized_server_url(config.url);
+  } catch (const std::exception&) {
+    config.url = kDefaultServerUrl;
+  }
+  return config;
+}
+
+ServerConfig& mutable_server_config() {
+  static ServerConfig config = load_server_config();
+  return config;
+}
+
+ServerConfig server_config_snapshot() {
+  std::lock_guard lock(g_server_config_mutex);
+  return mutable_server_config();
+}
+
+void save_server_config(const std::string& url, const std::string& game_token) {
+  ServerConfig config{normalized_server_url(url), game_token};
+  file_util::write_text_file(
+      server_config_path(), json{{"url", config.url}, {"game_token", config.game_token}}.dump(2));
+  std::lock_guard lock(g_server_config_mutex);
+  mutable_server_config() = std::move(config);
+}
 
 bool valid_player_id(const std::string& value) {
   return value.size() == 32 &&
@@ -142,7 +216,8 @@ HttpResponse request(const std::string& method,
     response.error = "Could not initialize HTTP client";
     return response;
   }
-  const auto url = fmt::format("{}{}", kServerUrl, path);
+  const auto config = server_config_snapshot();
+  const auto url = fmt::format("{}{}", config.url, path);
   curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
   curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 10000L);
   curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 1000L);
@@ -150,11 +225,17 @@ HttpResponse request(const std::string& method,
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
   struct curl_slist* headers = nullptr;
+  if (!config.game_token.empty()) {
+    headers = curl_slist_append(
+        headers, fmt::format("Authorization: Bearer {}", config.game_token).c_str());
+  }
   if (method != "GET") {
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, static_cast<long>(body.size()));
     headers = curl_slist_append(headers, "Content-Type: application/json");
+  }
+  if (headers) {
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
   }
   const auto result = curl_easy_perform(curl);
@@ -176,7 +257,12 @@ HttpResponse request(const std::string& method,
 
 class Client {
  public:
-  Client() : m_worker([this]() { worker_loop(); }) {}
+  Client() {
+    const auto config = server_config_snapshot();
+    std::strncpy(m_server_url.data(), config.url.c_str(), m_server_url.size() - 1);
+    std::strncpy(m_game_token.data(), config.game_token.c_str(), m_game_token.size() - 1);
+    m_worker = std::thread([this]() { worker_loop(); });
+  }
 
   ~Client() {
     {
@@ -200,7 +286,8 @@ class Client {
   void refresh() {
     set_status("Refreshing replay server...");
     enqueue([this]() {
-      auto response = request("GET", "/api/state");
+      auto response = request(
+          "GET", fmt::format("/api/state?player_id={}", persistent_player_id()));
       if (!response.ok) {
         set_connected(false, response.error);
         return;
@@ -422,7 +509,8 @@ class Client {
     }
     enqueue([this, mode_id, category, selection_revision]() {
       json body = {{"replay_mode", mode_id}};
-      auto response = request("PATCH", "/api/settings", body.dump());
+      auto response = request(
+          "PATCH", fmt::format("/api/player-settings/{}", persistent_player_id()), body.dump());
       if (!response.ok) {
         set_status(fmt::format("Could not save ghost mode: {}", response.error));
         return;
@@ -484,7 +572,8 @@ class Client {
     enqueue([this, selected_replays = std::move(selected_replays), category,
              selection_revision]() {
       json body = {{"selected_replay_ids", selected_replays}, {"replay_mode", "custom"}};
-      auto response = request("PATCH", "/api/settings", body.dump());
+      auto response = request(
+          "PATCH", fmt::format("/api/player-settings/{}", persistent_player_id()), body.dump());
       if (!response.ok) {
         set_status(fmt::format("Could not save replay selections: {}", response.error));
         return;
@@ -533,7 +622,7 @@ class Client {
     }
     ImGui::SameLine();
     if (ImGui::Button("Copy dashboard URL")) {
-      ImGui::SetClipboardText("http://127.0.0.1:7878/");
+      ImGui::SetClipboardText(server_config_snapshot().url.c_str());
     }
     ImGui::SameLine();
     if (ImGui::Button("Copy player ID")) {
@@ -541,6 +630,25 @@ class Client {
     }
     ImGui::Text("Player ID: %s", persistent_player_id().c_str());
     ImGui::Separator();
+
+    if (ImGui::CollapsingHeader("Server connection")) {
+      ImGui::InputText("Server URL", m_server_url.data(), m_server_url.size());
+      ImGui::InputText("Game token", m_game_token.data(), m_game_token.size(),
+                       ImGuiInputTextFlags_Password);
+      if (ImGui::Button("Save connection")) {
+        try {
+          save_server_config(m_server_url.data(), m_game_token.data());
+          set_connected(false, "Replay server settings saved; refreshing...");
+          refresh();
+        } catch (const std::exception& error) {
+          set_status(fmt::format("Could not save replay server settings: {}", error.what()));
+        }
+      }
+      ImGui::TextWrapped(
+          "Use the public SparkedHost URL and the game token supplied by the server admin. "
+          "The admin token is never entered in-game.");
+      ImGui::Separator();
+    }
 
     ImGui::Text("Mission: %s", active_category.empty() ? "select one in the Speedrun Menu"
                                                        : active_category.c_str());
@@ -749,6 +857,9 @@ class Client {
   std::queue<std::function<void()>> m_jobs;
   bool m_stopping = false;
   std::thread m_worker;
+
+  std::array<char, 512> m_server_url{};
+  std::array<char, 256> m_game_token{};
 
   std::mutex m_state_mutex;
   std::vector<ReplayInfo> m_replays;

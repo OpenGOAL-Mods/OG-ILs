@@ -1,6 +1,6 @@
 # OpenGOAL Replay Server
 
-Double-click `RUN_REPLAY_SERVER.bat` before starting Jak 3. It creates a private Python environment on first launch, starts the loopback-only server at <http://127.0.0.1:7878/>, and opens the dashboard.
+For local use, double-click `RUN_REPLAY_SERVER.bat` before starting Jak 3. It creates a private Python environment on first launch, starts the server at <http://127.0.0.1:7878/>, and opens the dashboard. See [SPARKEDHOST.md](SPARKEDHOST.md) for a secured public deployment.
 
 The game sends every completed IL replay with two permanent identifiers:
 
@@ -22,7 +22,7 @@ The mode list is supplied by the server with stable IDs, labels, and description
 
 Interrupted attempts are uploaded when the next retry starts. They are never treated as PBs and never submitted to Speedrun.com.
 
-Replay data and the moderator key are stored under `%APPDATA%\OpenGOAL\jak3\replay-server` by default. The API key is never returned to the browser or game. Set `OPENGOAL_REPLAY_DATA` before launch to select a different data directory.
+Replay data and the moderator key are stored under `%APPDATA%\OpenGOAL\jak3\replay-server` by default. The API key is never returned to the browser or game. Set `OPENGOAL_REPLAY_DATA` before launch to select a different data directory. Public deployments require separate `REPLAY_GAME_TOKEN` and `REPLAY_ADMIN_TOKEN` secrets. Each installation's ghost mode and custom selections are stored independently under its permanent Player ID.
 
 Run the tests from this folder with:
 

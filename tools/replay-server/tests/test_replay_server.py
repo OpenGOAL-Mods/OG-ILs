@@ -4,6 +4,7 @@ from tempfile import TemporaryDirectory
 import threading
 import time
 import unittest
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from speedrun_submitter.replay_server import ReplayHTTPServer
@@ -171,6 +172,36 @@ class ReplayStoreTests(unittest.TestCase):
     def test_rejects_unknown_replay_mode(self):
         with self.assertRaisesRegex(ValueError, "replay_mode is invalid"):
             self.store.update_settings({"replay_mode": "future-typo"})
+
+    def test_each_game_installation_has_independent_ghost_settings(self):
+        first = self.add_timed_replay(50, "settings-player-0000001")
+        second = self.add_timed_replay(40, "settings-player-0000002")
+        self.store.update_player_settings(
+            first["player_id"],
+            {"replay_mode": "custom", "selected_replay_ids": [first["id"]]},
+        )
+        self.store.update_player_settings(
+            second["player_id"], {"replay_mode": "world_record"}
+        )
+
+        first_state = self.store.public_state(first["player_id"])
+        second_state = self.store.public_state(second["player_id"])
+        self.assertEqual(first_state["settings"]["replay_mode"], "custom")
+        self.assertEqual(first_state["settings"]["selected_replay_ids"], [first["id"]])
+        self.assertEqual(second_state["settings"]["replay_mode"], "world_record")
+        self.assertNotIn("player_settings", first_state)
+        self.assertEqual(
+            self.store.resolve_replay_selection(
+                first["category"], first["player_id"]
+            )["replays"][0]["id"],
+            first["id"],
+        )
+        self.assertEqual(
+            self.store.resolve_replay_selection(
+                second["category"], second["player_id"]
+            )["replays"][0]["id"],
+            second["id"],
+        )
     def test_player_mapping_auto_submits_with_moderator_key(self):
         moderator = self.store.configure_moderator("secret")
         self.assertEqual(moderator["user_id"], "mod-1")
@@ -261,6 +292,7 @@ class ReplayHTTPTests(unittest.TestCase):
                     dashboard = response.read().decode("utf-8")
                     self.assertIn("Speedrun.com moderator", dashboard)
                     self.assertIn("Ghost mode", dashboard)
+                    self.assertIn("Replay Server Admin", dashboard)
                     self.assertIn('id="players"', dashboard)
                     self.assertIn("assignPlayer", dashboard)
                 with urlopen(f"{base}/api/state", timeout=2) as response:
@@ -294,6 +326,67 @@ class ReplayHTTPTests(unittest.TestCase):
                     self.assertEqual(json.load(response)["src_runner_id"], "runner-2")
                 with urlopen(f"{base}/api/replays/{replay_id}/download", timeout=2) as response:
                     self.assertEqual(json.load(response)["count"], 1)
+            finally:
+                server.shutdown()
+                server.server_close()
+                worker.join(timeout=2)
+
+    def test_hosted_server_separates_game_and_admin_access(self):
+        with TemporaryDirectory() as temporary:
+            store = ReplayStore(Path(temporary), api_factory=FakeAPI)
+            server = ReplayHTTPServer(
+                ("127.0.0.1", 0),
+                store,
+                game_token="game-secret",
+                admin_token="admin-secret",
+            )
+            worker = threading.Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+            base = f"http://127.0.0.1:{server.server_port}"
+            try:
+                with urlopen(f"{base}/health", timeout=2) as response:
+                    self.assertEqual(json.load(response)["status"], "ok")
+                with self.assertRaises(HTTPError) as unauthorized:
+                    urlopen(f"{base}/api/state", timeout=2)
+                self.assertEqual(unauthorized.exception.code, 401)
+                unauthorized.exception.close()
+
+                game_state = Request(
+                    f"{base}/api/state?player_id=player-0123456789abcdef",
+                    headers={"Authorization": "Bearer game-secret"},
+                )
+                with urlopen(game_state, timeout=2) as response:
+                    self.assertEqual(json.load(response)["replays"], [])
+
+                game_settings = Request(
+                    f"{base}/api/player-settings/player-0123456789abcdef",
+                    data=json.dumps({"replay_mode": "next_three"}).encode("utf-8"),
+                    method="PATCH",
+                    headers={
+                        "Authorization": "Bearer game-secret",
+                        "Content-Type": "application/json",
+                    },
+                )
+                with urlopen(game_settings, timeout=2) as response:
+                    self.assertEqual(json.load(response)["replay_mode"], "next_three")
+
+                admin_settings = Request(
+                    f"{base}/api/settings",
+                    data=json.dumps({"auto_submit": False}).encode("utf-8"),
+                    method="PATCH",
+                    headers={
+                        "Authorization": "Bearer game-secret",
+                        "Content-Type": "application/json",
+                    },
+                )
+                with self.assertRaises(HTTPError) as forbidden_game_token:
+                    urlopen(admin_settings, timeout=2)
+                self.assertEqual(forbidden_game_token.exception.code, 401)
+                forbidden_game_token.exception.close()
+
+                admin_settings.add_header("Authorization", "Bearer admin-secret")
+                with urlopen(admin_settings, timeout=2) as response:
+                    self.assertFalse(json.load(response)["auto_submit"])
             finally:
                 server.shutdown()
                 server.server_close()
