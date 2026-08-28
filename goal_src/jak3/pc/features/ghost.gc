@@ -622,9 +622,12 @@
 
 (defun ghost-await-server-pack! ((category speedrun-category))
   "Attach a replay that is still downloading when the IL begins."
-  (kill-by-name "ghost-server-wait" *active-pool*)
-  (process-spawn-function process :name "ghost-server-wait"
-    (lambda :behavior process ()
+  ;; Level/task transitions clear the active pool. Keep the waiter beside the
+  ;; replay players in the persistent PC pool so the first attempt still gets
+  ;; its pack when the asynchronous download completes during a transition.
+  (kill-by-name "ghost-server-wait" *pc-pool*)
+  (process-spawn-function process :name "ghost-server-wait" :to *pc-pool*
+    (lambda :behavior process ((category speedrun-category))
       (stack-size-set! (-> self main-thread) 1024)
       (let ((generation 0))
         (while (and (= generation 0)
@@ -641,7 +644,8 @@
                    (> (pc-replay-selected-count) 0))
           (ghost-load-json-pack! category)
           (when (> *ghost-replay-count* 0)
-            (ghost-spawn-playback!))))))
+            (ghost-spawn-playback!)))))
+    category)
   (none))
 
 (defun ghost-clear-replay! ()
