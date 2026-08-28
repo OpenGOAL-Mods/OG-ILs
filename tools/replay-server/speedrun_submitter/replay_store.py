@@ -34,6 +34,14 @@ REPLAY_MODES = [
         ),
     },
     {
+        "id": "next_three",
+        "label": "Default - Next 3 Places",
+        "description": (
+            "Start with the three slowest completed ghosts, then race the three "
+            "closest faster times as your personal best improves."
+        ),
+    },
+    {
         "id": "personal_best",
         "label": "Race vs Your Best",
         "description": "Race your fastest completed replay for this mission.",
@@ -342,6 +350,31 @@ class ReplayStore:
                         if faster
                         else min(completed, key=lambda replay: replay["time_seconds"])
                     ]
+            elif mode == "next_three" and completed:
+                if not own_completed:
+                    selected = sorted(
+                        completed,
+                        key=lambda replay: replay["time_seconds"],
+                        reverse=True,
+                    )[:3]
+                else:
+                    personal_best = min(
+                        replay["time_seconds"] for replay in own_completed
+                    )
+                    faster = sorted(
+                        (
+                            replay
+                            for replay in completed
+                            if replay["time_seconds"] < personal_best
+                        ),
+                        key=lambda replay: replay["time_seconds"],
+                        reverse=True,
+                    )
+                    selected = (
+                        faster[:3]
+                        if faster
+                        else [min(completed, key=lambda replay: replay["time_seconds"])]
+                    )
 
             return {
                 "mode": mode,

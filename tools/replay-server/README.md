@@ -14,6 +14,7 @@ In the dashboard, configure one Jak 3 OpenGOAL Missions moderator API key, reloa
 The mode list is supplied by the server with stable IDs, labels, and descriptions so new resolution strategies can be added without changing the replay file format or ghost loader.
 
 - **Default - Next Place:** without a personal time, race the slowest completed server replay. Once you have a PB, race the closest strictly faster replay.
+- **Default - Next 3 Places:** without a personal time, race the three slowest completed server replays. Once you have a PB, race the three closest strictly faster replays.
 - **Race vs Your Best:** race your fastest completed replay for the mission.
 - **Race vs WR:** race the fastest completed replay available on the server.
 - **Race vs Last Attempt:** race your newest attempt, including a retry that was reset before completion.

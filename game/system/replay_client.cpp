@@ -105,6 +105,8 @@ struct ReplayModeInfo {
 std::vector<ReplayModeInfo> fallback_modes() {
   return {{"default", "Default - Next Place",
            "Start with the slowest ghost, then race the next faster time."},
+          {"next_three", "Default - Next 3 Places",
+           "Start with the three slowest ghosts, then race the three closest faster times."},
           {"personal_best", "Race vs Your Best", "Race your fastest completed replay."},
           {"world_record", "Race vs WR", "Race the fastest completed server replay."},
           {"last_attempt", "Race vs Last Attempt",

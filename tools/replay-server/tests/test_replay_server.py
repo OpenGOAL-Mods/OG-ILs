@@ -113,6 +113,30 @@ class ReplayStoreTests(unittest.TestCase):
         )
         self.assertEqual(improving["replays"][0]["id"], next_faster["id"])
 
+    def test_next_three_mode_steps_through_three_faster_replays(self):
+        slowest = self.add_timed_replay(70, "slow-player-0000000001")
+        second_slowest = self.add_timed_replay(60, "slow-player-0000000002")
+        third_slowest = self.add_timed_replay(50, "slow-player-0000000003")
+        nearest = self.add_timed_replay(40, "fast-player-0000000001")
+        middle = self.add_timed_replay(30, "fast-player-0000000002")
+        fastest = self.add_timed_replay(20, "wr-player-000000000001")
+        category = slowest["category"]
+        player_id = "new-player-00000000001"
+        self.store.update_settings({"replay_mode": "next_three"})
+
+        no_time = self.store.resolve_replay_selection(category, player_id)
+        self.assertEqual(
+            [item["id"] for item in no_time["replays"]],
+            [slowest["id"], second_slowest["id"], third_slowest["id"]],
+        )
+
+        self.add_timed_replay(45, player_id)
+        improving = self.store.resolve_replay_selection(category, player_id)
+        self.assertEqual(
+            [item["id"] for item in improving["replays"]],
+            [nearest["id"], middle["id"], fastest["id"]],
+        )
+
     def test_named_modes_resolve_pb_wr_last_attempt_and_custom(self):
         player_id = "mode-player-000000000001"
         pb = self.add_timed_replay(45, player_id)
