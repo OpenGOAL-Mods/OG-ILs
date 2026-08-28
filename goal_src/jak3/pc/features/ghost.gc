@@ -230,9 +230,10 @@
                   (set! (-> sample xz-vel) (* (string->float (ghost-json-read-number-token! reader)) 4096.0))
                   (set! (-> sample status) (the-as uint32 (string->int (ghost-json-read-number-token! reader))))
                   (set! (-> sample anim-frame) (string->float (ghost-json-read-number-token! reader)))
-                  ;; State is exported for tools but is not needed to pose the model.
+                  ;; Keep the target state so playback can synchronize forced
+                  ;; mission-start states (such as target-grab) with the live Jak.
                   (ghost-json-read-string! reader)
-                  (set! (-> sample state) #f)
+                  (set! (-> sample state) (string->symbol *ghost-json-token*))
                   ;; Resolve the exported animation name against the loaded Jak art.
                   (ghost-json-read-string! reader)
                   (set! (-> sample anim-idx)
@@ -416,6 +417,12 @@
 ;; Playback
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun ghost-control-locked-state? ((state symbol))
+  "States used while a mission owns Jak and player movement is unavailable."
+  (or (= state 'target-grab)
+      (= state 'target-grab-ride)
+      (= state 'target-continue)))
+
 (defstate idle (ghost-player)
   :virtual #t
   :trans
@@ -456,8 +463,18 @@
                   (ja-channel-set! 1)
                   (joint-control-channel-group-eval! (-> self skel root-channel 0) anim num-func-identity))
                 (set! (-> self skel root-channel 0 frame-num) (-> s anim-frame)))))
-          ;; advance, looping back to the start
-          (set! (-> self idx) (if (>= (+ i 1) cnt) 0 (+ i 1)))))
+          ;; Advance normally, except at a forced mission start. A replay may
+          ;; leave target-grab a few frames before the live Jak does, especially
+          ;; after a variable-length load. Hold it on its final locked sample so
+          ;; no opponent can begin moving before player control is restored.
+          (let* ((next-i (if (>= (+ i 1) cnt) 0 (+ i 1)))
+                 (next-state (-> self samples next-i state))
+                 (live-state (if (and *target* (-> *target* next-state))
+                                 (-> *target* next-state name)
+                                 #f)))
+            (when (or (not (ghost-control-locked-state? live-state))
+                      (ghost-control-locked-state? next-state))
+              (set! (-> self idx) next-i)))))
       (ja-post)
       (suspend)))
   :post
@@ -514,7 +531,21 @@
   (when (and (-> *ghost-recording* recording?)
              (> (-> self frames) 0))
     (set! (-> self idx)
-          (min (-> *ghost-recording* rec-count) (- (-> self frames) 1))))
+          (min (-> *ghost-recording* rec-count) (- (-> self frames) 1)))
+    ;; A late download may initially synchronize beyond the replay's release
+    ;; frame while the live Jak is still locked. Rewind to the replay's final
+    ;; locked frame; normal playback resumes as soon as live control returns.
+    (when (and *target*
+               (-> *target* next-state)
+               (ghost-control-locked-state? (-> *target* next-state name))
+               (not (ghost-control-locked-state?
+                      (-> self samples (-> self idx) state))))
+      (let ((release-idx 0))
+        (while (and (< release-idx (-> self frames))
+                    (ghost-control-locked-state?
+                      (-> self samples release-idx state)))
+          (+! release-idx 1))
+        (set! (-> self idx) (max 0 (- release-idx 1))))))
   (set! (-> self root) (new 'process 'trsqv))
   ;; a fresh trsqv has scale 0 - without this the whole model collapses to a point!
   (vector-identity! (-> self root scale))
