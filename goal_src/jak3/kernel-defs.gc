@@ -328,6 +328,11 @@
 (define-extern pc-replay-get-mission-label (function int string none))
 (define-extern pc-replay-mission-selected (function int symbol))
 (define-extern pc-replay-toggle-mission (function int symbol))
+(define-extern pc-replay-mode-count (function int))
+(define-extern pc-replay-get-mode-label (function int string none))
+(define-extern pc-replay-mode-selected (function int symbol))
+(define-extern pc-replay-custom-mode-selected (function symbol))
+(define-extern pc-replay-set-mode (function int symbol))
 (define-extern pc-replay-get-ready-name (function int string none))
 (define-extern pc-replay-get-status (function string none))
 

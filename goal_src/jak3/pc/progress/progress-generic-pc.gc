@@ -273,8 +273,10 @@
 (defmethod respond-progress ((this menu-generic-replay-page) (progress progress) (selected? symbol))
   "Navigate and toggle the server replays for the active speedrun mission."
   (let* ((replay-count (pc-replay-mission-count))
-         ;; Row zero is always the refresh action.
-         (row-count (+ replay-count 1))
+         (mode-count (pc-replay-mode-count))
+         (custom? (pc-replay-custom-mode-selected))
+         ;; Row zero refreshes, followed by modes and Custom's replay list.
+         (row-count (+ mode-count 1 (if custom? replay-count 0)))
          (hover (-> *progress-pc-generic-store* current-menu-hover-index)))
     (when (>= hover row-count)
       (set! hover (dec row-count))
@@ -298,9 +300,14 @@
        (sound-play "roll-over"))
       ((cpad-pressed? 0 confirm)
        (cpad-clear! 0 confirm)
-       (if (= hover 0)
-           (pc-replay-refresh)
-           (pc-replay-toggle-mission (dec hover)))
+       (cond
+         ((= hover 0)
+          (pc-replay-refresh))
+         ((<= hover mode-count)
+          (pc-replay-set-mode (dec hover))
+          (set! (-> *progress-pc-generic-store* current-menu-hover-index) hover))
+         (else
+          (pc-replay-toggle-mission (- (- hover mode-count) 1))))
        (sound-play "generic-beep"))
       ((cpad-pressed? 0 square)
        (cpad-clear! 0 square)

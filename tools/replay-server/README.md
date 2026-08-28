@@ -9,6 +9,18 @@ The game sends every completed IL replay with two permanent identifiers:
 
 In the dashboard, configure one Jak 3 OpenGOAL Missions moderator API key, reload the existing leaderboard runners, then map each player ID to its real Speedrun.com runner. The mapping applies to existing unsubmitted replays and future uploads. With automatic submission enabled, a newly mapped player's newest pending PB for each mission is submitted using the shared proof video.
 
+## Ghost modes
+
+The mode list is supplied by the server with stable IDs, labels, and descriptions so new resolution strategies can be added without changing the replay file format or ghost loader.
+
+- **Default - Next Place:** without a personal time, race the slowest completed server replay. Once you have a PB, race the closest strictly faster replay.
+- **Race vs Your Best:** race your fastest completed replay for the mission.
+- **Race vs WR:** race the fastest completed replay available on the server.
+- **Race vs Last Attempt:** race your newest attempt, including a retry that was reset before completion.
+- **Custom:** race any combination of selected mission replays.
+
+Interrupted attempts are uploaded when the next retry starts. They are never treated as PBs and never submitted to Speedrun.com.
+
 Replay data and the moderator key are stored under `%APPDATA%\OpenGOAL\jak3\replay-server` by default. The API key is never returned to the browser or game. Set `OPENGOAL_REPLAY_DATA` before launch to select a different data directory.
 
 Run the tests from this folder with:

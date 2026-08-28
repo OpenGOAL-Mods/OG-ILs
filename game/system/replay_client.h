@@ -11,13 +11,19 @@ void publish(const std::string& replay_path,
              const std::string& src_level_id,
              const std::string& src_category_id,
              const std::string& vehicle_name,
-             bool is_personal_best);
+             bool is_personal_best,
+             bool completed);
 int prepare_selected(const std::string& category);
 int selected_count();
 int mission_replay_count();
 std::string mission_replay_label(int index);
 bool mission_replay_selected(int index);
 bool toggle_mission_replay(int index);
+int mode_count();
+std::string mode_label(int index);
+bool mode_selected(int index);
+bool custom_mode_selected();
+bool set_mode(int index);
 std::string ready_replay_name(int index);
 std::string status();
 std::string player_id();

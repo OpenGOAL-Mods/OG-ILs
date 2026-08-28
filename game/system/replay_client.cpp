@@ -92,8 +92,25 @@ struct ReplayInfo {
   std::string category;
   std::string src_status;
   std::string src_runner_id;
+  bool completed = true;
   float time_seconds = 0.f;
 };
+
+struct ReplayModeInfo {
+  std::string id;
+  std::string label;
+  std::string description;
+};
+
+std::vector<ReplayModeInfo> fallback_modes() {
+  return {{"default", "Default - Next Place",
+           "Start with the slowest ghost, then race the next faster time."},
+          {"personal_best", "Race vs Your Best", "Race your fastest completed replay."},
+          {"world_record", "Race vs WR", "Race the fastest completed server replay."},
+          {"last_attempt", "Race vs Last Attempt",
+           "Race your newest attempt, including an unfinished retry."},
+          {"custom", "Custom", "Race any manually selected mission replays."}};
+}
 
 struct RunnerInfo {
   std::string id;
@@ -193,15 +210,26 @@ class Client {
       }
       std::vector<ReplayInfo> replays;
       std::vector<RunnerInfo> runners;
+      std::vector<ReplayModeInfo> modes;
       try {
         for (const auto& item : parsed->at("replays")) {
           replays.push_back({item.value("id", ""), item.value("display_name", "Unnamed replay"),
                              item.value("category", ""), item.value("src_status", ""),
                              item.value("src_runner_id", ""),
+                             item.value("completed", true),
                              item.value("time_seconds", 0.f)});
         }
         for (const auto& item : parsed->at("runners")) {
           runners.push_back({item.value("id", ""), item.value("display_name", "Unknown runner")});
+        }
+        if (parsed->contains("replay_modes") && parsed->at("replay_modes").is_array()) {
+          for (const auto& item : parsed->at("replay_modes")) {
+            modes.push_back({item.value("id", ""), item.value("label", "Unknown mode"),
+                             item.value("description", "")});
+          }
+        }
+        if (modes.empty()) {
+          modes = fallback_modes();
         }
         const auto& settings = parsed->at("settings");
         std::vector<std::string> selected_replays;
@@ -223,7 +251,9 @@ class Client {
           std::lock_guard lock(m_state_mutex);
           m_replays = std::move(replays);
           m_runners = std::move(runners);
+          m_modes = std::move(modes);
           m_selected_replay_ids = selected_replays;
+          m_replay_mode = settings.value("replay_mode", "default");
           m_connected = true;
           active_category = m_active_category;
           selection_revision = ++m_selection_revision;
@@ -231,7 +261,7 @@ class Client {
                          ? fmt::format("Connected - {} replays; select a mission", m_replays.size())
                          : fmt::format("Connected - {} total replays", m_replays.size());
         }
-        download_selected_pack(selected_replays, active_category, false, selection_revision);
+        resolve_and_download(active_category, false, selection_revision);
       } catch (const std::exception& e) {
         set_connected(false, fmt::format("Invalid replay-server state: {}", e.what()));
       }
@@ -244,7 +274,8 @@ class Client {
                const std::string& src_level_id,
                const std::string& src_category_id,
                const std::string& vehicle_name,
-               bool is_personal_best) {
+               bool is_personal_best,
+               bool completed) {
     try {
       // Snapshot the file before queuing the upload. A later PB may reuse the same path.
       const auto replay = safe_parse_json(file_util::read_text_file(replay_path));
@@ -259,10 +290,12 @@ class Client {
                        {"src_category_id", src_category_id},
                        {"src_variable_labels", {{"Wasteland Vehicle", vehicle_name}}},
                        {"is_personal_best", is_personal_best},
+                       {"completed", completed},
                        {"replay", *replay}};
       auto upload_body = envelope.dump();
       set_status(is_personal_best ? "Uploading new personal-best replay..."
-                                  : "Uploading completed replay...");
+                                  : completed ? "Uploading completed replay..."
+                                              : "Uploading unfinished attempt...");
       enqueue([this, upload_body = std::move(upload_body)]() {
         try {
           auto response = request("POST", "/api/replays", upload_body);
@@ -270,7 +303,7 @@ class Client {
             set_connected(false, fmt::format("Replay upload failed: {}", response.error));
             return;
           }
-          set_status("Completed replay uploaded");
+          set_status("Replay uploaded");
           refresh();
         } catch (const std::exception& e) {
           set_status(fmt::format("Replay upload failed: {}", e.what()));
@@ -282,7 +315,6 @@ class Client {
   }
 
   int prepare_selected(const std::string& category) {
-    std::vector<std::string> selected_replays;
     int selection_revision = 0;
     {
       std::lock_guard lock(m_state_mutex);
@@ -293,11 +325,10 @@ class Client {
       m_active_category = category;
       m_ready_category.clear();
       m_ready_replay_ids.clear();
-      selected_replays = m_selected_replay_ids;
       selection_revision = ++m_selection_revision;
     }
-    enqueue([this, selected_replays = std::move(selected_replays), category, selection_revision]() {
-      download_selected_pack(selected_replays, category, false, selection_revision);
+    enqueue([this, category, selection_revision]() {
+      resolve_and_download(category, false, selection_revision);
     });
     return 0;
   }
@@ -320,7 +351,10 @@ class Client {
     if (!replay) {
       return {};
     }
-    return fmt::format("{}  ({:.3f}s)", runner_name(*replay), replay->time_seconds);
+    return replay->completed
+               ? fmt::format("{}  ({:.3f}s)", runner_name(*replay), replay->time_seconds)
+               : fmt::format("{}  ({:.3f}s, unfinished)", runner_name(*replay),
+                             replay->time_seconds);
   }
 
   bool mission_replay_selected(int index) {
@@ -341,6 +375,58 @@ class Client {
       replay_id = replay->id;
     }
     toggle_replay(replay_id);
+    return true;
+  }
+
+  int mode_count() {
+    std::lock_guard lock(m_state_mutex);
+    return static_cast<int>(m_modes.size());
+  }
+
+  std::string mode_label(int index) {
+    std::lock_guard lock(m_state_mutex);
+    if (index < 0 || index >= static_cast<int>(m_modes.size())) {
+      return {};
+    }
+    return m_modes.at(index).label;
+  }
+
+  bool mode_selected(int index) {
+    std::lock_guard lock(m_state_mutex);
+    return index >= 0 && index < static_cast<int>(m_modes.size()) &&
+           m_modes.at(index).id == m_replay_mode;
+  }
+
+  bool custom_mode_selected() {
+    std::lock_guard lock(m_state_mutex);
+    return m_replay_mode == "custom";
+  }
+
+  bool set_mode(int index) {
+    std::string mode_id;
+    std::string category;
+    int selection_revision = 0;
+    {
+      std::lock_guard lock(m_state_mutex);
+      if (index < 0 || index >= static_cast<int>(m_modes.size())) {
+        return false;
+      }
+      mode_id = m_modes.at(index).id;
+      m_replay_mode = mode_id;
+      category = m_active_category;
+      m_ready_replay_ids.clear();
+      m_ready_category.clear();
+      selection_revision = ++m_selection_revision;
+    }
+    enqueue([this, mode_id, category, selection_revision]() {
+      json body = {{"replay_mode", mode_id}};
+      auto response = request("PATCH", "/api/settings", body.dump());
+      if (!response.ok) {
+        set_status(fmt::format("Could not save ghost mode: {}", response.error));
+        return;
+      }
+      resolve_and_download(category, true, selection_revision);
+    });
     return true;
   }
 
@@ -388,19 +474,20 @@ class Client {
       }
       selected_replays = m_selected_replay_ids;
       category = m_active_category;
+      m_replay_mode = "custom";
       selection_revision = ++m_selection_revision;
       m_ready_replay_ids.clear();
       m_ready_category.clear();
     }
     enqueue([this, selected_replays = std::move(selected_replays), category,
              selection_revision]() {
-      json body = {{"selected_replay_ids", selected_replays}};
+      json body = {{"selected_replay_ids", selected_replays}, {"replay_mode", "custom"}};
       auto response = request("PATCH", "/api/settings", body.dump());
       if (!response.ok) {
         set_status(fmt::format("Could not save replay selections: {}", response.error));
         return;
       }
-      download_selected_pack(selected_replays, category, true, selection_revision);
+      resolve_and_download(category, true, selection_revision);
     });
   }
 
@@ -408,8 +495,10 @@ class Client {
     bool do_refresh = false;
     std::vector<ReplayInfo> replays;
     std::vector<RunnerInfo> runners;
+    std::vector<ReplayModeInfo> modes;
     std::vector<std::string> selected_replays;
     std::string active_category;
+    std::string replay_mode;
     std::string status;
     bool connected = false;
     {
@@ -420,8 +509,10 @@ class Client {
       }
       replays = m_replays;
       runners = m_runners;
+      modes = m_modes;
       selected_replays = m_selected_replay_ids;
       active_category = m_active_category;
+      replay_mode = m_replay_mode;
       status = m_status;
       connected = m_connected;
     }
@@ -451,7 +542,23 @@ class Client {
 
     ImGui::Text("Mission: %s", active_category.empty() ? "select one in the Speedrun Menu"
                                                        : active_category.c_str());
-    ImGui::TextUnformatted("Race against (click to toggle):");
+    const auto active_mode = std::find_if(modes.begin(), modes.end(), [&](const auto& mode) {
+      return mode.id == replay_mode;
+    });
+    const char* mode_preview = active_mode == modes.end() ? "Unknown mode" : active_mode->label.c_str();
+    if (ImGui::BeginCombo("Ghost mode", mode_preview)) {
+      for (size_t index = 0; index < modes.size(); ++index) {
+        if (ImGui::Selectable(modes.at(index).label.c_str(), modes.at(index).id == replay_mode)) {
+          set_mode(static_cast<int>(index));
+        }
+      }
+      ImGui::EndCombo();
+    }
+    if (active_mode != modes.end()) {
+      ImGui::TextWrapped("%s", active_mode->description.c_str());
+    }
+    ImGui::TextUnformatted(replay_mode == "custom" ? "Race against (click to toggle):"
+                                                    : "Available mission replays:");
     int mission_replay_count = 0;
     if (ImGui::BeginChild("Mission replays", ImVec2(0.f, 180.f), true)) {
       for (const auto& replay : replays) {
@@ -470,11 +577,14 @@ class Client {
             runner_name = runner->display_name;
           }
         }
-        const auto label =
-            fmt::format("{}  ({:.3f}s)##{}", runner_name, replay.time_seconds, replay.id);
+        const auto label = replay.completed
+                               ? fmt::format("{}  ({:.3f}s)##{}", runner_name,
+                                             replay.time_seconds, replay.id)
+                               : fmt::format("{}  ({:.3f}s, unfinished)##{}", runner_name,
+                                             replay.time_seconds, replay.id);
         ImGui::PushStyleColor(ImGuiCol_Text, selected ? ImVec4(0.25f, 1.f, 0.35f, 1.f)
                                                      : ImVec4(1.f, 0.25f, 0.25f, 1.f));
-        if (ImGui::Selectable(label.c_str(), selected)) {
+        if (ImGui::Selectable(label.c_str(), selected, replay_mode != "custom" ? ImGuiSelectableFlags_Disabled : 0)) {
           toggle_replay(replay.id);
         }
         ImGui::PopStyleColor();
@@ -533,6 +643,33 @@ class Client {
       }
       job();
     }
+  }
+
+  void resolve_and_download(const std::string& category,
+                            bool announce,
+                            int selection_revision) {
+    if (category.empty()) {
+      return;
+    }
+    json body = {{"category", category}, {"player_id", persistent_player_id()}};
+    auto response = request("POST", "/api/replay-selection", body.dump());
+    if (!response.ok) {
+      set_status(fmt::format("Could not resolve ghost mode: {}", response.error));
+      return;
+    }
+    const auto parsed = safe_parse_json(response.body);
+    if (!parsed || !parsed->contains("replays") || !parsed->at("replays").is_array()) {
+      set_status("Replay server returned an invalid ghost selection");
+      return;
+    }
+    std::vector<std::string> replay_ids;
+    for (const auto& replay : parsed->at("replays")) {
+      const auto replay_id = replay.value("id", "");
+      if (!replay_id.empty()) {
+        replay_ids.push_back(replay_id);
+      }
+    }
+    download_selected_pack(replay_ids, category, announce, selection_revision);
   }
 
   void download_selected_pack(const std::vector<std::string>& replay_ids,
@@ -614,8 +751,10 @@ class Client {
   std::mutex m_state_mutex;
   std::vector<ReplayInfo> m_replays;
   std::vector<RunnerInfo> m_runners;
+  std::vector<ReplayModeInfo> m_modes = fallback_modes();
   std::vector<std::string> m_selected_replay_ids;
   std::vector<std::string> m_ready_replay_ids;
+  std::string m_replay_mode = "default";
   std::string m_active_category;
   std::string m_ready_category;
   std::string m_status = "Replay server has not been contacted";
@@ -642,9 +781,10 @@ void publish(const std::string& replay_path,
              const std::string& src_level_id,
              const std::string& src_category_id,
              const std::string& vehicle_name,
-             bool is_personal_best) {
+             bool is_personal_best,
+             bool completed) {
   client().publish(replay_path, category, time_seconds, src_level_id, src_category_id, vehicle_name,
-                   is_personal_best);
+                   is_personal_best, completed);
 }
 
 int prepare_selected(const std::string& category) {
@@ -669,6 +809,26 @@ bool mission_replay_selected(int index) {
 
 bool toggle_mission_replay(int index) {
   return client().toggle_mission_replay(index);
+}
+
+int mode_count() {
+  return client().mode_count();
+}
+
+std::string mode_label(int index) {
+  return client().mode_label(index);
+}
+
+bool mode_selected(int index) {
+  return client().mode_selected(index);
+}
+
+bool custom_mode_selected() {
+  return client().custom_mode_selected();
+}
+
+bool set_mode(int index) {
+  return client().set_mode(index);
 }
 
 std::string ready_replay_name(int index) {

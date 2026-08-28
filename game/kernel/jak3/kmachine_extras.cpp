@@ -443,7 +443,8 @@ u64 pc_replay_publish(u32 replay_path_ptr) {
     replay_client::publish(replay_path, category, time_seconds, level->second,
                            replay->value("percent_warped", 0) == 0 ? "rkl7n8qd" : "7dgw7742",
                            replay->value("vehicle_name", "N/A"),
-                           replay->value("is_personal_best", false));
+                           replay->value("is_personal_best", false),
+                           replay->value("completed", true));
     return bool_to_symbol(true);
   } catch (const std::exception& e) {
     lg::error("Could not publish completed replay: {}", e.what());
@@ -484,6 +485,26 @@ u64 pc_replay_mission_selected(s32 index) {
 
 u64 pc_replay_toggle_mission(s32 index) {
   return bool_to_symbol(replay_client::toggle_mission_replay(index));
+}
+
+s32 pc_replay_mode_count() {
+  return replay_client::mode_count();
+}
+
+void pc_replay_get_mode_label(s32 index, u32 dest_ptr) {
+  copy_replay_string(dest_ptr, replay_client::mode_label(index));
+}
+
+u64 pc_replay_mode_selected(s32 index) {
+  return bool_to_symbol(replay_client::mode_selected(index));
+}
+
+u64 pc_replay_custom_mode_selected() {
+  return bool_to_symbol(replay_client::custom_mode_selected());
+}
+
+u64 pc_replay_set_mode(s32 index) {
+  return bool_to_symbol(replay_client::set_mode(index));
 }
 
 void pc_replay_get_ready_name(s32 index, u32 dest_ptr) {

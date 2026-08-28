@@ -24,6 +24,38 @@ PROOF_VIDEO_URL = (
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 7878
 
+REPLAY_MODES = [
+    {
+        "id": "default",
+        "label": "Default - Next Place",
+        "description": (
+            "Start with the slowest completed ghost, then race the next faster time "
+            "as your personal best improves."
+        ),
+    },
+    {
+        "id": "personal_best",
+        "label": "Race vs Your Best",
+        "description": "Race your fastest completed replay for this mission.",
+    },
+    {
+        "id": "world_record",
+        "label": "Race vs WR",
+        "description": "Race the fastest completed replay available on this server.",
+    },
+    {
+        "id": "last_attempt",
+        "label": "Race vs Last Attempt",
+        "description": "Race your newest attempt, including an unfinished retry.",
+    },
+    {
+        "id": "custom",
+        "label": "Custom",
+        "description": "Race any combination of manually selected mission replays.",
+    },
+]
+REPLAY_MODE_IDS = {mode["id"] for mode in REPLAY_MODES}
+
 
 def default_data_dir() -> Path:
     override = os.environ.get("OPENGOAL_REPLAY_DATA", "").strip()
@@ -57,7 +89,7 @@ class ReplayStore:
 
     def _empty_state(self) -> dict[str, Any]:
         return {
-            "version": 3,
+            "version": 4,
             "replays": [],
             "players": [],
             "moderator": {},
@@ -66,6 +98,7 @@ class ReplayStore:
                 "selected_replay_ids": [],
                 "selected_runner_id": "",
                 "auto_submit": True,
+                "replay_mode": "default",
             },
         }
 
@@ -86,6 +119,7 @@ class ReplayStore:
                     replay.setdefault("player_id", "")
                     replay.setdefault("src_runner_id", "")
                     replay.setdefault("is_personal_best", False)
+                    replay.setdefault("completed", True)
             for player in base["players"]:
                 if isinstance(player, dict):
                     player.setdefault("src_runner_id", "")
@@ -106,9 +140,16 @@ class ReplayStore:
                         "last_seen": str(replay.get("created_at") or ""),
                     })
                     known_players.add(player_id)
-            for key in ("selected_replay_ids", "selected_runner_id", "auto_submit"):
+            for key in (
+                "selected_replay_ids",
+                "selected_runner_id",
+                "auto_submit",
+                "replay_mode",
+            ):
                 if key in incoming_settings:
                     base["settings"][key] = incoming_settings[key]
+            if base["settings"].get("replay_mode") not in REPLAY_MODE_IDS:
+                base["settings"]["replay_mode"] = "default"
             # Migrate the original single-opponent setting without losing the choice.
             if "selected_replay_ids" not in incoming_settings:
                 selected = str(incoming_settings.get("selected_replay_id") or "")
@@ -137,6 +178,7 @@ class ReplayStore:
         if not isinstance(state.get("moderator"), dict):
             state["moderator"] = {}
         state["moderator"].pop("api_key", None)
+        state["replay_modes"] = deepcopy(REPLAY_MODES)
         state["replays"].sort(key=lambda replay: replay.get("created_at", ""), reverse=True)
         return state
 
@@ -211,7 +253,11 @@ class ReplayStore:
                 + (" PB" if envelope.get("is_personal_best") is True else ""),
                 "category": category,
                 "time_seconds": seconds,
-                "is_personal_best": envelope.get("is_personal_best") is True,
+                "is_personal_best": (
+                    envelope.get("is_personal_best") is True
+                    and envelope.get("completed") is not False
+                ),
+                "completed": envelope.get("completed") is not False,
                 "frame_count": count,
                 "mod_version": str(replay.get("mod_version") or ""),
                 "created_at": now,
@@ -245,6 +291,62 @@ class ReplayStore:
             replay["display_name"] = display_name
             self._save()
             return deepcopy(replay)
+
+    def resolve_replay_selection(
+        self, category: str, player_id: str
+    ) -> dict[str, Any]:
+        """Resolve the active strategy to replay metadata for one mission/player."""
+        category = category.strip()
+        player_id = player_id.strip()
+        if not category or not player_id:
+            raise ValueError("category and player_id are required")
+        with self._lock:
+            mode = str(self._state["settings"].get("replay_mode") or "default")
+            mission = [
+                replay
+                for replay in self._state["replays"]
+                if replay.get("category") == category
+            ]
+            completed = [replay for replay in mission if replay.get("completed", True)]
+            own = [replay for replay in mission if replay.get("player_id") == player_id]
+            own_completed = [replay for replay in own if replay.get("completed", True)]
+            selected: list[dict[str, Any]] = []
+
+            if mode == "custom":
+                mission_by_id = {replay.get("id"): replay for replay in mission}
+                selected = [
+                    mission_by_id[replay_id]
+                    for replay_id in self._state["settings"].get("selected_replay_ids") or []
+                    if replay_id in mission_by_id
+                ]
+            elif mode == "personal_best" and own_completed:
+                selected = [min(own_completed, key=lambda replay: replay["time_seconds"])]
+            elif mode == "world_record" and completed:
+                selected = [min(completed, key=lambda replay: replay["time_seconds"])]
+            elif mode == "last_attempt" and own:
+                selected = [max(own, key=lambda replay: replay.get("created_at", ""))]
+            elif mode == "default" and completed:
+                if not own_completed:
+                    selected = [max(completed, key=lambda replay: replay["time_seconds"])]
+                else:
+                    personal_best = min(
+                        replay["time_seconds"] for replay in own_completed
+                    )
+                    faster = [
+                        replay
+                        for replay in completed
+                        if replay["time_seconds"] < personal_best
+                    ]
+                    selected = [
+                        max(faster, key=lambda replay: replay["time_seconds"])
+                        if faster
+                        else min(completed, key=lambda replay: replay["time_seconds"])
+                    ]
+
+            return {
+                "mode": mode,
+                "replays": deepcopy(selected),
+            }
 
     def assign_replay_runner(self, replay_id: str, runner_id: str) -> dict[str, Any]:
         runner_id = runner_id.strip()
@@ -385,6 +487,11 @@ class ReplayStore:
                 self._state["settings"]["selected_runner_id"] = runner_id
             if "auto_submit" in values:
                 self._state["settings"]["auto_submit"] = bool(values["auto_submit"])
+            if "replay_mode" in values:
+                replay_mode = str(values["replay_mode"] or "")
+                if replay_mode not in REPLAY_MODE_IDS:
+                    raise ValueError("replay_mode is invalid")
+                self._state["settings"]["replay_mode"] = replay_mode
             self._save()
             return deepcopy(self._state["settings"])
 

@@ -88,6 +88,65 @@ class ReplayStoreTests(unittest.TestCase):
         self.store.index_path.write_text(json.dumps(legacy), encoding="utf-8")
         migrated = ReplayStore(Path(self.tmp.name), api_factory=FakeAPI)
         self.assertEqual(migrated.public_state()["settings"]["selected_replay_ids"], [first["id"]])
+
+    def add_timed_replay(self, seconds, player_id, *, completed=True):
+        envelope = replay_envelope()
+        envelope["time_seconds"] = seconds
+        envelope["player_id"] = player_id
+        envelope["completed"] = completed
+        envelope["is_personal_best"] = completed
+        return self.store.add_replay(envelope)
+
+    def test_default_mode_steps_from_slowest_to_next_faster_replay(self):
+        slowest = self.add_timed_replay(60, "slow-player-0000000001")
+        next_faster = self.add_timed_replay(50, "fast-player-0000000001")
+        self.add_timed_replay(40, "wr-player-000000000001")
+
+        no_time = self.store.resolve_replay_selection(
+            slowest["category"], "new-player-00000000001"
+        )
+        self.assertEqual(no_time["replays"][0]["id"], slowest["id"])
+
+        self.add_timed_replay(55, "new-player-00000000001")
+        improving = self.store.resolve_replay_selection(
+            slowest["category"], "new-player-00000000001"
+        )
+        self.assertEqual(improving["replays"][0]["id"], next_faster["id"])
+
+    def test_named_modes_resolve_pb_wr_last_attempt_and_custom(self):
+        player_id = "mode-player-000000000001"
+        pb = self.add_timed_replay(45, player_id)
+        wr = self.add_timed_replay(30, "wr-player-000000000001")
+        unfinished = self.add_timed_replay(12, player_id, completed=False)
+        category = pb["category"]
+
+        self.store.update_settings({"replay_mode": "personal_best"})
+        self.assertEqual(
+            self.store.resolve_replay_selection(category, player_id)["replays"][0]["id"],
+            pb["id"],
+        )
+        self.store.update_settings({"replay_mode": "world_record"})
+        self.assertEqual(
+            self.store.resolve_replay_selection(category, player_id)["replays"][0]["id"],
+            wr["id"],
+        )
+        self.store.update_settings({"replay_mode": "last_attempt"})
+        self.assertEqual(
+            self.store.resolve_replay_selection(category, player_id)["replays"][0]["id"],
+            unfinished["id"],
+        )
+        self.assertFalse(unfinished["completed"])
+        self.assertFalse(unfinished["is_personal_best"])
+
+        self.store.update_settings(
+            {"replay_mode": "custom", "selected_replay_ids": [wr["id"], pb["id"]]}
+        )
+        custom = self.store.resolve_replay_selection(category, player_id)
+        self.assertEqual([item["id"] for item in custom["replays"]], [wr["id"], pb["id"]])
+
+    def test_rejects_unknown_replay_mode(self):
+        with self.assertRaisesRegex(ValueError, "replay_mode is invalid"):
+            self.store.update_settings({"replay_mode": "future-typo"})
     def test_player_mapping_auto_submits_with_moderator_key(self):
         moderator = self.store.configure_moderator("secret")
         self.assertEqual(moderator["user_id"], "mod-1")
@@ -177,6 +236,7 @@ class ReplayHTTPTests(unittest.TestCase):
                 with urlopen(base, timeout=2) as response:
                     dashboard = response.read().decode("utf-8")
                     self.assertIn("Speedrun.com moderator", dashboard)
+                    self.assertIn("Ghost mode", dashboard)
                     self.assertIn('id="players"', dashboard)
                     self.assertIn("assignPlayer", dashboard)
                 with urlopen(f"{base}/api/state", timeout=2) as response:
@@ -188,6 +248,17 @@ class ReplayHTTPTests(unittest.TestCase):
                 )
                 with urlopen(request, timeout=2) as response:
                     replay_id = json.load(response)["id"]
+                selection = Request(
+                    f"{base}/api/replay-selection",
+                    data=json.dumps({
+                        "category": "wascity-bbush-get-to-18",
+                        "player_id": "player-0123456789abcdef",
+                    }).encode("utf-8"),
+                    method="POST",
+                    headers={"Content-Type": "application/json"},
+                )
+                with urlopen(selection, timeout=2) as response:
+                    self.assertEqual(json.load(response)["replays"][0]["id"], replay_id)
                 store.configure_moderator("secret")
                 mapping = Request(
                     f"{base}/api/players/player-0123456789abcdef",

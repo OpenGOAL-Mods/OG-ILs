@@ -286,12 +286,6 @@
     (set! (-> *ghost-recording* start-time) (get-real-current-time)))
   (none))
 
-(defun ghost-discard-recording! ()
-  "Abandon any in-progress recording (e.g. on run reset). Keeps the last completed ghost."
-  (set! (-> *ghost-recording* recording?) #f)
-  (set! (-> *ghost-recording* rec-count) 0)
-  (none))
-
 (defun ghost-record-frame! ()
   "Capture one frame of player state. Safe to call every frame; no-ops unless recording."
   (when (and (-> *ghost-recording* recording?)
@@ -326,8 +320,8 @@
     (+! (-> *ghost-recording* rec-count) 1))
   (none))
 
-(defun ghost-write-json! ((samples (inline-array ghost-sample)) (cnt int) (category speedrun-category) (time-seconds float) (new-best? symbol))
-  "Dump one completed recording to a JSON file for external tools."
+(defun ghost-write-json! ((samples (inline-array ghost-sample)) (cnt int) (category speedrun-category) (time-seconds float) (new-best? symbol) (completed? symbol))
+  "Dump a completed or interrupted recording to a JSON file for external tools."
   (let ((cat-name (enum->string speedrun-category category)))
     ;; build the output path
     (format (clear *temp-string*) "ghost/ghost-~S.json" cat-name)
@@ -342,6 +336,7 @@
         (format file "  \"percent_warped\": ~D,~%" (if (= (-> *speedrun-info* percent-warped?) 'major) 1 0))
         (format file "  \"vehicle_name\": \"~S\",~%" (get-override-vehicle-name))
         (format file "  \"is_personal_best\": ~S,~%" (if new-best? "true" "false"))
+        (format file "  \"completed\": ~S,~%" (if completed? "true" "false"))
         (format file "  \"fps\": 60,~%")
         (format file "  \"count\": ~D,~%" cnt)
         (format file "  \"units\": \"meters\",~%")
@@ -369,6 +364,26 @@
         (format 0 "ghost: wrote ~D frames to ~S~%" cnt *temp-string*))))
   (none))
 
+(defun ghost-discard-recording! ()
+  "Publish an interrupted recording as the last attempt, then clear the recorder."
+  (when (and (-> *ghost-recording* recording?)
+             (> (-> *ghost-recording* rec-count) 0))
+    (let* ((category (-> *speedrun-info* category))
+           (count (-> *ghost-recording* rec-count))
+           (time-seconds
+             (* (the float (- (get-real-current-time)
+                              (-> *ghost-recording* start-time)))
+                0.0033333334)))
+      (ghost-write-json! (-> *ghost-recording* rec-samples)
+                         count category time-seconds #f #f)
+      (let ((cat-name (enum->string speedrun-category category)))
+        (format (clear *ghost-json-path*) "ghost/ghost-~S.json" cat-name)
+        (pc-replay-publish *ghost-json-path*))
+      (format 0 "ghost: uploaded unfinished attempt (~D frames)~%" count)))
+  (set! (-> *ghost-recording* recording?) #f)
+  (set! (-> *ghost-recording* rec-count) 0)
+  (none))
+
 (defun ghost-stop-recording! ((time-seconds float) (new-best? symbol))
   "Finish recording and publish a new personal best to the local replay server."
   (when (-> *ghost-recording* recording?)
@@ -378,7 +393,7 @@
             (count (-> *ghost-recording* rec-count)))
         ;; Every completed attempt goes to the replay server. Only a PB is eligible
         ;; for Speedrun.com submission and replaces the pinned local PB ghost.
-        (ghost-write-json! (-> *ghost-recording* rec-samples) count category time-seconds new-best?)
+        (ghost-write-json! (-> *ghost-recording* rec-samples) count category time-seconds new-best? #t)
         (let ((cat-name (enum->string speedrun-category category)))
           (format (clear *ghost-json-path*) "ghost/ghost-~S.json" cat-name)
           (pc-replay-publish *ghost-json-path*))
