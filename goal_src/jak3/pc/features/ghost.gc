@@ -114,6 +114,11 @@
 (define *ghost-replay-category* (the-as speedrun-category -1))
 (define *ghost-replay-generation* 0)
 
+;; One-way latch for the current attempt. Mission scripts can briefly put Jak
+;; back into target-grab later, so playback must only wait for the initial
+;; release of player control and never pause again after the race has begun.
+(define *ghost-race-released?* #f)
+
 ;; A five-minute 60 fps replay can exceed 2.5 MiB. Reusing one 4 MiB read
 ;; buffer avoids retaining a second full copy after each replay is decoded.
 (define *ghost-json-buffer* (new 'global 'string #x400000 (the-as string #f)))
@@ -277,8 +282,15 @@
 ;; Recording
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun ghost-control-locked-state? ((state symbol))
+  "States used while a mission owns Jak and player movement is unavailable."
+  (or (= state 'target-grab)
+      (= state 'target-grab-ride)
+      (= state 'target-continue)))
+
 (defun ghost-start-recording! ()
   "Begin a fresh recording for the current speedrun category."
+  (set! *ghost-race-released?* #f)
   (when *ghost-record-enabled?*
     (set! (-> *ghost-recording* rec-count) 0)
     (set! (-> *ghost-recording* recording?) #t)
@@ -293,6 +305,13 @@
              *target*
              (nonzero? (-> *target* skel))
              (< (-> *ghost-recording* rec-count) (-> *ghost-recording* capacity)))
+    ;; Latch the first transition to a player-controlled state. Do not derive
+    ;; this from Jak every playback frame: some mission states reuse
+    ;; target-grab after the start and would otherwise freeze a ghost mid-run.
+    (when (and (not *ghost-race-released?*)
+               (-> *target* next-state)
+               (not (ghost-control-locked-state? (-> *target* next-state name))))
+      (set! *ghost-race-released?* #t))
     (let ((s (-> *ghost-recording* rec-samples (-> *ghost-recording* rec-count)))
           (ctrl (-> *target* control))
           (ch (-> *target* skel root-channel 0)))
@@ -417,12 +436,6 @@
 ;; Playback
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun ghost-control-locked-state? ((state symbol))
-  "States used while a mission owns Jak and player movement is unavailable."
-  (or (= state 'target-grab)
-      (= state 'target-grab-ride)
-      (= state 'target-continue)))
-
 (defstate idle (ghost-player)
   :virtual #t
   :trans
@@ -463,16 +476,13 @@
                   (ja-channel-set! 1)
                   (joint-control-channel-group-eval! (-> self skel root-channel 0) anim num-func-identity))
                 (set! (-> self skel root-channel 0 frame-num) (-> s anim-frame)))))
-          ;; Advance normally, except at a forced mission start. A replay may
-          ;; leave target-grab a few frames before the live Jak does, especially
-          ;; after a variable-length load. Hold it on its final locked sample so
-          ;; no opponent can begin moving before player control is restored.
+          ;; Hold only until the live attempt has crossed its initial control
+          ;; release. The release flag is one-way for this run, so later mission
+          ;; state changes can never pause an already-moving replay.
           (let* ((next-i (if (>= (+ i 1) cnt) 0 (+ i 1)))
-                 (next-state (-> self samples next-i state))
-                 (live-state (if (and *target* (-> *target* next-state))
-                                 (-> *target* next-state name)
-                                 #f)))
-            (when (or (not (ghost-control-locked-state? live-state))
+                 (next-state (-> self samples next-i state)))
+            (when (or (not (-> *ghost-recording* recording?))
+                      *ghost-race-released?*
                       (ghost-control-locked-state? next-state))
               (set! (-> self idx) next-i)))))
       (ja-post)
@@ -533,11 +543,9 @@
     (set! (-> self idx)
           (min (-> *ghost-recording* rec-count) (- (-> self frames) 1)))
     ;; A late download may initially synchronize beyond the replay's release
-    ;; frame while the live Jak is still locked. Rewind to the replay's final
-    ;; locked frame; normal playback resumes as soon as live control returns.
-    (when (and *target*
-               (-> *target* next-state)
-               (ghost-control-locked-state? (-> *target* next-state name))
+    ;; frame while the live attempt is still locked. Rewind to the replay's
+    ;; final locked frame; the one-way release latch resumes it exactly once.
+    (when (and (not *ghost-race-released?*)
                (not (ghost-control-locked-state?
                       (-> self samples (-> self idx) state))))
       (let ((release-idx 0))
