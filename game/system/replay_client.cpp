@@ -20,9 +20,10 @@
 #include "common/util/FileUtil.h"
 #include "common/util/json_util.h"
 
+#include "game/runtime.h"
+
 #include "curl/curl.h"
 #include "fmt/format.h"
-#include "game/runtime.h"
 #include "third-party/imgui/imgui.h"
 
 namespace replay_client {
@@ -97,15 +98,14 @@ ServerConfig server_config_snapshot() {
 
 void save_server_config(const std::string& url, const std::string& game_token) {
   ServerConfig config{normalized_server_url(url), game_token};
-  file_util::write_text_file(
-      server_config_path(), json{{"url", config.url}, {"game_token", config.game_token}}.dump(2));
+  file_util::write_text_file(server_config_path(),
+                             json{{"url", config.url}, {"game_token", config.game_token}}.dump(2));
   std::lock_guard lock(g_server_config_mutex);
   mutable_server_config() = std::move(config);
 }
 
 bool valid_player_id(const std::string& value) {
-  return value.size() == 32 &&
-         std::all_of(value.begin(), value.end(), [](unsigned char character) {
+  return value.size() == 32 && std::all_of(value.begin(), value.end(), [](unsigned char character) {
            return std::isxdigit(character) != 0;
          });
 }
@@ -132,10 +132,10 @@ const std::string& persistent_player_id() {
     try {
       if (fs::exists(path)) {
         auto stored = file_util::read_text_file(path);
-        stored.erase(std::remove_if(stored.begin(), stored.end(), [](unsigned char character) {
-                       return std::isspace(character) != 0;
-                     }),
-                     stored.end());
+        stored.erase(
+            std::remove_if(stored.begin(), stored.end(),
+                           [](unsigned char character) { return std::isspace(character) != 0; }),
+            stored.end());
         if (valid_player_id(stored)) {
           std::transform(stored.begin(), stored.end(), stored.begin(), [](unsigned char character) {
             return static_cast<char>(std::tolower(character));
@@ -226,8 +226,8 @@ HttpResponse request(const std::string& method,
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response.body);
   struct curl_slist* headers = nullptr;
   if (!config.game_token.empty()) {
-    headers = curl_slist_append(
-        headers, fmt::format("Authorization: Bearer {}", config.game_token).c_str());
+    headers = curl_slist_append(headers,
+                                fmt::format("Authorization: Bearer {}", config.game_token).c_str());
   }
   if (method != "GET") {
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
@@ -286,8 +286,8 @@ class Client {
   void refresh() {
     set_status("Refreshing replay server...");
     enqueue([this]() {
-      auto response = request(
-          "GET", fmt::format("/api/state?player_id={}", persistent_player_id()));
+      auto response =
+          request("GET", fmt::format("/api/state?player_id={}", persistent_player_id()));
       if (!response.ok) {
         set_connected(false, response.error);
         return;
@@ -304,8 +304,7 @@ class Client {
         for (const auto& item : parsed->at("replays")) {
           replays.push_back({item.value("id", ""), item.value("display_name", "Unnamed replay"),
                              item.value("category", ""), item.value("src_status", ""),
-                             item.value("src_runner_id", ""),
-                             item.value("completed", true),
+                             item.value("src_runner_id", ""), item.value("completed", true),
                              item.value("time_seconds", 0.f)});
         }
         for (const auto& item : parsed->at("runners")) {
@@ -322,7 +321,8 @@ class Client {
         }
         const auto& settings = parsed->at("settings");
         std::vector<std::string> selected_replays;
-        if (settings.contains("selected_replay_ids") && settings.at("selected_replay_ids").is_array()) {
+        if (settings.contains("selected_replay_ids") &&
+            settings.at("selected_replay_ids").is_array()) {
           for (const auto& replay_id : settings.at("selected_replay_ids")) {
             if (replay_id.is_string()) {
               selected_replays.push_back(replay_id.get<std::string>());
@@ -345,6 +345,11 @@ class Client {
           m_replay_mode = settings.value("replay_mode", "default");
           m_connected = true;
           active_category = m_active_category;
+          if (!active_category.empty()) {
+            m_ready_category.clear();
+            m_ready_replay_ids.clear();
+            m_pending_category = active_category;
+          }
           selection_revision = ++m_selection_revision;
           m_status = active_category.empty()
                          ? fmt::format("Connected - {} replays; select a mission", m_replays.size())
@@ -383,14 +388,23 @@ class Client {
                        {"replay", *replay}};
       auto upload_body = envelope.dump();
       set_status(is_personal_best ? "Uploading new personal-best replay..."
-                                  : completed ? "Uploading completed replay..."
-                                              : "Uploading unfinished attempt...");
-      enqueue([this, upload_body = std::move(upload_body)]() {
+                 : completed      ? "Uploading completed replay..."
+                                  : "Uploading unfinished attempt...");
+      enqueue([this, upload_body = std::move(upload_body), category]() {
         try {
           auto response = request("POST", "/api/replays", upload_body);
           if (!response.ok) {
             set_connected(false, fmt::format("Replay upload failed: {}", response.error));
             return;
+          }
+          {
+            std::lock_guard lock(m_state_mutex);
+            if (m_active_category == category) {
+              m_ready_category.clear();
+              m_ready_replay_ids.clear();
+              m_pending_category.clear();
+              ++m_selection_revision;
+            }
           }
           set_status("Replay uploaded");
           refresh();
@@ -407,13 +421,16 @@ class Client {
     int selection_revision = 0;
     {
       std::lock_guard lock(m_state_mutex);
-      if (m_active_category == category && m_ready_category == category &&
-          m_ready_generation > 0) {
+      if (m_active_category == category && m_ready_category == category && m_ready_generation > 0) {
         return m_ready_generation;
+      }
+      if (m_active_category == category && m_pending_category == category) {
+        return 0;
       }
       m_active_category = category;
       m_ready_category.clear();
       m_ready_replay_ids.clear();
+      m_pending_category = category;
       selection_revision = ++m_selection_revision;
     }
     enqueue([this, category, selection_revision]() {
@@ -429,9 +446,9 @@ class Client {
 
   int mission_replay_count() {
     std::lock_guard lock(m_state_mutex);
-    return static_cast<int>(std::count_if(m_replays.begin(), m_replays.end(), [this](const auto& replay) {
-      return replay.category == m_active_category;
-    }));
+    return static_cast<int>(
+        std::count_if(m_replays.begin(), m_replays.end(),
+                      [this](const auto& replay) { return replay.category == m_active_category; }));
   }
 
   std::string mission_replay_label(int index) {
@@ -449,8 +466,8 @@ class Client {
   bool mission_replay_selected(int index) {
     std::lock_guard lock(m_state_mutex);
     const auto* replay = mission_replay_at_index(index);
-    return replay && std::find(m_selected_replay_ids.begin(), m_selected_replay_ids.end(), replay->id) !=
-                         m_selected_replay_ids.end();
+    return replay && std::find(m_selected_replay_ids.begin(), m_selected_replay_ids.end(),
+                               replay->id) != m_selected_replay_ids.end();
   }
 
   bool toggle_mission_replay(int index) {
@@ -505,6 +522,7 @@ class Client {
       category = m_active_category;
       m_ready_replay_ids.clear();
       m_ready_category.clear();
+      m_pending_category = category;
       selection_revision = ++m_selection_revision;
     }
     enqueue([this, mode_id, category, selection_revision]() {
@@ -512,6 +530,7 @@ class Client {
       auto response = request(
           "PATCH", fmt::format("/api/player-settings/{}", persistent_player_id()), body.dump());
       if (!response.ok) {
+        clear_pending_selection(category, selection_revision);
         set_status(fmt::format("Could not save ghost mode: {}", response.error));
         return;
       }
@@ -543,19 +562,17 @@ class Client {
     int selection_revision = 0;
     {
       std::lock_guard lock(m_state_mutex);
-      const auto selected = std::find(m_selected_replay_ids.begin(), m_selected_replay_ids.end(),
-                                      replay_id);
+      const auto selected =
+          std::find(m_selected_replay_ids.begin(), m_selected_replay_ids.end(), replay_id);
       if (selected != m_selected_replay_ids.end()) {
         m_selected_replay_ids.erase(selected);
       } else {
-        const auto selected_for_mission =
-            std::count_if(m_selected_replay_ids.begin(), m_selected_replay_ids.end(),
-                          [this](const auto& id) {
-                            const auto replay = std::find_if(
-                                m_replays.begin(), m_replays.end(),
-                                [&id](const auto& item) { return item.id == id; });
-                            return replay != m_replays.end() && replay->category == m_active_category;
-                          });
+        const auto selected_for_mission = std::count_if(
+            m_selected_replay_ids.begin(), m_selected_replay_ids.end(), [this](const auto& id) {
+              const auto replay = std::find_if(m_replays.begin(), m_replays.end(),
+                                               [&id](const auto& item) { return item.id == id; });
+              return replay != m_replays.end() && replay->category == m_active_category;
+            });
         if (selected_for_mission >= kMaxSelectedReplays) {
           m_status = fmt::format("Select at most {} replays per mission", kMaxSelectedReplays);
           return;
@@ -568,13 +585,14 @@ class Client {
       selection_revision = ++m_selection_revision;
       m_ready_replay_ids.clear();
       m_ready_category.clear();
+      m_pending_category = category;
     }
-    enqueue([this, selected_replays = std::move(selected_replays), category,
-             selection_revision]() {
+    enqueue([this, selected_replays = std::move(selected_replays), category, selection_revision]() {
       json body = {{"selected_replay_ids", selected_replays}, {"replay_mode", "custom"}};
       auto response = request(
           "PATCH", fmt::format("/api/player-settings/{}", persistent_player_id()), body.dump());
       if (!response.ok) {
+        clear_pending_selection(category, selection_revision);
         set_status(fmt::format("Could not save replay selections: {}", response.error));
         return;
       }
@@ -652,10 +670,10 @@ class Client {
 
     ImGui::Text("Mission: %s", active_category.empty() ? "select one in the Speedrun Menu"
                                                        : active_category.c_str());
-    const auto active_mode = std::find_if(modes.begin(), modes.end(), [&](const auto& mode) {
-      return mode.id == replay_mode;
-    });
-    const char* mode_preview = active_mode == modes.end() ? "Unknown mode" : active_mode->label.c_str();
+    const auto active_mode = std::find_if(modes.begin(), modes.end(),
+                                          [&](const auto& mode) { return mode.id == replay_mode; });
+    const char* mode_preview =
+        active_mode == modes.end() ? "Unknown mode" : active_mode->label.c_str();
     if (ImGui::BeginCombo("Ghost mode", mode_preview)) {
       for (size_t index = 0; index < modes.size(); ++index) {
         if (ImGui::Selectable(modes.at(index).label.c_str(), modes.at(index).id == replay_mode)) {
@@ -668,7 +686,7 @@ class Client {
       ImGui::TextWrapped("%s", active_mode->description.c_str());
     }
     ImGui::TextUnformatted(replay_mode == "custom" ? "Race against (click to toggle):"
-                                                    : "Available mission replays:");
+                                                   : "Available mission replays:");
     int mission_replay_count = 0;
     if (ImGui::BeginChild("Mission replays", ImVec2(0.f, 180.f), true)) {
       for (const auto& replay : replays) {
@@ -680,21 +698,22 @@ class Client {
                                         replay.id) != selected_replays.end();
         auto runner_name = replay.display_name;
         if (!replay.src_runner_id.empty()) {
-          const auto runner = std::find_if(
-              runners.begin(), runners.end(),
-              [&replay](const auto& item) { return item.id == replay.src_runner_id; });
+          const auto runner =
+              std::find_if(runners.begin(), runners.end(),
+                           [&replay](const auto& item) { return item.id == replay.src_runner_id; });
           if (runner != runners.end()) {
             runner_name = runner->display_name;
           }
         }
-        const auto label = replay.completed
-                               ? fmt::format("{}  ({:.3f}s)##{}", runner_name,
-                                             replay.time_seconds, replay.id)
-                               : fmt::format("{}  ({:.3f}s, unfinished)##{}", runner_name,
-                                             replay.time_seconds, replay.id);
+        const auto label =
+            replay.completed
+                ? fmt::format("{}  ({:.3f}s)##{}", runner_name, replay.time_seconds, replay.id)
+                : fmt::format("{}  ({:.3f}s, unfinished)##{}", runner_name, replay.time_seconds,
+                              replay.id);
         ImGui::PushStyleColor(ImGuiCol_Text, selected ? ImVec4(0.25f, 1.f, 0.35f, 1.f)
-                                                     : ImVec4(1.f, 0.25f, 0.25f, 1.f));
-        if (ImGui::Selectable(label.c_str(), selected, replay_mode != "custom" ? ImGuiSelectableFlags_Disabled : 0)) {
+                                                      : ImVec4(1.f, 0.25f, 0.25f, 1.f));
+        if (ImGui::Selectable(label.c_str(), selected,
+                              replay_mode != "custom" ? ImGuiSelectableFlags_Disabled : 0)) {
           toggle_replay(replay.id);
         }
         ImGui::PopStyleColor();
@@ -755,63 +774,68 @@ class Client {
     }
   }
 
-  void resolve_and_download(const std::string& category,
-                            bool announce,
-                            int selection_revision) {
+  void resolve_and_download(const std::string& category, bool announce, int selection_revision) {
     if (category.empty()) {
       return;
     }
     json body = {{"category", category}, {"player_id", persistent_player_id()}};
     auto response = request("POST", "/api/replay-selection", body.dump());
     if (!response.ok) {
+      clear_pending_selection(category, selection_revision);
       set_status(fmt::format("Could not resolve ghost mode: {}", response.error));
       return;
     }
     const auto parsed = safe_parse_json(response.body);
     if (!parsed || !parsed->contains("replays") || !parsed->at("replays").is_array()) {
+      clear_pending_selection(category, selection_revision);
       set_status("Replay server returned an invalid ghost selection");
       return;
     }
-    std::vector<std::string> replay_ids;
-    for (const auto& replay : parsed->at("replays")) {
-      const auto replay_id = replay.value("id", "");
-      if (!replay_id.empty()) {
-        replay_ids.push_back(replay_id);
+    std::vector<ReplayInfo> selected;
+    for (const auto& item : parsed->at("replays")) {
+      const auto replay_id = item.value("id", "");
+      if (!replay_id.empty() && item.value("category", "") == category &&
+          selected.size() < static_cast<size_t>(kMaxSelectedReplays)) {
+        selected.push_back({replay_id, item.value("display_name", "Unnamed replay"),
+                            item.value("category", ""), item.value("src_status", ""),
+                            item.value("src_runner_id", ""), item.value("completed", true),
+                            item.value("time_seconds", 0.f)});
       }
     }
-    download_selected_pack(replay_ids, category, announce, selection_revision);
+    {
+      std::lock_guard lock(m_state_mutex);
+      for (const auto& replay : selected) {
+        const auto found = std::find_if(m_replays.begin(), m_replays.end(),
+                                        [&](const auto& item) { return item.id == replay.id; });
+        if (found == m_replays.end()) {
+          m_replays.push_back(replay);
+        } else {
+          *found = replay;
+        }
+      }
+    }
+    download_selected_pack(selected, category, announce, selection_revision);
   }
 
-  void download_selected_pack(const std::vector<std::string>& replay_ids,
+  void download_selected_pack(const std::vector<ReplayInfo>& selected,
                               const std::string& category,
                               bool announce,
                               int selection_revision) {
     if (category.empty()) {
       return;
     }
-    std::vector<ReplayInfo> selected;
-    {
-      std::lock_guard lock(m_state_mutex);
-      for (const auto& replay_id : replay_ids) {
-        const auto found = std::find_if(
-            m_replays.begin(), m_replays.end(),
-            [&](const auto& replay) { return replay.id == replay_id; });
-        if (found != m_replays.end() && found->category == category &&
-            selected.size() < kMaxSelectedReplays) {
-          selected.push_back(*found);
-        }
-      }
-    }
     if (announce) {
-      set_status(selected.empty() ? "Replay opponents disabled"
-                                  : fmt::format("Downloading {} selected replays...", selected.size()));
+      set_status(selected.empty()
+                     ? "Replay opponents disabled"
+                     : fmt::format("Downloading {} selected replays...", selected.size()));
     }
     try {
       file_util::create_dir_if_needed("ghost");
       for (size_t index = 0; index < selected.size(); ++index) {
-        auto response = request(
-            "GET", fmt::format("/api/replays/{}/download", selected.at(index).id));
+        auto response =
+            request("GET", fmt::format("/api/replays/{}/download", selected.at(index).id));
         if (!response.ok) {
+          clear_pending_selection(category, selection_revision);
           set_status(fmt::format("Could not download {}: {}", selected.at(index).display_name,
                                  response.error));
           return;
@@ -823,6 +847,7 @@ class Client {
       if (selection_revision != m_selection_revision || category != m_active_category) {
         return;
       }
+      m_pending_category.clear();
       m_ready_replay_ids.clear();
       for (const auto& replay : selected) {
         m_ready_replay_ids.push_back(replay.id);
@@ -837,7 +862,15 @@ class Client {
                      : fmt::format("Ready - {} replay{} selected for {}", selected.size(),
                                    selected.size() == 1 ? "" : "s", category);
     } catch (const std::exception& e) {
+      clear_pending_selection(category, selection_revision);
       set_status(fmt::format("Could not save selected replays: {}", e.what()));
+    }
+  }
+
+  void clear_pending_selection(const std::string& category, int selection_revision) {
+    std::lock_guard lock(m_state_mutex);
+    if (selection_revision == m_selection_revision && m_pending_category == category) {
+      m_pending_category.clear();
     }
   }
 
@@ -870,6 +903,7 @@ class Client {
   std::string m_replay_mode = "default";
   std::string m_active_category;
   std::string m_ready_category;
+  std::string m_pending_category;
   std::string m_status = "Replay server has not been contacted";
   int m_ready_generation = 0;
   int m_selection_revision = 0;

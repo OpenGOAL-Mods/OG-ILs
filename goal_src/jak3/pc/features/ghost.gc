@@ -509,15 +509,21 @@
        0.0
        (* (the float (- (/ clone-idx 11) 1)) *ghost-playback-spacing*)
        0.0)))
+  ;; If the server finished downloading after the run began, jump to the
+  ;; corresponding recorded frame instead of starting the opponent late.
+  (when (and (-> *ghost-recording* recording?)
+             (> (-> self frames) 0))
+    (set! (-> self idx)
+          (min (-> *ghost-recording* rec-count) (- (-> self frames) 1))))
   (set! (-> self root) (new 'process 'trsqv))
   ;; a fresh trsqv has scale 0 - without this the whole model collapses to a point!
   (vector-identity! (-> self root scale))
   (quaternion-identity! (-> self root quat))
   ;; associate with the level jak is in so art loading/drawing works
   (set! (-> self level) (level-get-target-inside *level*))
-  ;; start at the first recorded sample
+  ;; Start at frame zero, or at the synchronized frame for a late download.
   (when (> (-> self frames) 0)
-    (let ((s (-> self samples 0)))
+    (let ((s (-> self samples (-> self idx))))
       (vector-copy! (-> self root trans) (-> s pos))
       (+! (-> self root trans x) (-> self offset x))
       (+! (-> self root trans z) (-> self offset z))
@@ -565,7 +571,7 @@
   (ghost-stop-playback)
   (let ((available (if (> *ghost-replay-count* 0)
                        *ghost-replay-count*
-                       GHOST_MAX_PLAYERS))
+                       (if (-> *ghost-recording* have-ghost?) 1 0)))
         (want 0)
         (spawned 0))
     (set! want (max 1 (min available (min GHOST_MAX_PLAYERS *ghost-playback-count*))))
@@ -573,6 +579,30 @@
       (when (process-spawn ghost-player i :from *ghost-dead-pool* :to *pc-pool*)
         (+! spawned 1)))
     (format 0 "ghost: spawned ~D/~D independent replay players~%" spawned want))
+  (none))
+
+(defun ghost-await-server-pack! ((category speedrun-category))
+  "Attach a replay that is still downloading when the IL begins."
+  (kill-by-name "ghost-server-wait" *active-pool*)
+  (process-spawn-function process :name "ghost-server-wait"
+    (lambda :behavior process ()
+      (stack-size-set! (-> self main-thread) 1024)
+      (let ((generation 0))
+        (while (and (= generation 0)
+                    (-> *ghost-recording* recording?)
+                    (= (-> *speedrun-info* category) category))
+          (set! generation
+                (pc-replay-prepare-selected
+                  (enum->string speedrun-category category)))
+          (when (= generation 0)
+            (suspend)))
+        (when (and (> generation 0)
+                   (-> *ghost-recording* recording?)
+                   (= (-> *speedrun-info* category) category)
+                   (> (pc-replay-selected-count) 0))
+          (ghost-load-json-pack! category)
+          (when (> *ghost-replay-count* 0)
+            (ghost-spawn-playback!))))))
   (none))
 
 (defun ghost-clear-replay! ()
@@ -603,13 +633,18 @@
 (defun ghost-on-run-start! ()
   "Called when an IL run begins: replay the pinned ghost (same category),
    then start recording the new attempt."
-  (when *target*
-    (ghost-load-json-pack! (-> *speedrun-info* category))
-    ;; Prefer an imported pack; otherwise use a pinned replay from this mission.
-    (when (or (> *ghost-replay-count* 0)
-              (and (-> *ghost-recording* have-ghost?)
-                   (= (-> *ghost-recording* category) (-> *speedrun-info* category))))
-      (ghost-spawn-playback!)))
-  ;; begin recording the new attempt (into the other buffer)
+  ;; Start counting immediately so a server replay that finishes downloading a
+  ;; few frames later can begin at the matching point in the current attempt.
   (ghost-start-recording!)
+  (when *target*
+    (let ((category (-> *speedrun-info* category)))
+      (ghost-load-json-pack! category)
+      (cond
+        ((> *ghost-replay-count* 0)
+         (ghost-spawn-playback!))
+        ((and (-> *ghost-recording* have-ghost?)
+              (= (-> *ghost-recording* category) category))
+         (ghost-spawn-playback!))
+        (else
+         (ghost-await-server-pack! category)))))
   (none))
