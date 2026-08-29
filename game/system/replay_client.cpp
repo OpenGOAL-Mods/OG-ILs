@@ -270,6 +270,11 @@ class Client {
     const auto config = server_config_snapshot();
     std::strncpy(m_server_url.data(), config.url.c_str(), m_server_url.size() - 1);
     std::strncpy(m_game_token.data(), config.game_token.c_str(), m_game_token.size() - 1);
+    try {
+      file_util::create_dir_if_needed("ghost");
+    } catch (const std::exception& error) {
+      lg::warn("Could not create replay directory: {}", error.what());
+    }
     m_worker = std::thread([this]() { worker_loop(); });
   }
 
@@ -780,7 +785,17 @@ class Client {
         job = std::move(m_jobs.front());
         m_jobs.pop();
       }
-      job();
+      try {
+        job();
+      } catch (const std::exception& error) {
+        const auto status = fmt::format("Replay background job failed: {}", error.what());
+        lg::error("{}", status);
+        set_connected(false, status);
+      } catch (...) {
+        constexpr auto* status = "Replay background job failed with an unknown exception";
+        lg::error("{}", status);
+        set_connected(false, status);
+      }
     }
   }
 

@@ -449,6 +449,9 @@ u64 pc_replay_publish(u32 replay_path_ptr) {
   } catch (const std::exception& e) {
     lg::error("Could not publish completed replay: {}", e.what());
     return bool_to_symbol(false);
+  } catch (...) {
+    lg::error("Could not publish completed replay: unknown exception");
+    return bool_to_symbol(false);
   }
 }
 

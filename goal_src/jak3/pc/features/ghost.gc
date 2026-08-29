@@ -292,6 +292,9 @@
   "Begin a fresh recording for the current speedrun category."
   (set! *ghost-race-released?* #f)
   (when *ghost-record-enabled?*
+    ;; Release archives may not contain an empty ghost directory. Ensure it
+    ;; exists before the first completed or unfinished replay is written.
+    (pc-mkdir-file-path "ghost/replay.json")
     (set! (-> *ghost-recording* rec-count) 0)
     (set! (-> *ghost-recording* recording?) #t)
     (set! (-> *ghost-recording* last-anim) (the-as art-joint-anim #f))
@@ -414,9 +417,6 @@
         ;; Every completed attempt goes to the replay server. Only a PB is eligible
         ;; for Speedrun.com submission and replaces the pinned local PB ghost.
         (ghost-write-json! (-> *ghost-recording* rec-samples) count category time-seconds new-best? #t)
-        (let ((cat-name (enum->string speedrun-category category)))
-          (format (clear *ghost-json-path*) "ghost/ghost-~S.json" cat-name)
-          (pc-replay-publish *ghost-json-path*))
         (cond
           (new-best?
          ;; Playback processes may still reference play-samples. Remove them before
@@ -429,7 +429,12 @@
            (set! (-> *ghost-recording* category) category)
            (set! (-> *ghost-recording* have-ghost?) #t))
           (else
-           (format 0 "ghost: uploaded completed attempt; not a new personal best~%"))))))
+           (format 0 "ghost: uploaded completed attempt; not a new personal best~%")))
+        ;; Keep the native call last. Carrying GOAL locals across this boundary
+        ;; made the retail PB-finalization path sensitive to native stack layout.
+        (let ((cat-name (enum->string speedrun-category category)))
+          (format (clear *ghost-json-path*) "ghost/ghost-~S.json" cat-name)
+          (pc-replay-publish *ghost-json-path*)))))
   (none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
