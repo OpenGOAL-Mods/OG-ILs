@@ -13,6 +13,9 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      replayGameToken:
+        required: false
 
 jobs:
   build:
@@ -64,7 +67,9 @@ jobs:
 
       - name: CMake Generation
         shell: cmd
-        run: cmake -B build --preset=${{ inputs.cmakePreset }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache .
+        env:
+          REPLAY_GAME_TOKEN: ${{ secrets.replayGameToken }}
+        run: cmake -B build --preset=${{ inputs.cmakePreset }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DOPENGOAL_REPLAY_DEFAULT_GAME_TOKEN="%REPLAY_GAME_TOKEN%" .
 
       - name: Build Project
         shell: cmd

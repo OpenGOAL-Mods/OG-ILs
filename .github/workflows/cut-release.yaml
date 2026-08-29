@@ -12,15 +12,6 @@ on:
           - patch
           - minor
           - major
-      binary_source:
-        description: 'Binary Source'
-        required: true
-        default: 'build_binaries'
-        type: choice
-        options:
-          - vanilla
-          - modbase
-          - build_binaries
       jak1:
         description: 'Supports Jak 1?'
         required: true
@@ -63,9 +54,7 @@ jobs:
           if [[ ${{ inputs.jakx }} == "true" ]]; then GAMES+=jakx,; fi
           GAMES=${GAMES%?}
           echo "GAMES=$GAMES" >> $GITHUB_OUTPUT
-          REPO=OpenGOAL-Mods/OG-Mod-Base
-          if [[ ${{ inputs.binary_source == 'vanilla' }} ]]; then REPO=open-goal/jak-project; fi
-          echo "REPO=$REPO" >> $GITHUB_OUTPUT
+          echo "REPO=OpenGOAL-Mods/OG-Mod-Base" >> $GITHUB_OUTPUT
 
   cut_mod_release:
     name: "Cut Mod Release"
@@ -74,7 +63,9 @@ jobs:
     with:
       semverBump: ${{ inputs.bump }}
       metadataSupportedGames: ${{ needs.prep_vars.outputs.supported_games }}
-      buildBinaries: ${{ inputs.binary_source == 'build_binaries'}}
+      releaseBranches: "main,codex/sparkedhost-release"
+      buildBinaries: true
       toolingRepo: ${{ needs.prep_vars.outputs.tooling_repo }}
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
+      replayGameToken: ${{ secrets.REPLAY_GAME_TOKEN }}

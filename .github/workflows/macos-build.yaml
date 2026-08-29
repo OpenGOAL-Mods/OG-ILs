@@ -13,6 +13,9 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      replayGameToken:
+        required: false
 
 jobs:
   build:
@@ -59,10 +62,12 @@ jobs:
         env:
           CC: clang
           CXX: clang++
+          REPLAY_GAME_TOKEN: ${{ secrets.replayGameToken }}
         run: |
           cmake -B build --preset=${{ inputs.cmakePreset }} \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache \
+            -DOPENGOAL_REPLAY_DEFAULT_GAME_TOKEN="$REPLAY_GAME_TOKEN"
 
       - name: Build Project
         run: cmake --build build --parallel $((`sysctl -n hw.logicalcpu`))

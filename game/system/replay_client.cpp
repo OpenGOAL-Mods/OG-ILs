@@ -29,12 +29,21 @@
 namespace replay_client {
 namespace {
 
-constexpr const char* kDefaultServerUrl = "http://127.0.0.1:7878";
+#ifndef OPENGOAL_REPLAY_DEFAULT_URL
+#define OPENGOAL_REPLAY_DEFAULT_URL "https://opengoal-replays.sparked.network"
+#endif
+
+#ifndef OPENGOAL_REPLAY_DEFAULT_GAME_TOKEN
+#define OPENGOAL_REPLAY_DEFAULT_GAME_TOKEN ""
+#endif
+
+constexpr const char* kDefaultServerUrl = OPENGOAL_REPLAY_DEFAULT_URL;
+constexpr const char* kDefaultGameToken = OPENGOAL_REPLAY_DEFAULT_GAME_TOKEN;
 constexpr int kMaxSelectedReplays = 33;
 
 struct ServerConfig {
   std::string url = kDefaultServerUrl;
-  std::string game_token;
+  std::string game_token = kDefaultGameToken;
 };
 
 std::mutex g_server_config_mutex;
@@ -66,7 +75,7 @@ ServerConfig load_server_config() {
     if (fs::exists(path)) {
       if (const auto parsed = safe_parse_json(file_util::read_text_file(path))) {
         config.url = parsed->value("url", config.url);
-        config.game_token = parsed->value("game_token", "");
+        config.game_token = parsed->value("game_token", config.game_token);
       }
     }
   } catch (const std::exception& error) {
@@ -663,8 +672,9 @@ class Client {
         }
       }
       ImGui::TextWrapped(
-          "Use the public SparkedHost URL and the game token supplied by the server admin. "
-          "The admin token is never entered in-game.");
+          "Release builds connect to the public SparkedHost replay server automatically. "
+          "These fields are only needed to override that connection. The admin token is never "
+          "entered in-game.");
       ImGui::Separator();
     }
 

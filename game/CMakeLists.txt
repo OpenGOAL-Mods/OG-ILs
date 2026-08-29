@@ -354,6 +354,16 @@ add_subdirectory(sound)
 # we build the runtime as a static library.
 add_library(runtime STATIC ${RUNTIME_SOURCE} "../third-party/glad/src/glad.c")
 
+set(OPENGOAL_REPLAY_DEFAULT_URL
+    "https://opengoal-replays.sparked.network"
+    CACHE STRING "Default replay server URL embedded in the game runtime")
+set(OPENGOAL_REPLAY_DEFAULT_GAME_TOKEN
+    ""
+    CACHE STRING "Low-privilege replay game token embedded in release builds")
+target_compile_definitions(runtime PRIVATE
+    OPENGOAL_REPLAY_DEFAULT_URL="${OPENGOAL_REPLAY_DEFAULT_URL}"
+    OPENGOAL_REPLAY_DEFAULT_GAME_TOKEN="${OPENGOAL_REPLAY_DEFAULT_GAME_TOKEN}")
+
 target_link_libraries(runtime common fmt SDL3::SDL3 imgui discord-rpc sound stb_image libco libcurl)
 if(WIN32)
     target_link_libraries(runtime mman)
