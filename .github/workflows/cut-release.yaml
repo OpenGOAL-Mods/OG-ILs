@@ -65,6 +65,7 @@ jobs:
       metadataSupportedGames: ${{ needs.prep_vars.outputs.supported_games }}
       releaseBranches: "main,codex/sparkedhost-release"
       buildBinaries: true
+      skipMacOS: true
       toolingRepo: ${{ needs.prep_vars.outputs.tooling_repo }}
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
