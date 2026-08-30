@@ -376,59 +376,67 @@ class Client {
     });
   }
 
-  void publish(const std::string& replay_path,
-               const std::string& category,
-               float time_seconds,
-               const std::string& src_level_id,
-               const std::string& src_category_id,
-               const std::string& vehicle_name,
-               bool is_personal_best,
-               bool completed) {
-    try {
-      // Snapshot the file before queuing the upload. A later PB may reuse the same path.
-      const auto replay = safe_parse_json(file_util::read_text_file(replay_path));
-      if (!replay) {
-        set_status("Could not parse the recorded replay JSON");
-        return;
-      }
-      json envelope = {{"category", category},
-                       {"player_id", persistent_player_id()},
-                       {"time_seconds", time_seconds},
-                       {"src_level_id", src_level_id},
-                       {"src_category_id", src_category_id},
-                       {"src_variable_labels", {{"Wasteland Vehicle", vehicle_name}}},
-                       {"is_personal_best", is_personal_best},
-                       {"completed", completed},
-                       {"replay", *replay}};
-      auto upload_body = envelope.dump();
-      set_status(is_personal_best ? "Uploading new personal-best replay..."
-                 : completed      ? "Uploading completed replay..."
-                                  : "Uploading unfinished attempt...");
-      enqueue([this, upload_body = std::move(upload_body), category]() {
-        try {
-          auto response = request("POST", "/api/replays", upload_body);
-          if (!response.ok) {
-            set_connected(false, fmt::format("Replay upload failed: {}", response.error));
-            return;
-          }
-          {
-            std::lock_guard lock(m_state_mutex);
-            if (m_active_category == category) {
-              m_ready_category.clear();
-              m_ready_replay_ids.clear();
-              m_pending_category.clear();
-              ++m_selection_revision;
-            }
-          }
-          set_status("Replay uploaded");
-          refresh();
-        } catch (const std::exception& e) {
-          set_status(fmt::format("Replay upload failed: {}", e.what()));
+  void publish(const std::string& replay_path, ReplayLevelResolver level_resolver) {
+    // The GOAL caller can be running on a small process stack during mission
+    // finalization. Keep this bridge deliberately tiny and do every file/JSON
+    // operation on the native worker thread.
+    set_status("Preparing recorded replay for upload...");
+    enqueue([this, replay_path, level_resolver = std::move(level_resolver)]() {
+      try {
+        const auto replay = safe_parse_json(file_util::read_text_file(replay_path));
+        if (!replay || !replay->is_object()) {
+          set_status("Could not parse the recorded replay JSON");
+          return;
         }
-      });
-    } catch (const std::exception& e) {
-      set_status(fmt::format("Could not read the recorded replay: {}", e.what()));
-    }
+
+        const auto category = replay->value("category", "");
+        const auto src_level_id = level_resolver(category);
+        if (!src_level_id) {
+          set_status(fmt::format("No Speedrun.com mission mapping for {}", category));
+          return;
+        }
+        const auto time_seconds = replay->value("time_seconds", 0.f);
+        if (time_seconds <= 0.f) {
+          set_status("Recorded replay has an invalid completion time");
+          return;
+        }
+        const auto is_personal_best = replay->value("is_personal_best", false);
+        const auto completed = replay->value("completed", true);
+        const auto src_category_id =
+            replay->value("percent_warped", 0) == 0 ? "rkl7n8qd" : "7dgw7742";
+        const auto vehicle_name = replay->value("vehicle_name", "N/A");
+        json envelope = {{"category", category},
+                         {"player_id", persistent_player_id()},
+                         {"time_seconds", time_seconds},
+                         {"src_level_id", *src_level_id},
+                         {"src_category_id", src_category_id},
+                         {"src_variable_labels", {{"Wasteland Vehicle", vehicle_name}}},
+                         {"is_personal_best", is_personal_best},
+                         {"completed", completed},
+                         {"replay", *replay}};
+        set_status(is_personal_best ? "Uploading new personal-best replay..."
+                   : completed      ? "Uploading completed replay..."
+                                    : "Uploading unfinished attempt...");
+        auto response = request("POST", "/api/replays", envelope.dump());
+        if (!response.ok) {
+          set_connected(false, fmt::format("Replay upload failed: {}", response.error));
+          return;
+        }
+        {
+          std::lock_guard lock(m_state_mutex);
+          if (m_active_category == category) {
+            m_ready_category.clear();
+            m_ready_replay_ids.clear();
+            m_pending_category.clear();
+            ++m_selection_revision;
+          }
+        }
+        set_status("Replay uploaded");
+        refresh();
+      } catch (const std::exception& e) {
+        set_status(fmt::format("Replay upload failed: {}", e.what()));
+      }
+    });
   }
 
   int prepare_selected(const std::string& category) {
@@ -947,16 +955,8 @@ void refresh() {
   client().refresh();
 }
 
-void publish(const std::string& replay_path,
-             const std::string& category,
-             float time_seconds,
-             const std::string& src_level_id,
-             const std::string& src_category_id,
-             const std::string& vehicle_name,
-             bool is_personal_best,
-             bool completed) {
-  client().publish(replay_path, category, time_seconds, src_level_id, src_category_id, vehicle_name,
-                   is_personal_best, completed);
+void publish(const std::string& replay_path, ReplayLevelResolver level_resolver) {
+  client().publish(replay_path, std::move(level_resolver));
 }
 
 int prepare_selected(const std::string& category) {

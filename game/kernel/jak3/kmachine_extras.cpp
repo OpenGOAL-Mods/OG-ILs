@@ -423,28 +423,13 @@ const std::unordered_map<std::string, std::string> mission_level_ids = {
 
 u64 pc_replay_publish(u32 replay_path_ptr) {
   try {
-    const auto replay_path = std::string(Ptr<String>(replay_path_ptr).c()->data());
-    const auto replay = safe_parse_json(file_util::read_text_file(replay_path));
-    if (!replay || !replay->is_object()) {
-      lg::error("Replay '{}' could not be parsed for publishing", replay_path);
-      return bool_to_symbol(false);
-    }
-    const auto category = replay->value("category", "");
-    const auto level = mission_level_ids.find(category);
-    if (level == mission_level_ids.end()) {
-      lg::error("No Speedrun.com mission mapping for replay category '{}'", category);
-      return bool_to_symbol(false);
-    }
-    const auto time_seconds = replay->value("time_seconds", 0.f);
-    if (time_seconds <= 0.f) {
-      lg::error("Replay '{}' has an invalid completion time", replay_path);
-      return bool_to_symbol(false);
-    }
-    replay_client::publish(replay_path, category, time_seconds, level->second,
-                           replay->value("percent_warped", 0) == 0 ? "rkl7n8qd" : "7dgw7742",
-                           replay->value("vehicle_name", "N/A"),
-                           replay->value("is_personal_best", false),
-                           replay->value("completed", true));
+    const auto replay_path =
+        file_util::get_file_path({std::string(Ptr<String>(replay_path_ptr).c()->data())});
+    replay_client::publish(replay_path, [](const std::string& category) {
+      const auto level = mission_level_ids.find(category);
+      return level == mission_level_ids.end() ? std::optional<std::string>{}
+                                              : std::optional<std::string>{level->second};
+    });
     return bool_to_symbol(true);
   } catch (const std::exception& e) {
     lg::error("Could not publish completed replay: {}", e.what());

@@ -1,18 +1,16 @@
 #pragma once
 
+#include <functional>
+#include <optional>
 #include <string>
 
 namespace replay_client {
 
+using ReplayLevelResolver =
+    std::function<std::optional<std::string>(const std::string& category)>;
+
 void refresh();
-void publish(const std::string& replay_path,
-             const std::string& category,
-             float time_seconds,
-             const std::string& src_level_id,
-             const std::string& src_category_id,
-             const std::string& vehicle_name,
-             bool is_personal_best,
-             bool completed);
+void publish(const std::string& replay_path, ReplayLevelResolver level_resolver);
 int prepare_selected(const std::string& category);
 int selected_count();
 int mission_replay_count();

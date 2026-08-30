@@ -387,6 +387,18 @@
         (format 0 "ghost: wrote ~D frames to ~S~%" cnt *temp-string*))))
   (none))
 
+(defun ghost-publish-recording! ((category speedrun-category))
+  "Publish after the mission-completion call stack has returned to the scheduler."
+  (process-spawn-function process :to *pc-pool* :name "ghost-replay-publish"
+    (lambda :behavior process ((category speedrun-category))
+      (stack-size-set! (-> self main-thread) 1024)
+      (suspend)
+      (let ((cat-name (enum->string speedrun-category category)))
+        (format (clear *ghost-json-path*) "ghost/ghost-~S.json" cat-name)
+        (pc-replay-publish *ghost-json-path*)))
+    category)
+  (none))
+
 (defun ghost-discard-recording! ()
   "Publish an interrupted recording as the last attempt, then clear the recorder."
   (when (and (-> *ghost-recording* recording?)
@@ -399,9 +411,7 @@
                 0.0033333334)))
       (ghost-write-json! (-> *ghost-recording* rec-samples)
                          count category time-seconds #f #f)
-      (let ((cat-name (enum->string speedrun-category category)))
-        (format (clear *ghost-json-path*) "ghost/ghost-~S.json" cat-name)
-        (pc-replay-publish *ghost-json-path*))
+      (ghost-publish-recording! category)
       (format 0 "ghost: uploaded unfinished attempt (~D frames)~%" count)))
   (set! (-> *ghost-recording* recording?) #f)
   (set! (-> *ghost-recording* rec-count) 0)
@@ -430,11 +440,10 @@
            (set! (-> *ghost-recording* have-ghost?) #t))
           (else
            (format 0 "ghost: uploaded completed attempt; not a new personal best~%")))
-        ;; Keep the native call last. Carrying GOAL locals across this boundary
-        ;; made the retail PB-finalization path sensitive to native stack layout.
-        (let ((cat-name (enum->string speedrun-category category)))
-          (format (clear *ghost-json-path*) "ghost/ghost-~S.json" cat-name)
-          (pc-replay-publish *ghost-json-path*)))))
+        ;; Mission completion runs inside speedrun-timer.stop!. Defer the native
+        ;; JSON/network bridge until that call stack has unwound; release builds
+        ;; otherwise terminate at the bridge before the upload job is queued.
+        (ghost-publish-recording! category))))
   (none))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
