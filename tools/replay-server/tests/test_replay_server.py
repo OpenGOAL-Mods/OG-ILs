@@ -1,4 +1,5 @@
 import json
+import base64
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import threading
@@ -293,6 +294,8 @@ class ReplayHTTPTests(unittest.TestCase):
                     self.assertIn("Speedrun.com moderator", dashboard)
                     self.assertIn("Ghost mode", dashboard)
                     self.assertIn("Replay Server Admin", dashboard)
+                    self.assertIn('name="username"', dashboard)
+                    self.assertIn('name="password"', dashboard)
                     self.assertIn('id="players"', dashboard)
                     self.assertIn("assignPlayer", dashboard)
                 with urlopen(f"{base}/api/state", timeout=2) as response:
@@ -339,6 +342,8 @@ class ReplayHTTPTests(unittest.TestCase):
                 store,
                 game_token="game-secret",
                 admin_token="admin-secret",
+                admin_username="user",
+                admin_password="pass",
             )
             worker = threading.Thread(target=server.serve_forever, daemon=True)
             worker.start()
@@ -384,9 +389,37 @@ class ReplayHTTPTests(unittest.TestCase):
                 self.assertEqual(forbidden_game_token.exception.code, 401)
                 forbidden_game_token.exception.close()
 
-                admin_settings.add_header("Authorization", "Bearer admin-secret")
+                credentials = base64.b64encode(b"user:pass").decode("ascii")
+                admin_settings.add_header("Authorization", f"Basic {credentials}")
                 with urlopen(admin_settings, timeout=2) as response:
                     self.assertFalse(json.load(response)["auto_submit"])
+
+                legacy_admin = Request(
+                    f"{base}/api/settings",
+                    data=json.dumps({"auto_submit": True}).encode("utf-8"),
+                    method="PATCH",
+                    headers={
+                        "Authorization": "Bearer admin-secret",
+                        "Content-Type": "application/json",
+                    },
+                )
+                with urlopen(legacy_admin, timeout=2) as response:
+                    self.assertTrue(json.load(response)["auto_submit"])
+
+                wrong_credentials = base64.b64encode(b"user:wrong").decode("ascii")
+                bad_admin_settings = Request(
+                    f"{base}/api/settings",
+                    data=json.dumps({"auto_submit": True}).encode("utf-8"),
+                    method="PATCH",
+                    headers={
+                        "Authorization": f"Basic {wrong_credentials}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                with self.assertRaises(HTTPError) as wrong_login:
+                    urlopen(bad_admin_settings, timeout=2)
+                self.assertEqual(wrong_login.exception.code, 401)
+                wrong_login.exception.close()
             finally:
                 server.shutdown()
                 server.server_close()

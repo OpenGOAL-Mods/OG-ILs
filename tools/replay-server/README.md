@@ -22,7 +22,7 @@ The mode list is supplied by the server with stable IDs, labels, and description
 
 Interrupted attempts are uploaded when the next retry starts. They are never treated as PBs and never submitted to Speedrun.com.
 
-Replay data and the moderator key are stored under `%APPDATA%\OpenGOAL\jak3\replay-server` by default. The API key is never returned to the browser or game. Set `OPENGOAL_REPLAY_DATA` before launch to select a different data directory. Public deployments require separate `REPLAY_GAME_TOKEN` and `REPLAY_ADMIN_TOKEN` secrets. Each installation's ghost mode and custom selections are stored independently under its permanent Player ID.
+Replay data and the moderator key are stored under `%APPDATA%\OpenGOAL\jak3\replay-server` by default. The API key is never returned to the browser or game. Set `OPENGOAL_REPLAY_DATA` before launch to select a different data directory. The dashboard defaults to username `user` and password `pass`; public deployments can override these with `REPLAY_ADMIN_USERNAME` and `REPLAY_ADMIN_PASSWORD`. Game clients continue to use the separate `REPLAY_GAME_TOKEN`. Each installation's ghost mode and custom selections are stored independently under its permanent Player ID.
 
 Run the tests from this folder with:
 

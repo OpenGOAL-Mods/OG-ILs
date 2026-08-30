@@ -18,15 +18,16 @@ REPLAY_HOST=0.0.0.0
 SERVER_PORT=<the assigned primary port>
 OPENGOAL_REPLAY_DATA=/home/container/data
 REPLAY_GAME_TOKEN=<a long random secret shared with game clients>
-REPLAY_ADMIN_TOKEN=<a different long random admin secret>
+REPLAY_ADMIN_USERNAME=user
+REPLAY_ADMIN_PASSWORD=pass
 ```
 
-Both tokens are mandatory when the server listens publicly. Give testers only the game token. Keep the admin token in the SparkedHost panel and the dashboard browser session; never enter it in-game.
+The game token is mandatory when the server listens publicly. Give testers only that token. The dashboard defaults to username `user` and password `pass`; the two admin environment variables make those credentials explicit and allow them to be changed later without editing the server. Never enter the admin password in-game.
 
 ## First validation
 
 1. Open `https://<public-host>/health` and confirm it returns `{"status":"ok"}`.
-2. Open the public host root, enter the admin token, and confirm the dashboard loads.
+2. Open the public host root, sign in as `user` with password `pass`, and confirm the dashboard loads.
 3. In each game, open **Replay Server → Server connection**, enter the public HTTPS URL and game token, then save and refresh.
 4. Upload one replay from each tester. Confirm both permanent Player IDs appear separately in the dashboard.
 5. Map each Player ID to the correct Speedrun.com runner before enabling automatic PB submission.

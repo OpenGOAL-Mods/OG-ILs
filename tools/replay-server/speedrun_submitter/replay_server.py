@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -22,18 +23,18 @@ MAX_BODY = 16 * 1024 * 1024
 
 DASHBOARD_HTML = r"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OpenGOAL Replay Server</title><style>
 :root{color-scheme:dark;--bg:#0b1220;--card:#121d31;--line:#263753;--ink:#e8eef8;--muted:#9cb0ca;--accent:#63d7c8;--bad:#ff8a8a}*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#09101c,#10213b);color:var(--ink);font:15px system-ui,sans-serif}main{max-width:1280px;margin:auto;padding:32px 20px}.top{display:flex;justify-content:space-between;align-items:end;gap:16px}h1{margin:0;font-size:30px}p{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:18px;box-shadow:0 18px 50px #0004}button,input,select{font:inherit;color:var(--ink);background:#0c1728;border:1px solid #38506f;border-radius:8px;padding:8px 10px}button{cursor:pointer;background:#183552}button:hover{border-color:var(--accent)}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-size:12px;text-transform:uppercase}.id{font:12px ui-monospace,monospace;color:var(--muted);overflow-wrap:anywhere}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1;min-width:220px}.status-failed{color:var(--bad)}.status-submitted{color:var(--accent)}a{color:var(--accent)}[hidden]{display:none!important}@media(max-width:760px){table,thead,tbody,tr,th,td{display:block}thead{display:none}td{border:0;padding:4px}.replay,.player{padding:14px 0;border-bottom:1px solid var(--line)}}</style></head><body><main>
-<section class="card" id="login"><h1>Replay Server Admin</h1><p>Enter the admin token configured on this server. It is kept only in this browser tab.</p><form id="login-form" class="row"><input class="grow" name="token" type="password" autocomplete="current-password" placeholder="Admin token"><button>Open dashboard</button><button type="button" id="local-login">Use local server</button></form><p class="status-failed" id="login-status"></p></section>
+<section class="card" id="login"><h1>Replay Server Admin</h1><p>Sign in with the administrator username and password. Your login is kept only in this browser tab.</p><form id="login-form" class="row"><input class="grow" name="username" type="text" autocomplete="username" placeholder="Username" required><input class="grow" name="password" type="password" autocomplete="current-password" placeholder="Password" required><button>Open dashboard</button></form><p class="status-failed" id="login-status"></p></section>
 <div id="dashboard" hidden><div class="top"><div><h1>OpenGOAL Replay Server</h1><p id="summary">Loading…</p></div><div class="row"><button onclick="refresh()">Refresh</button><button onclick="logout()">Lock</button></div></div>
 <section class="card"><h2>Speedrun.com moderator</h2><p>Configure one moderator key on this server. It is stored only in the protected server data and is never returned to the browser or game. Registered runners are loaded from verified runs on the Jak 3 OpenGOAL Missions board, and automatic submissions use the shared YouTube proof video.</p><form id="moderator-form" class="row"><input class="grow" name="api_key" type="password" required placeholder="Moderator API key"><button>Configure & load runners</button></form><div class="row" style="margin-top:12px"><span id="moderator-name">No moderator configured</span><button id="refresh-runners" type="button">Reload runners</button><label><input id="auto-submit" type="checkbox"> Auto-submit mapped-player PBs</label></div><p>Each game installation creates one permanent random Player ID. Map it once below; all existing and future replays from that player inherit the SRC runner.</p><p id="moderator-status"></p></section>
 <section class="card"><h2>Ghost mode</h2><div class="row"><select id="replay-mode"></select><span id="replay-mode-description"></span></div></section>
 <section class="card"><h2>Players</h2><table><thead><tr><th>Permanent Player ID</th><th>Replays</th><th>SRC runner</th></tr></thead><tbody id="players"></tbody></table></section>
 <section class="card"><h2>Replays</h2><table><thead><tr><th>Name</th><th>Mission</th><th>Time</th><th>Player ID</th><th>Replay ID</th><th>SRC runner</th><th>Speedrun.com</th><th></th></tr></thead><tbody id="replays"></tbody></table></section></div></main><script>
 let state={replays:[],players:[],runners:[],replay_modes:[],moderator:{},settings:{}};
-let adminToken=sessionStorage.getItem('replay-admin-token')||'';
-async function api(path,options={}){options.headers={'Content-Type':'application/json',...(adminToken?{'Authorization':'Bearer '+adminToken}:{}),...(options.headers||{})};let r=await fetch(path,options);let data=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401)showLogin(data.error||'Admin token required');throw Error(data.error||r.statusText)}return data}
+let adminAuthorization=sessionStorage.getItem('replay-admin-authorization')||'';
+async function api(path,options={}){options.headers={'Content-Type':'application/json',...(adminAuthorization?{'Authorization':adminAuthorization}:{}),...(options.headers||{})};let r=await fetch(path,options);let data=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401)showLogin(data.error||'Administrator login required');throw Error(data.error||r.statusText)}return data}
 function showLogin(message=''){document.querySelector('#login').hidden=false;document.querySelector('#dashboard').hidden=true;document.querySelector('#login-status').textContent=message}
-async function connectAdmin(token){adminToken=token.trim();try{await refresh();sessionStorage.setItem('replay-admin-token',adminToken)}catch(x){showLogin(x.message)}}
-function logout(){adminToken='';sessionStorage.removeItem('replay-admin-token');showLogin('Dashboard locked.')}
+async function connectAdmin(username,password){adminAuthorization='Basic '+btoa(username+':'+password);try{await refresh();sessionStorage.setItem('replay-admin-authorization',adminAuthorization)}catch(x){adminAuthorization='';showLogin(x.message)}}
+function logout(){adminAuthorization='';sessionStorage.removeItem('replay-admin-authorization');showLogin('Dashboard locked.')}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function duration(v){let ms=Math.round(v*1000),s=Math.floor(ms/1000),m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,'0')}.${String(ms%1000).padStart(3,'0')}`}
 function runnerOptions(selected){return '<option value="">Unassigned</option>'+state.runners.map(r=>`<option value="${r.id}" ${r.id===selected?'selected':''}>${esc(r.display_name)}</option>`).join('')}
@@ -41,15 +42,14 @@ async function refresh(){state=await api('/api/state');document.querySelector('#
 async function renameReplay(e,id){e.preventDefault();await api(`/api/replays/${id}`,{method:'PATCH',body:JSON.stringify({display_name:new FormData(e.target).get('display_name')})});await refresh()}
 async function assignPlayer(id,runner){await api(`/api/players/${id}`,{method:'PATCH',body:JSON.stringify({src_runner_id:runner})});await refresh()}
 async function submitReplay(id){await api(`/api/replays/${id}/submit`,{method:'POST',body:'{}'});await refresh()}
-async function downloadReplay(id){let headers=adminToken?{'Authorization':'Bearer '+adminToken}:{};let response=await fetch(`/api/replays/${id}/download`,{headers});if(!response.ok)throw Error('Download failed');let link=document.createElement('a');link.href=URL.createObjectURL(await response.blob());link.download=`replay-${id}.json`;link.click();URL.revokeObjectURL(link.href)}
+async function downloadReplay(id){let headers=adminAuthorization?{'Authorization':adminAuthorization}:{};let response=await fetch(`/api/replays/${id}/download`,{headers});if(!response.ok)throw Error('Download failed');let link=document.createElement('a');link.href=URL.createObjectURL(await response.blob());link.download=`replay-${id}.json`;link.click();URL.revokeObjectURL(link.href)}
 const baseRefresh=refresh;
 refresh=async function(){await baseRefresh();let mode=document.querySelector('#replay-mode');mode.innerHTML=state.replay_modes.map(m=>'<option value="'+esc(m.id)+'" '+(m.id===state.settings.replay_mode?'selected':'')+'>'+esc(m.label)+'</option>').join('');let active=state.replay_modes.find(m=>m.id===state.settings.replay_mode)||{};document.querySelector('#replay-mode-description').textContent=active.description||'';document.querySelectorAll('#replays tr.replay').forEach((row,index)=>{if(!state.replays[index].completed){row.children[1].insertAdjacentHTML('beforeend',' <strong>UNFINISHED</strong>')}})}
 document.querySelector('#moderator-form').onsubmit=async e=>{e.preventDefault();let out=document.querySelector('#moderator-status');out.textContent='Verifying moderator and loading runners…';try{await api('/api/moderator',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});e.target.reset();out.textContent='Moderator configured.';await refresh()}catch(x){out.textContent=x.message}}
 document.querySelector('#refresh-runners').onclick=async()=>{let out=document.querySelector('#moderator-status');out.textContent='Reloading runners…';try{await api('/api/runners/refresh',{method:'POST',body:'{}'});out.textContent='Runner list updated.';await refresh()}catch(x){out.textContent=x.message}}
 document.querySelector('#replay-mode').onchange=async e=>{await api('/api/settings',{method:'PATCH',body:JSON.stringify({replay_mode:e.target.value})});await refresh()};
 document.querySelector('#auto-submit').onchange=async e=>{await api('/api/settings',{method:'PATCH',body:JSON.stringify({auto_submit:e.target.checked})});await refresh()};
-document.querySelector('#login-form').onsubmit=e=>{e.preventDefault();connectAdmin(new FormData(e.target).get('token')||'')};
-document.querySelector('#local-login').onclick=()=>connectAdmin('');
+document.querySelector('#login-form').onsubmit=e=>{e.preventDefault();let data=new FormData(e.target);connectAdmin(data.get('username')||'',data.get('password')||'')};
 refresh().catch(()=>{});setInterval(()=>refresh().catch(()=>{}),5000);</script></body></html>"""
 
 
@@ -63,15 +63,32 @@ class ReplayRequestHandler(BaseHTTPRequestHandler):
     def _authorized(self, role: str) -> bool:
         game_token = self.server.game_token  # type: ignore[attr-defined]
         admin_token = self.server.admin_token  # type: ignore[attr-defined]
-        if not game_token and not admin_token:
+        admin_username = self.server.admin_username  # type: ignore[attr-defined]
+        admin_password = self.server.admin_password  # type: ignore[attr-defined]
+        if not game_token and not admin_token and not admin_username and not admin_password:
             return True
         authorization = self.headers.get("Authorization", "")
         supplied = authorization[7:] if authorization.startswith("Bearer ") else ""
+        basic_username = ""
+        basic_password = ""
+        if authorization.startswith("Basic "):
+            try:
+                decoded = base64.b64decode(authorization[6:], validate=True).decode("utf-8")
+                basic_username, separator, basic_password = decoded.partition(":")
+                if not separator:
+                    basic_username = ""
+                    basic_password = ""
+            except (ValueError, UnicodeDecodeError):
+                pass
+        basic_admin = bool(admin_username and admin_password) and (
+            secrets.compare_digest(basic_username, admin_username)
+            and secrets.compare_digest(basic_password, admin_password)
+        )
+        token_admin = bool(admin_token) and secrets.compare_digest(supplied, admin_token)
         if role == "admin":
-            return bool(admin_token) and secrets.compare_digest(supplied, admin_token)
-        return bool(supplied) and (
-            (bool(game_token) and secrets.compare_digest(supplied, game_token))
-            or (bool(admin_token) and secrets.compare_digest(supplied, admin_token))
+            return basic_admin or token_admin
+        return basic_admin or token_admin or (
+            bool(game_token) and secrets.compare_digest(supplied, game_token)
         )
 
     def _require(self, role: str) -> bool:
@@ -187,11 +204,15 @@ class ReplayHTTPServer(ThreadingHTTPServer):
         *,
         game_token: str = "",
         admin_token: str = "",
+        admin_username: str = "",
+        admin_password: str = "",
     ) -> None:
         super().__init__(address, ReplayRequestHandler)
         self.store = store
         self.game_token = game_token
         self.admin_token = admin_token
+        self.admin_username = admin_username
+        self.admin_password = admin_password
 
 
 def main() -> None:
@@ -207,11 +228,14 @@ def main() -> None:
     args = parser.parse_args()
     game_token = os.environ.get("REPLAY_GAME_TOKEN", "").strip()
     admin_token = os.environ.get("REPLAY_ADMIN_TOKEN", "").strip()
+    admin_username = os.environ.get("REPLAY_ADMIN_USERNAME", "user").strip()
+    admin_password = os.environ.get("REPLAY_ADMIN_PASSWORD", "pass")
     if args.host not in {"127.0.0.1", "localhost", "::1"} and (
-        not game_token or not admin_token
+        not game_token or not ((admin_username and admin_password) or admin_token)
     ):
         parser.error(
-            "REPLAY_GAME_TOKEN and REPLAY_ADMIN_TOKEN are required for non-loopback hosting"
+            "REPLAY_GAME_TOKEN and admin username/password credentials are required for "
+            "non-loopback hosting"
         )
     store = ReplayStore()
     server = ReplayHTTPServer(
@@ -219,6 +243,8 @@ def main() -> None:
         store,
         game_token=game_token,
         admin_token=admin_token,
+        admin_username=admin_username,
+        admin_password=admin_password,
     )
     browser_host = "127.0.0.1" if args.host in {"0.0.0.0", "::"} else args.host
     url = f"http://{browser_host}:{args.port}/"
