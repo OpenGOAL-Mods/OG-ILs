@@ -128,6 +128,16 @@ void OpenGlDebugGui::draw(const DmaStats& dma_stats) {
       }
       ImGui::MenuItem("Subtitle Editor", nullptr, &m_subtitle_editor);
       ImGui::MenuItem("Debug Text Filter", nullptr, &m_filters_menu);
+      if (g_game_version == GameVersion::Jak2 || g_game_version == GameVersion::Jak3) {
+        if (ImGui::MenuItem("Open ILs Website")) {
+          const char* ils_url = g_game_version == GameVersion::Jak2
+                                    ? "https://ils.jakmods.dev/?mode=jak2"
+                                    : "https://ils.jakmods.dev/?mode=jak3";
+          if (!SDL_OpenURL(ils_url)) {
+            sdl_util::log_error("Unable to open the ILs website");
+          }
+        }
+      }
       if (g_game_version == GameVersion::Jak3) {
         ImGui::MenuItem("Replay Server", nullptr, &m_replay_server);
       }
