@@ -1,6 +1,8 @@
 ;;-*-Lisp-*-
 (in-package goal)
 
+(define-extern il-menu-display-draw (function none))
+
 ;; TODO later - customize menu open keybind
 
 (define-extern task-close! (function string symbol))
@@ -2447,7 +2449,8 @@
     (enforce-settings! this)
     ;; draw objective info if practicing
     (when (-> *speedrun-info* practicing?)
-      (draw-info (-> this active-practice-objective)))))
+      (draw-info (-> this active-practice-objective))))
+  (il-menu-display-draw))
 
 (defmethod draw-run-info ((this speedrun-info))
   "Draw speedrun related settings in the bottom left corner"

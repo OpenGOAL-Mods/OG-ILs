@@ -8,9 +8,8 @@
 (define *il-menu-display-text* (new 'global 'string 256 (the-as string #f)))
 (define *il-menu-encoded-text* (new 'global 'string 256 (the-as string #f)))
 
-(defun il-menu-display-draw ((buf dma-buffer))
-  ;; Called from display-frame-finish while the debug overlay DMA bucket is
-  ;; open. Never write display commands from an independently scheduled process.
+(defun il-menu-display-draw ()
+  ;; Use the same retail-safe frame buffer and HUD bucket as draw-run-info.
   (when (and *target*
              (-> *target* control)
              (!= (-> *target* current-level name) 'title)
@@ -26,14 +25,16 @@
                 "you are an unknown player contact barg or zed to be known")
         (format *il-menu-display-text* "welcome back ~S" *il-menu-player-name*))
     (pc-encode-utf8-string *il-menu-display-text* *il-menu-encoded-text*)
-    (dma-buffer-add-gs-set-flusha
-      buf
-      (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1))
-      (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
-    (let ((font-ctx
-            (new 'stack 'font-context *font-default-matrix* 2 386 0.0
-                 (font-color default)
-                 (font-flags shadow kerning large))))
-      (set! (-> font-ctx scale) 0.25)
-      (draw-string-adv *il-menu-encoded-text* buf font-ctx)))
+    (with-dma-buffer-add-bucket
+      ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf2))
+      (dma-buffer-add-gs-set-flusha
+        buf
+        (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1))
+        (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
+      (let ((font-ctx
+              (new 'stack 'font-context *font-default-matrix* 2 386 0.0
+                   (font-color default)
+                   (font-flags shadow kerning large))))
+        (set! (-> font-ctx scale) 0.25)
+        (draw-string-adv *il-menu-encoded-text* buf font-ctx))))
   (none))
