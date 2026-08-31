@@ -4,11 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "opengoal-replay-server"
-version = "0.1.0"
-description = "Hosted replay and Speedrun.com integration for OpenGOAL ILs"
-requires-python = ">=3.10"
+version = "1.0.0"
+description = "Local replay dashboard and Speedrun.com submission server for OG-ILs"
+requires-python = ">=3.9"
 dependencies = ["requests>=2.31,<3"]
 
-[tool.setuptools]
-packages = ["speedrun_submitter"]
-py-modules = ["run_replay_server"]
+[project.scripts]
+opengoal-replay-server = "speedrun_submitter.replay_server:main"
+
+[tool.setuptools.packages.find]
+include = ["speedrun_submitter*"]
