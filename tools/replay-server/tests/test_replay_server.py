@@ -319,6 +319,23 @@ class ReplayStoreTests(unittest.TestCase):
                       if item["id"] == replay["player_id"])
         self.assertEqual(player["src_runner_id"], "runner-2")
 
+    def test_replay_selection_carries_mapped_runner_display_name(self):
+        self.store.configure_moderator("secret")
+        replay = self.store.add_replay(replay_envelope())
+        self.store.update_settings({"auto_submit": False})
+        self.store.assign_player_runner(replay["player_id"], "runner-2")
+
+        selected = self.store.resolve_replay_selection(
+            replay["category"], "different-player-00000001"
+        )["replays"][0]
+        public_replay = next(
+            item for item in self.store.public_state()["replays"] if item["id"] == replay["id"]
+        )
+
+        self.assertEqual(selected["src_runner_name"], "Runner Two")
+        self.assertEqual(public_replay["src_runner_name"], "Runner Two")
+        self.assertNotEqual(selected["display_name"], selected["src_runner_name"])
+
     def test_admin_can_map_replay_id_to_runner_before_submission(self):
         self.store.configure_moderator("secret")
         replay = self.store.add_replay(replay_envelope())

@@ -177,6 +177,7 @@ struct ReplayInfo {
   std::string category;
   std::string src_status;
   std::string src_runner_id;
+  std::string src_runner_name;
   bool completed = true;
   float time_seconds = 0.f;
 };
@@ -350,7 +351,11 @@ class Client {
   }
 
   void refresh() {
-    set_status("Refreshing replay server...");
+    {
+      std::lock_guard lock(m_state_mutex);
+      m_refresh_started = true;
+      m_status = "Refreshing replay server...";
+    }
     enqueue([this]() {
       auto response =
           request("GET", fmt::format("/api/state?player_id={}", persistent_player_id()));
@@ -371,8 +376,8 @@ class Client {
         for (const auto& item : parsed->at("replays")) {
           replays.push_back({item.value("id", ""), item.value("display_name", "Unnamed replay"),
                              item.value("category", ""), item.value("src_status", ""),
-                             item.value("src_runner_id", ""), item.value("completed", true),
-                             item.value("time_seconds", 0.f)});
+                             item.value("src_runner_id", ""), item.value("src_runner_name", ""),
+                             item.value("completed", true), item.value("time_seconds", 0.f)});
         }
         for (const auto& item : parsed->at("runners")) {
           runners.push_back({item.value("id", ""), item.value("display_name", "Unknown runner")});
@@ -726,8 +731,16 @@ class Client {
 
   int prepare_selected(const std::string& category) {
     int selection_revision = 0;
+    bool start_initial_refresh = false;
     {
       std::lock_guard lock(m_state_mutex);
+      if (!m_refresh_started) {
+        // The replay UI used to be the only automatic refresh path. Start it
+        // here as well so the first mission attempt has current runner names
+        // and server state even when no replay/progress menu was opened.
+        m_refresh_started = true;
+        start_initial_refresh = true;
+      }
       if (m_active_category == category && m_ready_category == category && m_ready_generation > 0) {
         return m_ready_generation;
       }
@@ -739,6 +752,9 @@ class Client {
       m_ready_replay_ids.clear();
       m_pending_category = category;
       selection_revision = ++m_selection_revision;
+    }
+    if (start_initial_refresh) {
+      refresh();
     }
     enqueue([this, category, selection_revision]() {
       resolve_and_download(category, false, selection_revision);
@@ -1077,6 +1093,9 @@ class Client {
   }
 
   std::string runner_name(const ReplayInfo& replay) const {
+    if (!replay.src_runner_name.empty()) {
+      return replay.src_runner_name;
+    }
     if (!replay.src_runner_id.empty()) {
       const auto runner = std::find_if(m_runners.begin(), m_runners.end(), [&](const auto& item) {
         return item.id == replay.src_runner_id;
@@ -1138,8 +1157,8 @@ class Client {
           selected.size() < static_cast<size_t>(kMaxSelectedReplays)) {
         selected.push_back({replay_id, item.value("display_name", "Unnamed replay"),
                             item.value("category", ""), item.value("src_status", ""),
-                            item.value("src_runner_id", ""), item.value("completed", true),
-                            item.value("time_seconds", 0.f)});
+                            item.value("src_runner_id", ""), item.value("src_runner_name", ""),
+                            item.value("completed", true), item.value("time_seconds", 0.f)});
       }
     }
     {

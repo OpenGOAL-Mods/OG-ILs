@@ -81,6 +81,22 @@ def _display_name(item: dict[str, Any]) -> str:
     return str(names.get("international") or item.get("name") or item.get("id", "Unknown"))
 
 
+def _attach_runner_names(
+    replays: list[dict[str, Any]], runners: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Return replay metadata with its resolved SRC display name attached."""
+    runner_names = {
+        str(runner.get("id") or ""): str(runner.get("display_name") or "")
+        for runner in runners
+    }
+    result = deepcopy(replays)
+    for replay in result:
+        replay["src_runner_name"] = runner_names.get(
+            str(replay.get("src_runner_id") or ""), ""
+        )
+    return result
+
+
 class ReplayStore:
     """Thread-safe JSON index plus immutable replay payload files."""
 
@@ -233,6 +249,7 @@ class ReplayStore:
             state["moderator"] = {}
         state["moderator"].pop("api_key", None)
         state["replay_modes"] = deepcopy(REPLAY_MODES)
+        state["replays"] = _attach_runner_names(state["replays"], state["runners"])
         state["replays"].sort(key=lambda replay: replay.get("created_at", ""), reverse=True)
         return state
 
@@ -468,7 +485,7 @@ class ReplayStore:
 
             return {
                 "mode": mode,
-                "replays": deepcopy(selected),
+                "replays": _attach_runner_names(selected, self._state["runners"]),
             }
 
     def assign_replay_runner(self, replay_id: str, runner_id: str) -> dict[str, Any]:
