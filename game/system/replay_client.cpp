@@ -1190,6 +1190,8 @@ class Client {
     }
     try {
       file_util::create_dir_if_needed("ghost");
+      std::vector<std::string> replay_payloads;
+      replay_payloads.reserve(selected.size());
       for (size_t index = 0; index < selected.size(); ++index) {
         auto response =
             request("GET", fmt::format("/api/replays/{}/download", selected.at(index).id));
@@ -1199,12 +1201,19 @@ class Client {
                                  response.error));
           return;
         }
-        file_util::write_text_file(fmt::format("ghost/selected-replay-{}.json", index),
-                                   response.body);
+        replay_payloads.push_back(std::move(response.body));
       }
       std::lock_guard lock(m_state_mutex);
       if (selection_revision != m_selection_revision || category != m_active_category) {
         return;
+      }
+      // Commit the downloaded pack only after confirming it is still current.
+      // Previously, a superseded background job could overwrite these files
+      // before its revision was rejected, pairing current IDs/names with stale
+      // replay data and making first-attempt playback intermittent.
+      for (size_t index = 0; index < replay_payloads.size(); ++index) {
+        file_util::write_text_file(fmt::format("ghost/selected-replay-{}.json", index),
+                                   replay_payloads.at(index));
       }
       m_pending_category.clear();
       m_ready_replay_ids.clear();
