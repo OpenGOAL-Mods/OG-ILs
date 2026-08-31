@@ -455,6 +455,9 @@
 
 (defun ghost-discard-recording! ()
   "Publish an interrupted recording as the last attempt, then clear the recorder."
+  ;; Replay players live in the persistent PC pool. Remove them before a retry
+  ;; can unload the mission art their skeletons reference.
+  (ghost-stop-playback)
   (when (and (-> *ghost-recording* recording?)
              (> (-> *ghost-recording* rec-count) 0))
     (let* ((category (-> *speedrun-info* category))
@@ -473,6 +476,10 @@
 
 (defun ghost-stop-recording! ((time-seconds float) (new-best? symbol))
   "Finish recording and publish a new personal best to the local replay server."
+  ;; This must happen for every finish, not only PBs. Mission completion unloads
+  ;; the current level/art before the next attempt; a persistent ghost retaining
+  ;; that art otherwise enters process-drawable-art-error on the retry.
+  (ghost-stop-playback)
   (when (-> *ghost-recording* recording?)
     (set! (-> *ghost-recording* recording?) #f)
     (when (> (-> *ghost-recording* rec-count) 0)
@@ -483,9 +490,8 @@
         (ghost-write-json! (-> *ghost-recording* rec-samples) count category time-seconds new-best? #t)
         (cond
           (new-best?
-         ;; Playback processes may still reference play-samples. Remove them before
-         ;; swapping in the new PB so their source buffer is never overwritten.
-           (ghost-stop-playback)
+         ;; Playback is already stopped above, so the old source buffer can now
+         ;; be replaced safely by the completed PB.
            (let ((tmp (-> *ghost-recording* rec-samples)))
              (set! (-> *ghost-recording* rec-samples) (-> *ghost-recording* play-samples))
              (set! (-> *ghost-recording* play-samples) tmp))
@@ -695,6 +701,8 @@
                (baseline-global 0)
                (baseline-replay 0)
                (max-global-growth 0)
+               (saved-recording? (-> *ghost-recording* recording?))
+               (saved-rec-count (-> *ghost-recording* rec-count))
                (failed? #f))
            (format 0 "ghost-memory-test: START warmup=24 cycles=~D~%" cycles)
            ;; Several engine/render caches are populated lazily. Warm through
@@ -741,6 +749,33 @@
              (format 0 "ghost-memory-test: process leak; free=~D expected=~D~%"
                      (ghost-free-process-count)
                      GHOST_MAX_PLAYERS))
+           ;; Exercise the real crash sequence: a non-PB finish must return all
+           ;; persistent ghost players before the mission unloads its art, and a
+           ;; reset of the following attempt must do the same.
+           (ghost-load-local-stress-pack! category)
+           (ghost-spawn-playback!)
+           (dotimes (frame 3) (suspend))
+           (set! (-> *ghost-recording* recording?) #t)
+           (set! (-> *ghost-recording* rec-count) 0)
+           (ghost-stop-recording! 0.0 #f)
+           (dotimes (frame 2) (suspend))
+           (when (!= (ghost-free-process-count) GHOST_MAX_PLAYERS)
+             (set! failed? #t)
+             (format 0 "ghost-memory-test: finish cleanup failed; free=~D~%"
+                     (ghost-free-process-count)))
+           (ghost-load-local-stress-pack! category)
+           (ghost-spawn-playback!)
+           (dotimes (frame 3) (suspend))
+           (set! (-> *ghost-recording* recording?) #t)
+           (set! (-> *ghost-recording* rec-count) 0)
+           (ghost-discard-recording!)
+           (dotimes (frame 2) (suspend))
+           (when (!= (ghost-free-process-count) GHOST_MAX_PLAYERS)
+             (set! failed? #t)
+             (format 0 "ghost-memory-test: retry cleanup failed; free=~D~%"
+                     (ghost-free-process-count)))
+           (set! (-> *ghost-recording* recording?) saved-recording?)
+           (set! (-> *ghost-recording* rec-count) saved-rec-count)
            (cond
              ((or failed? (> max-global-growth #x1000))
               (format 0 "ghost-memory-test: FAIL global-growth=~D replay-baseline=~D~%"
