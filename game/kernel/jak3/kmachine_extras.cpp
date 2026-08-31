@@ -503,6 +503,10 @@ void pc_replay_get_status(u32 dest_ptr) {
   copy_replay_string(dest_ptr, replay_client::status());
 }
 
+void pc_replay_get_player_name(u32 dest_ptr) {
+  copy_replay_string(dest_ptr, replay_client::player_name());
+}
+
 void callback_fetch_external_speedrun_times(bool success,
                                             const std::string& cache_id,
                                             std::optional<std::string> result) {

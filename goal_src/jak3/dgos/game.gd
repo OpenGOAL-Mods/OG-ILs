@@ -362,6 +362,7 @@
   "capture-pc.o" ;; added
   "pckernel-common.o" ;; added
   "pckernel.o" ;; added
+  "IL-menu-display.o" ;; added
   "subtitle3-h.o" ;; added
   "subtitle3.o" ;; added
   "main.o"

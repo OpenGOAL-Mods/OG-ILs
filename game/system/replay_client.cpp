@@ -382,7 +382,6 @@ class Client {
           m_selected_replay_ids = selected_replays;
           m_replay_mode = settings.value("replay_mode", "default");
           m_player_name = player_name;
-          m_identity_checked = true;
           m_identity_refresh_pending = false;
           m_next_identity_refresh = std::chrono::steady_clock::now() + std::chrono::seconds(30);
           m_connected = true;
@@ -404,9 +403,8 @@ class Client {
     });
   }
 
-  void draw_identity_overlay() {
+  std::string player_name() {
     bool refresh_identity_now = false;
-    bool identity_checked = false;
     std::string player_name;
     {
       std::lock_guard lock(m_state_mutex);
@@ -416,35 +414,12 @@ class Client {
         m_next_identity_refresh = now + std::chrono::seconds(30);
         refresh_identity_now = true;
       }
-      identity_checked = m_identity_checked;
       player_name = m_player_name;
     }
     if (refresh_identity_now) {
       refresh_identity();
     }
-    if (!identity_checked) {
-      return;
-    }
-
-    constexpr float kPadding = 10.f;
-    constexpr float kBottomOffset = 50.f;
-    const auto* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + kPadding,
-                                   viewport->WorkPos.y + viewport->WorkSize.y - kBottomOffset),
-                            ImGuiCond_Always, ImVec2(0.f, 1.f));
-    ImGui::SetNextWindowBgAlpha(0.65f);
-    constexpr auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-                           ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-                           ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
-    if (ImGui::Begin("Replay player identity", nullptr, flags)) {
-      if (player_name.empty()) {
-        ImGui::TextColored(ImVec4(1.f, 0.72f, 0.25f, 1.f),
-                           "you are an unknown player contact barg or zed to be known");
-      } else {
-        ImGui::TextColored(ImVec4(0.35f, 1.f, 0.45f, 1.f), "welcome back %s", player_name.c_str());
-      }
-    }
-    ImGui::End();
+    return player_name;
   }
 
   void publish(const std::string& replay_path, ReplayLevelResolver level_resolver) {
@@ -847,7 +822,6 @@ class Client {
       const auto player_name = mapped_player_name(*parsed);
       std::lock_guard lock(m_state_mutex);
       m_player_name = player_name;
-      m_identity_checked = true;
       m_identity_refresh_pending = false;
     });
   }
@@ -1039,7 +1013,6 @@ class Client {
   int m_selection_revision = 0;
   bool m_connected = false;
   bool m_refresh_started = false;
-  bool m_identity_checked = false;
   bool m_identity_refresh_pending = false;
 };
 
@@ -1114,8 +1087,8 @@ std::string player_id() {
   return persistent_player_id();
 }
 
-void draw_identity_overlay() {
-  client().draw_identity_overlay();
+std::string player_name() {
+  return client().player_name();
 }
 
 void draw_window(bool* open) {

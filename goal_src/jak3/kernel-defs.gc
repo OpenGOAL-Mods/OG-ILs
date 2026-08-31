@@ -335,6 +335,7 @@
 (define-extern pc-replay-set-mode (function int symbol))
 (define-extern pc-replay-get-ready-name (function int string none))
 (define-extern pc-replay-get-status (function string none))
+(define-extern pc-replay-get-player-name (function string none))
 
 ;; Speedrunner Mode Stuff
 (define-extern pc-sr-mode-get-practice-entries-amount (function int))

@@ -29,7 +29,6 @@
 #include "game/sce/libscf.h"
 #include "game/system/hid/input_manager.h"
 #include "game/system/hid/sdl_util.h"
-#include "game/system/replay_client.h"
 
 #include "fmt/format.h"
 #include "third-party/SDL/include/SDL3/SDL.h"
@@ -674,9 +673,6 @@ void GLDisplay::render() {
   if (is_imgui_visible()) {
     auto p = scoped_prof("debug-gui");
     g_gfx_data->debug_gui.draw(g_gfx_data->dma_copier.get_last_result().stats);
-  }
-  if (g_game_version == GameVersion::Jak3) {
-    replay_client::draw_identity_overlay();
   }
   {
     auto p = scoped_prof("imgui-render");

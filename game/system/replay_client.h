@@ -24,7 +24,7 @@ bool set_mode(int index);
 std::string ready_replay_name(int index);
 std::string status();
 std::string player_id();
-void draw_identity_overlay();
+std::string player_name();
 void draw_window(bool* open);
 
 }  // namespace replay_client

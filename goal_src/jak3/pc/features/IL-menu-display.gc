@@ -1,0 +1,45 @@
+;;-*-Lisp-*-
+(in-package goal)
+
+;; Persistent in-game identity message for the replay server. C++ owns the
+;; server request/cache; this file owns all formatting and rendering.
+
+(define *il-menu-player-name* (new 'global 'string 2048 (the-as string #f)))
+(define *il-menu-display-text* (new 'global 'string 256 (the-as string #f)))
+(define *il-menu-encoded-text* (new 'global 'string 256 (the-as string #f)))
+
+(defun il-menu-display-draw ()
+  (clear *il-menu-player-name*)
+  (clear *il-menu-display-text*)
+  (clear *il-menu-encoded-text*)
+  (pc-replay-get-player-name *il-menu-player-name*)
+  (if (string= *il-menu-player-name* "")
+      (format *il-menu-display-text*
+              "you are an unknown player contact barg or zed to be known")
+      (format *il-menu-display-text* "welcome back ~S" *il-menu-player-name*))
+  (pc-encode-utf8-string *il-menu-display-text* *il-menu-encoded-text*)
+  (with-dma-buffer-add-bucket
+    ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf2))
+    (dma-buffer-add-gs-set-flusha
+      buf
+      (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1))
+      (tex1-1 (new 'static 'gs-tex1 :mmag #x1 :mmin #x1)))
+    (let ((font-ctx
+            (new 'stack 'font-context *font-default-matrix* 2 386 0.0
+                 (font-color default)
+                 (font-flags shadow kerning large))))
+      (set! (-> font-ctx scale) 0.25)
+      (draw-string-adv *il-menu-encoded-text* buf font-ctx)))
+  (none))
+
+(defun il-menu-display-start ()
+  (kill-by-name "il-menu-display" *pc-pool*)
+  (process-spawn-function process :name "il-menu-display" :to *pc-pool*
+    (lambda :behavior process ()
+      (stack-size-set! (-> self main-thread) 1024)
+      (loop
+        (il-menu-display-draw)
+        (suspend))))
+  (none))
+
+(il-menu-display-start)

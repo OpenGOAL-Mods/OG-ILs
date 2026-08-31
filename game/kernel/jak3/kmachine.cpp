@@ -481,20 +481,19 @@ void InitMachine_PCPort() {
                               (void*)kmachine_extras::pc_replay_mission_selected);
   make_function_symbol_from_c("pc-replay-toggle-mission",
                               (void*)kmachine_extras::pc_replay_toggle_mission);
-  make_function_symbol_from_c("pc-replay-mode-count",
-                              (void*)kmachine_extras::pc_replay_mode_count);
+  make_function_symbol_from_c("pc-replay-mode-count", (void*)kmachine_extras::pc_replay_mode_count);
   make_function_symbol_from_c("pc-replay-get-mode-label",
                               (void*)kmachine_extras::pc_replay_get_mode_label);
   make_function_symbol_from_c("pc-replay-mode-selected",
                               (void*)kmachine_extras::pc_replay_mode_selected);
   make_function_symbol_from_c("pc-replay-custom-mode-selected",
                               (void*)kmachine_extras::pc_replay_custom_mode_selected);
-  make_function_symbol_from_c("pc-replay-set-mode",
-                              (void*)kmachine_extras::pc_replay_set_mode);
+  make_function_symbol_from_c("pc-replay-set-mode", (void*)kmachine_extras::pc_replay_set_mode);
   make_function_symbol_from_c("pc-replay-get-ready-name",
                               (void*)kmachine_extras::pc_replay_get_ready_name);
-  make_function_symbol_from_c("pc-replay-get-status",
-                              (void*)kmachine_extras::pc_replay_get_status);
+  make_function_symbol_from_c("pc-replay-get-status", (void*)kmachine_extras::pc_replay_get_status);
+  make_function_symbol_from_c("pc-replay-get-player-name",
+                              (void*)kmachine_extras::pc_replay_get_player_name);
 
   // speedrunning stuff
   make_function_symbol_from_c("pc-sr-mode-get-practice-entries-amount",

@@ -65,6 +65,7 @@ u64 pc_replay_custom_mode_selected();
 u64 pc_replay_set_mode(s32 index);
 void pc_replay_get_ready_name(s32 index, u32 dest_ptr);
 void pc_replay_get_status(u32 dest_ptr);
+void pc_replay_get_player_name(u32 dest_ptr);
 s32 pc_sr_mode_get_practice_entries_amount();
 void pc_sr_mode_get_practice_entry_name(s32 entry_index, u32 name_str_ptr);
 void pc_sr_mode_get_practice_entry_continue_point(s32 entry_index, u32 name_str_ptr);
