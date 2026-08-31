@@ -507,6 +507,58 @@ void pc_replay_get_player_name(u32 dest_ptr) {
   copy_replay_string(dest_ptr, replay_client::player_name());
 }
 
+u64 pc_replay_ping_unknown_player() {
+  return bool_to_symbol(replay_client::ping_unknown_player());
+}
+
+void pc_point_leaderboard_refresh() {
+  replay_client::refresh_point_leaderboard();
+}
+
+s32 pc_point_leaderboard_count() {
+  return replay_client::point_leaderboard_count();
+}
+
+void pc_point_leaderboard_get_label(s32 index, u32 dest_ptr) {
+  copy_replay_string(dest_ptr, replay_client::point_leaderboard_label(index));
+}
+
+s32 pc_point_leaderboard_mode_count() {
+  return replay_client::point_leaderboard_mode_count();
+}
+
+void pc_point_leaderboard_get_mode_label(s32 index, u32 dest_ptr) {
+  copy_replay_string(dest_ptr, replay_client::point_leaderboard_mode_label(index));
+}
+
+s32 pc_point_leaderboard_mode_index() {
+  return replay_client::point_leaderboard_mode_index();
+}
+
+u64 pc_point_leaderboard_set_mode(s32 index) {
+  return bool_to_symbol(replay_client::set_point_leaderboard_mode(index));
+}
+
+s32 pc_point_leaderboard_group_count() {
+  return replay_client::point_leaderboard_group_count();
+}
+
+void pc_point_leaderboard_get_group_label(s32 index, u32 dest_ptr) {
+  copy_replay_string(dest_ptr, replay_client::point_leaderboard_group_label(index));
+}
+
+s32 pc_point_leaderboard_group_index() {
+  return replay_client::point_leaderboard_group_index();
+}
+
+u64 pc_point_leaderboard_set_group(s32 index) {
+  return bool_to_symbol(replay_client::set_point_leaderboard_group(index));
+}
+
+void pc_point_leaderboard_get_status(u32 dest_ptr) {
+  copy_replay_string(dest_ptr, replay_client::point_leaderboard_status());
+}
+
 void callback_fetch_external_speedrun_times(bool success,
                                             const std::string& cache_id,
                                             std::optional<std::string> result) {

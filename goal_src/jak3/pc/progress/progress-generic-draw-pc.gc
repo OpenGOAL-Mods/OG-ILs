@@ -247,6 +247,98 @@
         (< (-> *progress-pc-generic-store* current-menu-hover-index) (1- row-count)))))
   (none))
 
+(defmethod draw-option ((obj menu-generic-point-leaderboard-page) (progress progress) (font-ctx font-context) (arg3 int) (arg4 symbol))
+  (when (not (-> *progress-pc-generic-store* clear-screen?))
+    (let* ((alpha (fmax 0.0 (* 2.0 (- 0.5 (-> progress menu-transition)))))
+           (hud-bounds (new 'stack-no-clear 'hud-box))
+           (entry-count (pc-point-leaderboard-count))
+           (empty? (= entry-count 0))
+           ;; Game, category, refresh, then either status or standings.
+           (row-count (+ 3 (if empty? 1 entry-count)))
+           (max-page-size (if (= (get-aspect-ratio) 'aspect16x9) 7 5))
+           (line-height (/ (if (= (get-aspect-ratio) 'aspect16x9) 253.0 200.0) max-page-size)))
+      (set! (-> font-ctx alpha) alpha)
+      (draw-page-header-string font-ctx "Point Leaderboards" alpha)
+      (draw-page-border (-> obj box 0) alpha)
+      (draw-page-background alpha)
+      (begin-scissor-scrolling-page hud-bounds)
+      (set! (-> font-ctx origin y) (if (= (get-aspect-ratio) 'aspect16x9) 86.0 112.0))
+
+      (cond
+        ((> (-> *progress-pc-generic-store* current-menu-scroll-index)
+            (-> *progress-pc-generic-store* current-menu-hover-index))
+         (set! (-> *progress-pc-generic-store* current-menu-scroll-index)
+               (the float (-> *progress-pc-generic-store* current-menu-hover-index))))
+        ((< (+ (-> *progress-pc-generic-store* current-menu-scroll-index) (1- max-page-size))
+            (-> *progress-pc-generic-store* current-menu-hover-index))
+         (set! (-> *progress-pc-generic-store* current-menu-scroll-index)
+               (the float (- (-> *progress-pc-generic-store* current-menu-hover-index)
+                             (1- max-page-size))))))
+
+      (let* ((start-index (the int (-> *progress-pc-generic-store* current-menu-scroll-index)))
+             (end-index (min row-count (+ start-index max-page-size 1))))
+        (while (< start-index end-index)
+          (let ((old-y (-> font-ctx origin y)))
+            (+! (-> font-ctx origin y) (if (= (get-aspect-ratio) 'aspect4x3) 14.0 11.0))
+            (set-flags! font-ctx (font-flags kerning middle large))
+            (set-scale! font-ctx FONT_SIZE_OPTION)
+            (when (= start-index (-> *progress-pc-generic-store* current-menu-hover-index))
+              (draw-generic-highlight (the int (- (-> font-ctx origin y) 2.0)) HIGHLIGHT_SIZE alpha))
+            (cond
+              ((= start-index 0)
+               (clear *pc-cpp-temp-string*)
+               (clear *progress-generic-temp-string*)
+               (pc-point-leaderboard-get-mode-label
+                 (pc-point-leaderboard-mode-index)
+                 *pc-cpp-temp-string*)
+               (format *progress-generic-temp-string* "Game: ~S" *pc-cpp-temp-string*)
+               (clear *pc-encoded-temp-string*)
+               (pc-encode-utf8-string *progress-generic-temp-string* *pc-encoded-temp-string*)
+               (set-color! font-ctx (font-color font-color-33))
+               (print-game-text *pc-encoded-temp-string* font-ctx #f 44
+                                (bucket-id hud-draw-hud-alpha)))
+              ((= start-index 1)
+               (clear *pc-cpp-temp-string*)
+               (clear *progress-generic-temp-string*)
+               (pc-point-leaderboard-get-group-label
+                 (pc-point-leaderboard-group-index)
+                 *pc-cpp-temp-string*)
+               (format *progress-generic-temp-string* "Category: ~S" *pc-cpp-temp-string*)
+               (clear *pc-encoded-temp-string*)
+               (pc-encode-utf8-string *progress-generic-temp-string* *pc-encoded-temp-string*)
+               (set-color! font-ctx (font-color font-color-33))
+               (print-game-text *pc-encoded-temp-string* font-ctx #f 44
+                                (bucket-id hud-draw-hud-alpha)))
+              ((= start-index 2)
+               (set-color! font-ctx (font-color font-color-33))
+               (print-game-text "Refresh Point Leaderboard" font-ctx #f 44
+                                (bucket-id hud-draw-hud-alpha)))
+              (empty?
+               (clear *pc-cpp-temp-string*)
+               (clear *pc-encoded-temp-string*)
+               (pc-point-leaderboard-get-status *pc-cpp-temp-string*)
+               (pc-encode-utf8-string *pc-cpp-temp-string* *pc-encoded-temp-string*)
+               (set-color! font-ctx (font-color font-color-44))
+               (print-game-text *pc-encoded-temp-string* font-ctx #f 44
+                                (bucket-id hud-draw-hud-alpha)))
+              (else
+               (clear *pc-cpp-temp-string*)
+               (clear *pc-encoded-temp-string*)
+               (pc-point-leaderboard-get-label (- start-index 3) *pc-cpp-temp-string*)
+               (pc-encode-utf8-string *pc-cpp-temp-string* *pc-encoded-temp-string*)
+               (set-color! font-ctx (font-color font-color-32))
+               (print-game-text *pc-encoded-temp-string* font-ctx #f 44
+                                (bucket-id hud-draw-hud-alpha))))
+            (set! (-> font-ctx origin y) (+ old-y line-height)))
+          (+! start-index 1)))
+      (end-scissor-scrolling-page hud-bounds 1.0)
+      (set-flags! font-ctx (font-flags kerning large))
+      (draw-scrolling-page-up-down-arrows
+        font-ctx
+        (< 0 (-> *progress-pc-generic-store* current-menu-hover-index))
+        (< (-> *progress-pc-generic-store* current-menu-hover-index) (1- row-count)))))
+  (none))
+
 (defmethod draw-option ((obj menu-generic-scrolling-page) (progress progress) (font-ctx font-context) (arg3 int) (arg4 symbol))
   (when (or (zero? (-> obj mounted?)) (not (-> obj mounted?)))
     (on-mount! obj))
@@ -434,6 +526,12 @@
   (when (not (-> obj mounted?))
     (on-mount! obj))
   (draw-generic-simple-string-option obj progress font-ctx option-index "Replay Races")
+  (none))
+
+(defmethod draw-option ((obj menu-generic-point-leaderboard-link-option) (progress progress) (font-ctx font-context) (option-index int) (selected? symbol))
+  (when (not (-> obj mounted?))
+    (on-mount! obj))
+  (draw-generic-simple-string-option obj progress font-ctx option-index "Point Leaderboards")
   (none))
 
 (defmethod draw-option ((obj menu-generic-button-option) (progress progress) (font-ctx font-context) (option-index int) (selected? symbol))

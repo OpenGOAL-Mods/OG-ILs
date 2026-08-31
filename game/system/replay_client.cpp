@@ -204,6 +204,35 @@ struct RunnerInfo {
   std::string display_name;
 };
 
+struct PointLeaderboardEntry {
+  int rank = 0;
+  std::string rank_label;
+  std::string runner;
+  int points = 0;
+  int missions_run = 0;
+  int missions_total = 0;
+  int tied_wrs = 0;
+  int untied_wrs = 0;
+};
+
+struct PointLeaderboardFilter {
+  const char* id;
+  const char* label;
+};
+
+constexpr std::array<PointLeaderboardFilter, 3> kPointLeaderboardModes = {
+    PointLeaderboardFilter{"jak2", "Jak II"},
+    PointLeaderboardFilter{"jak3", "Jak 3"},
+    PointLeaderboardFilter{"combined", "Combined"},
+};
+
+constexpr std::array<PointLeaderboardFilter, 4> kPointLeaderboardGroups = {
+    PointLeaderboardFilter{"all", "Overall"},
+    PointLeaderboardFilter{"main", "Main Missions"},
+    PointLeaderboardFilter{"orb", "Orb Searches"},
+    PointLeaderboardFilter{"side", "Other Side Missions"},
+};
+
 std::string mapped_player_name(const json& state) {
   std::string runner_id;
   if (state.contains("players") && state.at("players").is_array()) {
@@ -420,6 +449,150 @@ class Client {
       refresh_identity();
     }
     return player_name;
+  }
+
+  bool ping_unknown_player() {
+    {
+      std::lock_guard lock(m_state_mutex);
+      if (!m_player_name.empty() || m_unknown_ping_pending) {
+        return false;
+      }
+      m_unknown_ping_pending = true;
+      m_status = "Sending unknown-player identity ping...";
+    }
+    enqueue([this]() {
+      const auto body = json{{"player_id", persistent_player_id()}}.dump();
+      const auto response = request("POST", "/api/unknown-player-ping", body);
+      std::lock_guard lock(m_state_mutex);
+      m_unknown_ping_pending = false;
+      m_status = response.ok
+                     ? fmt::format("Identity ping sent for Player ID {}", persistent_player_id())
+                     : fmt::format("Identity ping failed: {}", response.error);
+    });
+    return true;
+  }
+
+  void refresh_point_leaderboard() {
+    int revision = 0;
+    int mode_index = 0;
+    int group_index = 0;
+    {
+      std::lock_guard lock(m_state_mutex);
+      revision = ++m_point_leaderboard_revision;
+      mode_index = m_point_leaderboard_mode_index;
+      group_index = m_point_leaderboard_group_index;
+      m_point_leaderboard_pending = true;
+      m_point_leaderboard_status = "Loading JakMods point standings...";
+    }
+    enqueue([this, revision, mode_index, group_index]() {
+      const auto response = request(
+          "GET", fmt::format("/api/point-leaderboard?mode={}&group={}",
+                             kPointLeaderboardModes.at(mode_index).id,
+                             kPointLeaderboardGroups.at(group_index).id));
+      if (!response.ok) {
+        std::lock_guard lock(m_state_mutex);
+        if (revision == m_point_leaderboard_revision) {
+          m_point_leaderboard_pending = false;
+          m_point_leaderboard_status =
+              fmt::format("Could not load point standings: {}", response.error);
+        }
+        return;
+      }
+      const auto parsed = safe_parse_json(response.body);
+      if (!parsed || !parsed->contains("entries") || !parsed->at("entries").is_array()) {
+        std::lock_guard lock(m_state_mutex);
+        if (revision == m_point_leaderboard_revision) {
+          m_point_leaderboard_pending = false;
+          m_point_leaderboard_status = "Point leaderboard returned invalid JSON";
+        }
+        return;
+      }
+      std::vector<PointLeaderboardEntry> entries;
+      try {
+        for (const auto& item : parsed->at("entries")) {
+          entries.push_back({item.value("rank", 0), item.value("rank_label", ""),
+                             item.value("runner", "Unknown runner"), item.value("points", 0),
+                             item.value("missions_run", 0), item.value("missions_total", 0),
+                             item.value("tied_wrs", 0), item.value("untied_wrs", 0)});
+        }
+      } catch (const std::exception& error) {
+        std::lock_guard lock(m_state_mutex);
+        if (revision == m_point_leaderboard_revision) {
+          m_point_leaderboard_pending = false;
+          m_point_leaderboard_status =
+              fmt::format("Could not parse point standings: {}", error.what());
+        }
+        return;
+      }
+      std::lock_guard lock(m_state_mutex);
+      if (revision != m_point_leaderboard_revision) {
+        return;
+      }
+      m_point_leaderboard_entries = std::move(entries);
+      m_point_leaderboard_pending = false;
+      m_point_leaderboard_status =
+          fmt::format("{} / {} - {} runner{}", kPointLeaderboardModes.at(mode_index).label,
+                      kPointLeaderboardGroups.at(group_index).label,
+                      m_point_leaderboard_entries.size(),
+                      m_point_leaderboard_entries.size() == 1 ? "" : "s");
+    });
+  }
+
+  int point_leaderboard_count() {
+    std::lock_guard lock(m_state_mutex);
+    return static_cast<int>(m_point_leaderboard_entries.size());
+  }
+
+  std::string point_leaderboard_label(int index) {
+    std::lock_guard lock(m_state_mutex);
+    if (index < 0 || index >= static_cast<int>(m_point_leaderboard_entries.size())) {
+      return {};
+    }
+    const auto& entry = m_point_leaderboard_entries.at(index);
+    return fmt::format("{}  {}  {} pts  {}/{}  WR {}+{}", entry.rank_label, entry.runner,
+                       entry.points, entry.missions_run, entry.missions_total, entry.tied_wrs,
+                       entry.untied_wrs);
+  }
+
+  int point_leaderboard_mode_index() {
+    std::lock_guard lock(m_state_mutex);
+    return m_point_leaderboard_mode_index;
+  }
+
+  bool set_point_leaderboard_mode(int index) {
+    if (index < 0 || index >= static_cast<int>(kPointLeaderboardModes.size())) {
+      return false;
+    }
+    {
+      std::lock_guard lock(m_state_mutex);
+      m_point_leaderboard_mode_index = index;
+      m_point_leaderboard_entries.clear();
+    }
+    refresh_point_leaderboard();
+    return true;
+  }
+
+  int point_leaderboard_group_index() {
+    std::lock_guard lock(m_state_mutex);
+    return m_point_leaderboard_group_index;
+  }
+
+  bool set_point_leaderboard_group(int index) {
+    if (index < 0 || index >= static_cast<int>(kPointLeaderboardGroups.size())) {
+      return false;
+    }
+    {
+      std::lock_guard lock(m_state_mutex);
+      m_point_leaderboard_group_index = index;
+      m_point_leaderboard_entries.clear();
+    }
+    refresh_point_leaderboard();
+    return true;
+  }
+
+  std::string point_leaderboard_status() {
+    std::lock_guard lock(m_state_mutex);
+    return m_point_leaderboard_status;
   }
 
   void publish(const std::string& replay_path, ReplayLevelResolver level_resolver) {
@@ -1014,6 +1187,13 @@ class Client {
   bool m_connected = false;
   bool m_refresh_started = false;
   bool m_identity_refresh_pending = false;
+  bool m_unknown_ping_pending = false;
+  std::vector<PointLeaderboardEntry> m_point_leaderboard_entries;
+  std::string m_point_leaderboard_status = "Point standings have not been loaded";
+  int m_point_leaderboard_mode_index = 1;
+  int m_point_leaderboard_group_index = 0;
+  int m_point_leaderboard_revision = 0;
+  bool m_point_leaderboard_pending = false;
 };
 
 Client& client() {
@@ -1089,6 +1269,62 @@ std::string player_id() {
 
 std::string player_name() {
   return client().player_name();
+}
+
+bool ping_unknown_player() {
+  return client().ping_unknown_player();
+}
+
+void refresh_point_leaderboard() {
+  client().refresh_point_leaderboard();
+}
+
+int point_leaderboard_count() {
+  return client().point_leaderboard_count();
+}
+
+std::string point_leaderboard_label(int index) {
+  return client().point_leaderboard_label(index);
+}
+
+int point_leaderboard_mode_count() {
+  return static_cast<int>(kPointLeaderboardModes.size());
+}
+
+std::string point_leaderboard_mode_label(int index) {
+  return index >= 0 && index < static_cast<int>(kPointLeaderboardModes.size())
+             ? kPointLeaderboardModes.at(index).label
+             : std::string{};
+}
+
+int point_leaderboard_mode_index() {
+  return client().point_leaderboard_mode_index();
+}
+
+bool set_point_leaderboard_mode(int index) {
+  return client().set_point_leaderboard_mode(index);
+}
+
+int point_leaderboard_group_count() {
+  return static_cast<int>(kPointLeaderboardGroups.size());
+}
+
+std::string point_leaderboard_group_label(int index) {
+  return index >= 0 && index < static_cast<int>(kPointLeaderboardGroups.size())
+             ? kPointLeaderboardGroups.at(index).label
+             : std::string{};
+}
+
+int point_leaderboard_group_index() {
+  return client().point_leaderboard_group_index();
+}
+
+bool set_point_leaderboard_group(int index) {
+  return client().set_point_leaderboard_group(index);
+}
+
+std::string point_leaderboard_status() {
+  return client().point_leaderboard_status();
 }
 
 void draw_window(bool* open) {

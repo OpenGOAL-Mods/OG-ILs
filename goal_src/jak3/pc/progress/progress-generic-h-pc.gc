@@ -77,6 +77,14 @@
   "Dynamic native list of server replays for the currently selected mission."
   ((last-move time-frame)))
 
+(deftype menu-generic-point-leaderboard-link-option (menu-generic-link-option)
+  "Native progress-menu link to the JakMods point standings."
+  ())
+
+(deftype menu-generic-point-leaderboard-page (menu-generic-option)
+  "Dynamic native list of the cached Jak II/Jak 3 individual-level point standings."
+  ((last-move time-frame)))
+
 (deftype menu-generic-boolean-option (menu-generic-option)
   "Generic two option menu entry (ie. yes/no)"
   (;; props

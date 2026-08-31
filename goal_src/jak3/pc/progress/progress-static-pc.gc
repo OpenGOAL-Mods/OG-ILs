@@ -537,6 +537,13 @@ This gives us more freedom to write code how we want.
         (set! (-> *progress-pc-generic-store* current-menu-hover-index) 0)
         (set! (-> *progress-pc-generic-store* current-menu-scroll-index) 0.0)
         (pc-replay-refresh)))
+    (new 'static 'menu-generic-point-leaderboard-link-option
+      :target (progress-new-generic-option
+                (new 'static 'menu-generic-point-leaderboard-page))
+      :on-load (lambda ()
+        (set! (-> *progress-pc-generic-store* current-menu-hover-index) 0)
+        (set! (-> *progress-pc-generic-store* current-menu-scroll-index) 0.0)
+        (pc-point-leaderboard-refresh)))
     (new 'static 'menu-generic-carousel-option
       :name (text-id progress-weather-options)
       :items (new 'static 'boxed-array :type text-id

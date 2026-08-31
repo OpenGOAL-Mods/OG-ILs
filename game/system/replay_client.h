@@ -25,6 +25,19 @@ std::string ready_replay_name(int index);
 std::string status();
 std::string player_id();
 std::string player_name();
+bool ping_unknown_player();
+void refresh_point_leaderboard();
+int point_leaderboard_count();
+std::string point_leaderboard_label(int index);
+int point_leaderboard_mode_count();
+std::string point_leaderboard_mode_label(int index);
+int point_leaderboard_mode_index();
+bool set_point_leaderboard_mode(int index);
+int point_leaderboard_group_count();
+std::string point_leaderboard_group_label(int index);
+int point_leaderboard_group_index();
+bool set_point_leaderboard_group(int index);
+std::string point_leaderboard_status();
 void draw_window(bool* open);
 
 }  // namespace replay_client

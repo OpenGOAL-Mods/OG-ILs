@@ -20,6 +20,12 @@
     (clear *il-menu-display-text*)
     (clear *il-menu-encoded-text*)
     (pc-replay-get-player-name *il-menu-player-name*)
+    (when (and (string= *il-menu-player-name* "")
+               (cpad-hold? 0 l2)
+               (cpad-hold? 0 r2)
+               (cpad-pressed? 0 r3))
+      (when (pc-replay-ping-unknown-player)
+        (sound-play "menu-pick")))
     (if (string= *il-menu-player-name* "")
         (format *il-menu-display-text*
                 "you are an unknown player contact barg or zed to be known")

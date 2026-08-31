@@ -15,6 +15,7 @@ from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 
 from .api import SpeedrunAPIError
+from .point_leaderboard import PointLeaderboardClient, PointLeaderboardError
 from .replay_store import DEFAULT_HOST, DEFAULT_PORT, ReplayStore
 
 
@@ -25,10 +26,11 @@ DASHBOARD_HTML = r"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 :root{color-scheme:dark;--bg:#0b1220;--card:#121d31;--line:#263753;--ink:#e8eef8;--muted:#9cb0ca;--accent:#63d7c8;--bad:#ff8a8a}*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#09101c,#10213b);color:var(--ink);font:15px system-ui,sans-serif}main{max-width:1280px;margin:auto;padding:32px 20px}.top{display:flex;justify-content:space-between;align-items:end;gap:16px}h1{margin:0;font-size:30px}p{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:18px;box-shadow:0 18px 50px #0004}button,input,select{font:inherit;color:var(--ink);background:#0c1728;border:1px solid #38506f;border-radius:8px;padding:8px 10px}button{cursor:pointer;background:#183552}button:hover{border-color:var(--accent)}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-size:12px;text-transform:uppercase}.id{font:12px ui-monospace,monospace;color:var(--muted);overflow-wrap:anywhere}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.grow{flex:1;min-width:220px}.replay-group td{padding-top:22px;color:var(--accent);font-size:16px;font-weight:700;border-bottom:2px solid var(--line)}.status-failed{color:var(--bad)}.status-submitted{color:var(--accent)}a{color:var(--accent)}[hidden]{display:none!important}@media(max-width:760px){table,thead,tbody,tr,th,td{display:block}thead{display:none}td{border:0;padding:4px}.replay,.player{padding:14px 0;border-bottom:1px solid var(--line)}.replay-group td{padding-top:22px}}</style></head><body><main>
 <section class="card" id="login"><h1>Replay Server Admin</h1><p>Sign in with the administrator username and password. Your login is kept only in this browser tab.</p><form id="login-form" class="row"><input class="grow" name="username" type="text" autocomplete="username" placeholder="Username" required><input class="grow" name="password" type="password" autocomplete="current-password" placeholder="Password" required><button>Open dashboard</button></form><p class="status-failed" id="login-status"></p></section>
 <div id="dashboard" hidden><div class="top"><div><h1>OpenGOAL Replay Server</h1><p id="summary">Loading…</p></div><div class="row"><button onclick="refresh()">Refresh</button><button onclick="logout()">Lock</button></div></div>
+<section class="card"><h2>Identity verification</h2><p id="unknown-player-ping">Last unknown player ping: none yet</p><p>Ask the player to hold L2 + R2 and press R3 in-game. Their permanent Player ID will appear here and in the Players table below.</p></section>
 <section class="card"><h2>Speedrun.com moderator</h2><p>Configure one moderator key on this server. It is stored only in the protected server data and is never returned to the browser or game. Registered runners are loaded from verified runs on the Jak 3 OpenGOAL Missions board, and automatic submissions use the shared YouTube proof video.</p><form id="moderator-form" class="row"><input class="grow" name="api_key" type="password" required placeholder="Moderator API key"><button>Configure & load runners</button></form><div class="row" style="margin-top:12px"><span id="moderator-name">No moderator configured</span><button id="refresh-runners" type="button">Reload runners</button><label><input id="auto-submit" type="checkbox"> Auto-submit mapped-player PBs</label></div><p>Each game installation creates one permanent random Player ID. Map it once below; all existing and future replays from that player inherit the SRC runner.</p><p id="moderator-status"></p></section>
 <section class="card"><h2>Players</h2><table><thead><tr><th>Permanent Player ID</th><th>Replays</th><th>SRC runner</th></tr></thead><tbody id="players"></tbody></table></section>
 <section class="card"><h2>Replays</h2><table><thead><tr><th>Name</th><th>Category</th><th>Time</th><th>Player ID</th><th>Replay ID</th><th>SRC runner</th><th>Speedrun.com</th><th></th></tr></thead><tbody id="replays"></tbody></table></section></div></main><script>
-let state={replays:[],players:[],runners:[],replay_modes:[],moderator:{},settings:{}};
+let state={replays:[],players:[],runners:[],replay_modes:[],last_unknown_player_ping:{},moderator:{},settings:{}};
 let adminAuthorization=sessionStorage.getItem('replay-admin-authorization')||'';
 async function api(path,options={}){options.headers={'Content-Type':'application/json',...(adminAuthorization?{'Authorization':adminAuthorization}:{}),...(options.headers||{})};let r=await fetch(path,options);let data=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401)showLogin(data.error||'Administrator login required');throw Error(data.error||r.statusText)}return data}
 function showLogin(message=''){document.querySelector('#login').hidden=false;document.querySelector('#dashboard').hidden=true;document.querySelector('#login-status').textContent=message}
@@ -36,11 +38,12 @@ async function connectAdmin(username,password){adminAuthorization='Basic '+btoa(
 function logout(){adminAuthorization='';sessionStorage.removeItem('replay-admin-authorization');showLogin('Dashboard locked.')}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function duration(v){let ms=Math.round(v*1000),s=Math.floor(ms/1000),m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,'0')}.${String(ms%1000).padStart(3,'0')}`}
+function timeAgo(value){let seconds=Math.max(0,Math.floor((Date.now()-Date.parse(value))/1000));if(!Number.isFinite(seconds))return 'at an unknown time';if(seconds<5)return 'just now';if(seconds<60)return `${seconds} seconds ago`;let minutes=Math.floor(seconds/60);if(minutes<60)return `${minutes} minute${minutes===1?'':'s'} ago`;let hours=Math.floor(minutes/60);if(hours<24)return `${hours} hour${hours===1?'':'s'} ago`;let days=Math.floor(hours/24);return `${days} day${days===1?'':'s'} ago`}
 function runnerOptions(selected){return '<option value="">Unassigned</option>'+state.runners.map(r=>`<option value="${r.id}" ${r.id===selected?'selected':''}>${esc(r.display_name)}</option>`).join('')}
 function gameLabel(game){return ({jak1:'Jak and Daxter',jak2:'Jak II',jak3:'Jak 3'})[game]||game||'Jak 3'}
 function sortedReplays(){return [...state.replays].sort((a,b)=>gameLabel(a.game).localeCompare(gameLabel(b.game))||String(a.category||'').localeCompare(String(b.category||''))||Number(a.time_seconds||0)-Number(b.time_seconds||0)||String(a.display_name||'').localeCompare(String(b.display_name||'')))}
 function replayRows(){let previous='';return sortedReplays().map(r=>{let group=`${gameLabel(r.game)} / ${r.category||'Uncategorized'}`;let heading=group===previous?'':`<tr class="replay-group"><td colspan="8">${esc(group)}</td></tr>`;previous=group;return heading+`<tr class="replay"><td><form onsubmit="renameReplay(event,'${r.id}')" class="row"><input class="grow" name="display_name" maxlength="120" value="${esc(r.display_name)}"><button>Rename</button></form></td><td>${esc(r.category)}${r.is_personal_best?' <strong>PB</strong>':' <small>attempt</small>'}${!r.completed?' <strong>UNFINISHED</strong>':''}</td><td>${duration(r.time_seconds)}</td><td class="id">${esc(r.player_id||'Legacy replay')}</td><td class="id">${r.id}</td><td>${esc((state.runners.find(x=>x.id===r.src_runner_id)||{}).display_name||'Unassigned')}</td><td class="status-${r.src_status}">${r.src_run_url?`<a href="${esc(r.src_run_url)}" target="_blank">submitted</a>`:esc(r.src_status)}${r.src_error?`<br><small>${esc(r.src_error)}</small>`:''}</td><td><button onclick="downloadReplay('${r.id}')">Download</button>${r.is_personal_best&&(r.src_status==='failed'||r.src_status==='not_requested')?` <button onclick="submitReplay('${r.id}')" ${r.src_runner_id?'':'disabled'}>Submit</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="8">Complete a run in-game to add the first replay.</td></tr>'}
-async function refresh(){state=await api('/api/state');document.querySelector('#login').hidden=true;document.querySelector('#dashboard').hidden=false;document.querySelector('#summary').textContent=`${state.replays.length} replay${state.replays.length===1?'':'s'} · ${state.players.length} player${state.players.length===1?'':'s'} · ${state.runners.length} SRC runner${state.runners.length===1?'':'s'} · ${location.origin}`;document.querySelector('#moderator-name').textContent=state.moderator.display_name?`Moderator: ${state.moderator.display_name}`:'No moderator configured';document.querySelector('#auto-submit').checked=!!state.settings.auto_submit;document.querySelector('#players').innerHTML=state.players.map(p=>`<tr class="player"><td class="id">${esc(p.id)}</td><td>${state.replays.filter(r=>r.player_id===p.id).length}</td><td><select onchange="assignPlayer('${p.id}',this.value)">${runnerOptions(p.src_runner_id||'')}</select></td></tr>`).join('')||'<tr><td colspan="3">No game Player IDs have uploaded a replay yet.</td></tr>';document.querySelector('#replays').innerHTML=replayRows()}
+async function refresh(){state=await api('/api/state');document.querySelector('#login').hidden=true;document.querySelector('#dashboard').hidden=false;document.querySelector('#summary').textContent=`${state.replays.length} replay${state.replays.length===1?'':'s'} · ${state.players.length} player${state.players.length===1?'':'s'} · ${state.runners.length} SRC runner${state.runners.length===1?'':'s'} · ${location.origin}`;let ping=state.last_unknown_player_ping||{};document.querySelector('#unknown-player-ping').innerHTML=ping.player_id?`Last unknown player ping: <span class="id">${esc(ping.player_id)}</span> · ${esc(timeAgo(ping.pinged_at))}`:'Last unknown player ping: none yet';document.querySelector('#moderator-name').textContent=state.moderator.display_name?`Moderator: ${state.moderator.display_name}`:'No moderator configured';document.querySelector('#auto-submit').checked=!!state.settings.auto_submit;document.querySelector('#players').innerHTML=state.players.map(p=>`<tr class="player"><td class="id">${esc(p.id)}</td><td>${state.replays.filter(r=>r.player_id===p.id).length}</td><td><select onchange="assignPlayer('${p.id}',this.value)">${runnerOptions(p.src_runner_id||'')}</select></td></tr>`).join('')||'<tr><td colspan="3">No game Player IDs have contacted the server yet.</td></tr>';document.querySelector('#replays').innerHTML=replayRows()}
 async function renameReplay(e,id){e.preventDefault();await api(`/api/replays/${id}`,{method:'PATCH',body:JSON.stringify({display_name:new FormData(e.target).get('display_name')})});await refresh()}
 async function assignPlayer(id,runner){await api(`/api/players/${id}`,{method:'PATCH',body:JSON.stringify({src_runner_id:runner})});await refresh()}
 async function submitReplay(id){await api(`/api/replays/${id}/submit`,{method:'POST',body:'{}'});await refresh()}
@@ -130,22 +133,42 @@ class ReplayRequestHandler(BaseHTTPRequestHandler):
                 query = parse_qs(urlparse(self.path).query)
                 player_id = str((query.get("player_id") or [""])[0])
                 self._json(HTTPStatus.OK, self.store.public_state(player_id))
+            elif parts == ["api", "point-leaderboard"]:
+                if not self._require("game"): return
+                query = parse_qs(urlparse(self.path).query)
+                mode = str((query.get("mode") or ["jak3"])[0])
+                group = str((query.get("group") or ["all"])[0])
+                self._json(
+                    HTTPStatus.OK,
+                    self.server.point_leaderboards.standings(mode, group),  # type: ignore[attr-defined]
+                )
             elif len(parts) == 4 and parts[:2] == ["api", "replays"] and parts[3] == "download":
                 if not self._require("game"): return
                 body = self.store.replay_bytes(parts[2]); self.send_response(HTTPStatus.OK)
                 self.send_header("Content-Type", "application/json"); self.send_header("Content-Disposition", f'attachment; filename="replay-{parts[2]}.json"')
                 self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
             else: self._json(HTTPStatus.NOT_FOUND, {"error": "Not found"})
+        except ValueError as exc: self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
+        except PointLeaderboardError as exc: self._json(HTTPStatus.BAD_GATEWAY, {"error": str(exc)})
         except KeyError: self._json(HTTPStatus.NOT_FOUND, {"error": "Replay not found"})
         except Exception as exc: self._json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(exc)})
 
     def do_POST(self) -> None:
         try:
             parts = self._parts()
-            role = "game" if parts in (["api", "replays"], ["api", "replay-selection"]) else "admin"
+            role = "game" if parts in (
+                ["api", "replays"],
+                ["api", "replay-selection"],
+                ["api", "unknown-player-ping"],
+            ) else "admin"
             if not self._require(role): return
             data = self._body()
             if parts == ["api", "replays"]: self._json(HTTPStatus.CREATED, self.store.add_replay(data))
+            elif parts == ["api", "unknown-player-ping"]:
+                self._json(
+                    HTTPStatus.CREATED,
+                    self.store.record_unknown_player_ping(str(data.get("player_id") or "")),
+                )
             elif parts == ["api", "replay-selection"]:
                 self._json(
                     HTTPStatus.OK,
@@ -205,6 +228,7 @@ class ReplayHTTPServer(ThreadingHTTPServer):
         admin_token: str = "",
         admin_username: str = "",
         admin_password: str = "",
+        point_leaderboards: PointLeaderboardClient | None = None,
     ) -> None:
         super().__init__(address, ReplayRequestHandler)
         self.store = store
@@ -212,6 +236,7 @@ class ReplayHTTPServer(ThreadingHTTPServer):
         self.admin_token = admin_token
         self.admin_username = admin_username
         self.admin_password = admin_password
+        self.point_leaderboards = point_leaderboards or PointLeaderboardClient()
 
 
 def main() -> None:

@@ -494,6 +494,32 @@ void InitMachine_PCPort() {
   make_function_symbol_from_c("pc-replay-get-status", (void*)kmachine_extras::pc_replay_get_status);
   make_function_symbol_from_c("pc-replay-get-player-name",
                               (void*)kmachine_extras::pc_replay_get_player_name);
+  make_function_symbol_from_c("pc-replay-ping-unknown-player",
+                              (void*)kmachine_extras::pc_replay_ping_unknown_player);
+  make_function_symbol_from_c("pc-point-leaderboard-refresh",
+                              (void*)kmachine_extras::pc_point_leaderboard_refresh);
+  make_function_symbol_from_c("pc-point-leaderboard-count",
+                              (void*)kmachine_extras::pc_point_leaderboard_count);
+  make_function_symbol_from_c("pc-point-leaderboard-get-label",
+                              (void*)kmachine_extras::pc_point_leaderboard_get_label);
+  make_function_symbol_from_c("pc-point-leaderboard-mode-count",
+                              (void*)kmachine_extras::pc_point_leaderboard_mode_count);
+  make_function_symbol_from_c("pc-point-leaderboard-get-mode-label",
+                              (void*)kmachine_extras::pc_point_leaderboard_get_mode_label);
+  make_function_symbol_from_c("pc-point-leaderboard-mode-index",
+                              (void*)kmachine_extras::pc_point_leaderboard_mode_index);
+  make_function_symbol_from_c("pc-point-leaderboard-set-mode",
+                              (void*)kmachine_extras::pc_point_leaderboard_set_mode);
+  make_function_symbol_from_c("pc-point-leaderboard-group-count",
+                              (void*)kmachine_extras::pc_point_leaderboard_group_count);
+  make_function_symbol_from_c("pc-point-leaderboard-get-group-label",
+                              (void*)kmachine_extras::pc_point_leaderboard_get_group_label);
+  make_function_symbol_from_c("pc-point-leaderboard-group-index",
+                              (void*)kmachine_extras::pc_point_leaderboard_group_index);
+  make_function_symbol_from_c("pc-point-leaderboard-set-group",
+                              (void*)kmachine_extras::pc_point_leaderboard_set_group);
+  make_function_symbol_from_c("pc-point-leaderboard-get-status",
+                              (void*)kmachine_extras::pc_point_leaderboard_get_status);
 
   // speedrunning stuff
   make_function_symbol_from_c("pc-sr-mode-get-practice-entries-amount",

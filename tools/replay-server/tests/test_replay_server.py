@@ -8,6 +8,7 @@ import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from speedrun_submitter.point_leaderboard import PointLeaderboardClient, parse_point_standings
 from speedrun_submitter.replay_server import ReplayHTTPServer
 from speedrun_submitter.replay_store import PROOF_VIDEO_URL, ReplayStore
 
@@ -38,6 +39,45 @@ class FakeAPI:
                 "platforms": [{"id": "other"}, {"id": "8gej2n93"}], "variables": []}
     def submit_run(self, payload):
         self.submitted.append(payload); return {"id": "run-1", "weblink": "https://www.speedrun.com/run/run-1"}
+
+
+POINTS_HTML = """
+<table id="leaderboard-table"><thead><tr><th>Rank</th><th>Runner</th></tr></thead>
+<tbody>
+<tr><td>1st</td><td><a>Runner One</a></td><td>8,285</td><td>87 / 94</td><td>19</td><td>7</td></tr>
+<tr><td>2nd</td><td><a>Runner Two</a></td><td>6981</td><td>74 / 94</td><td>25</td><td>0</td></tr>
+</tbody></table>
+"""
+
+
+class PointLeaderboardTests(unittest.TestCase):
+    def test_parses_point_standings_table(self):
+        rows = parse_point_standings(POINTS_HTML)
+        self.assertEqual(rows[0], {
+            "rank": 1,
+            "rank_label": "1st",
+            "runner": "Runner One",
+            "points": 8285,
+            "missions_run": 87,
+            "missions_total": 94,
+            "tied_wrs": 19,
+            "untied_wrs": 7,
+        })
+
+    def test_validates_filters_and_caches_upstream_page(self):
+        fetched = []
+        client = PointLeaderboardClient(
+            lambda url: fetched.append(url) or POINTS_HTML,
+            cache_seconds=60,
+        )
+        first = client.standings("jak3", "main")
+        second = client.standings("jak3", "main")
+        self.assertEqual(first["entries"], second["entries"])
+        self.assertEqual(fetched, ["https://im.jakmods.dev/?mode=jak3&group=main"])
+        with self.assertRaisesRegex(ValueError, "game"):
+            client.standings("jakx", "main")
+        with self.assertRaisesRegex(ValueError, "category"):
+            client.standings("jak3", "invalid")
 
 
 class ReplayStoreTests(unittest.TestCase):
@@ -84,6 +124,35 @@ class ReplayStoreTests(unittest.TestCase):
         second = self.store.add_replay(other)
         self.assertNotEqual(first["player_id"], second["player_id"])
         self.assertEqual(len(self.store.public_state()["players"]), 2)
+
+    def test_unknown_player_ping_is_persistent_and_creates_a_mappable_player(self):
+        player_id = "ping-player-0123456789abcdef"
+        ping = self.store.record_unknown_player_ping(player_id)
+        self.assertEqual(ping["player_id"], player_id)
+        self.assertTrue(ping["pinged_at"])
+        state = self.store.public_state()
+        self.assertEqual(state["last_unknown_player_ping"], ping)
+        self.assertEqual(state["players"][0]["id"], player_id)
+        self.assertEqual(state["players"][0]["src_runner_id"], "")
+
+        reloaded = ReplayStore(Path(self.tmp.name), api_factory=FakeAPI)
+        self.assertEqual(reloaded.public_state()["last_unknown_player_ping"], ping)
+
+    def test_mapped_player_cannot_replace_the_last_unknown_ping(self):
+        unknown_id = "ping-player-0123456789abcdef"
+        mapped_id = "mapped-player-0123456789abcd"
+        first_ping = self.store.record_unknown_player_ping(unknown_id)
+        self.store.record_unknown_player_ping(mapped_id)
+        self.store.configure_moderator("secret")
+        self.store.assign_player_runner(mapped_id, "runner-1")
+        with self.assertRaisesRegex(ValueError, "already mapped"):
+            self.store.record_unknown_player_ping(mapped_id)
+        self.assertNotEqual(
+            self.store.public_state()["last_unknown_player_ping"], first_ping
+        )
+        self.assertEqual(
+            self.store.public_state()["last_unknown_player_ping"]["player_id"], mapped_id
+        )
 
     def test_multiple_replays_can_be_selected_and_old_setting_is_migrated(self):
         first = self.store.add_replay(replay_envelope())
@@ -296,7 +365,11 @@ class ReplayHTTPTests(unittest.TestCase):
     def test_state_upload_and_download_over_loopback(self):
         with TemporaryDirectory() as temporary:
             store = ReplayStore(Path(temporary), api_factory=FakeAPI)
-            server = ReplayHTTPServer(("127.0.0.1", 0), store)
+            server = ReplayHTTPServer(
+                ("127.0.0.1", 0),
+                store,
+                point_leaderboards=PointLeaderboardClient(lambda _url: POINTS_HTML),
+            )
             worker = threading.Thread(target=server.serve_forever, daemon=True)
             worker.start()
             base = f"http://127.0.0.1:{server.server_port}"
@@ -304,6 +377,8 @@ class ReplayHTTPTests(unittest.TestCase):
                 with urlopen(base, timeout=2) as response:
                     dashboard = response.read().decode("utf-8")
                     self.assertIn("Speedrun.com moderator", dashboard)
+                    self.assertIn("Last unknown player ping", dashboard)
+                    self.assertIn("hold L2 + R2 and press R3", dashboard)
                     self.assertNotIn("Ghost mode", dashboard)
                     self.assertNotIn('id="replay-mode"', dashboard)
                     self.assertIn("Replay Server Admin", dashboard)
@@ -316,6 +391,13 @@ class ReplayHTTPTests(unittest.TestCase):
                     self.assertIn("<th>Category</th>", dashboard)
                 with urlopen(f"{base}/api/state", timeout=2) as response:
                     self.assertEqual(json.load(response)["replays"], [])
+                with urlopen(
+                    f"{base}/api/point-leaderboard?mode=jak3&group=main", timeout=2
+                ) as response:
+                    standings = json.load(response)
+                self.assertEqual(standings["mode"], "jak3")
+                self.assertEqual(standings["group"], "main")
+                self.assertEqual(standings["entries"][0]["runner"], "Runner One")
                 body = json.dumps(replay_envelope()).encode("utf-8")
                 request = Request(
                     f"{base}/api/replays", data=body, method="POST",
@@ -360,6 +442,7 @@ class ReplayHTTPTests(unittest.TestCase):
                 admin_token="admin-secret",
                 admin_username="user",
                 admin_password="pass",
+                point_leaderboards=PointLeaderboardClient(lambda _url: POINTS_HTML),
             )
             worker = threading.Thread(target=server.serve_forever, daemon=True)
             worker.start()
@@ -378,6 +461,33 @@ class ReplayHTTPTests(unittest.TestCase):
                 )
                 with urlopen(game_state, timeout=2) as response:
                     self.assertEqual(json.load(response)["replays"], [])
+
+                points_request = Request(
+                    f"{base}/api/point-leaderboard?mode=jak2&group=orb",
+                    headers={"Authorization": "Bearer game-secret"},
+                )
+                with urlopen(points_request, timeout=2) as response:
+                    points = json.load(response)
+                self.assertEqual(points["mode_label"], "Jak II")
+                self.assertEqual(points["group_label"], "Orb Searches")
+
+                ping_request = Request(
+                    f"{base}/api/unknown-player-ping",
+                    data=json.dumps({
+                        "player_id": "ping-player-0123456789abcdef",
+                    }).encode("utf-8"),
+                    method="POST",
+                    headers={
+                        "Authorization": "Bearer game-secret",
+                        "Content-Type": "application/json",
+                    },
+                )
+                with urlopen(ping_request, timeout=2) as response:
+                    ping = json.load(response)
+                self.assertEqual(ping["player_id"], "ping-player-0123456789abcdef")
+                self.assertEqual(
+                    store.public_state()["last_unknown_player_ping"], ping
+                )
 
                 game_settings = Request(
                     f"{base}/api/player-settings/player-0123456789abcdef",

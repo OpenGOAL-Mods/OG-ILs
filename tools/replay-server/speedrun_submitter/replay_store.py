@@ -97,10 +97,11 @@ class ReplayStore:
 
     def _empty_state(self) -> dict[str, Any]:
         return {
-            "version": 5,
+            "version": 6,
             "replays": [],
             "players": [],
             "player_settings": {},
+            "last_unknown_player_ping": {},
             "moderator": {},
             "runners": [],
             "settings": {
@@ -120,7 +121,13 @@ class ReplayStore:
                 raise ValueError("index is not an object")
             base = self._empty_state()
             incoming_settings = data.get("settings") or {}
-            for key in ("replays", "players", "moderator", "runners"):
+            for key in (
+                "replays",
+                "players",
+                "last_unknown_player_ping",
+                "moderator",
+                "runners",
+            ):
                 if key in data:
                     base[key] = data[key]
             if isinstance(data.get("player_settings"), dict):
@@ -249,6 +256,38 @@ class ReplayStore:
             ):
                 replay["src_runner_id"] = ""
 
+    @staticmethod
+    def _validated_player_id(value: Any) -> str:
+        player_id = str(value or "").strip()
+        if not (16 <= len(player_id) <= 128) or not all(
+            character.isalnum() or character in "-_" for character in player_id
+        ):
+            raise ValueError("player_id is invalid")
+        return player_id
+
+    def record_unknown_player_ping(self, player_id: str) -> dict[str, str]:
+        """Record an out-of-band identity check from an unmapped game install."""
+        player_id = self._validated_player_id(player_id)
+        with self._lock:
+            now = datetime.now(timezone.utc).isoformat()
+            try:
+                player = self._find("players", player_id)
+                if str(player.get("src_runner_id") or ""):
+                    raise ValueError("player_id is already mapped to an SRC runner")
+                player["last_seen"] = now
+            except KeyError:
+                player = {
+                    "id": player_id,
+                    "src_runner_id": "",
+                    "first_seen": now,
+                    "last_seen": now,
+                }
+                self._state["players"].append(player)
+            ping = {"player_id": player_id, "pinged_at": now}
+            self._state["last_unknown_player_ping"] = ping
+            self._save()
+            return deepcopy(ping)
+
     def add_replay(self, envelope: dict[str, Any]) -> dict[str, Any]:
         replay = envelope.get("replay")
         game = str(envelope.get("game") or "jak3").strip().lower()
@@ -261,10 +300,7 @@ class ReplayStore:
             character.isalnum() or character in "-_" for character in game
         ):
             raise ValueError("game is invalid")
-        if not (16 <= len(player_id) <= 128) or not all(
-            character.isalnum() or character in "-_" for character in player_id
-        ):
-            raise ValueError("player_id is invalid")
+        player_id = self._validated_player_id(player_id)
         if replay.get("category") != category:
             raise ValueError("replay category does not match the upload category")
         frames = replay.get("frames")
