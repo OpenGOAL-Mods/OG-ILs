@@ -42,6 +42,7 @@ namespace {
 constexpr const char* kDefaultServerUrl = OPENGOAL_REPLAY_DEFAULT_URL;
 constexpr const char* kDefaultGameToken = OPENGOAL_REPLAY_DEFAULT_GAME_TOKEN;
 constexpr int kMaxSelectedReplays = 33;
+constexpr size_t kMaxReplayPayloadBytes = 0x3fffff;
 
 struct ServerConfig {
   std::string url = kDefaultServerUrl;
@@ -849,12 +850,17 @@ class Client {
       selection_revision = ++m_selection_revision;
     }
     enqueue([this, mode_id, category, selection_revision]() {
+      if (!selection_is_current(category, selection_revision)) {
+        return;
+      }
       json body = {{"replay_mode", mode_id}};
       auto response = request(
           "PATCH", fmt::format("/api/player-settings/{}", persistent_player_id()), body.dump());
       if (!response.ok) {
-        clear_pending_selection(category, selection_revision);
-        set_status(fmt::format("Could not save ghost mode: {}", response.error));
+        if (selection_is_current(category, selection_revision)) {
+          clear_pending_selection(category, selection_revision);
+          set_status(fmt::format("Could not save ghost mode: {}", response.error));
+        }
         return;
       }
       resolve_and_download(category, true, selection_revision);
@@ -911,12 +917,17 @@ class Client {
       m_pending_category = category;
     }
     enqueue([this, selected_replays = std::move(selected_replays), category, selection_revision]() {
+      if (!selection_is_current(category, selection_revision)) {
+        return;
+      }
       json body = {{"selected_replay_ids", selected_replays}, {"replay_mode", "custom"}};
       auto response = request(
           "PATCH", fmt::format("/api/player-settings/{}", persistent_player_id()), body.dump());
       if (!response.ok) {
-        clear_pending_selection(category, selection_revision);
-        set_status(fmt::format("Could not save replay selections: {}", response.error));
+        if (selection_is_current(category, selection_revision)) {
+          clear_pending_selection(category, selection_revision);
+          set_status(fmt::format("Could not save replay selections: {}", response.error));
+        }
         return;
       }
       resolve_and_download(category, true, selection_revision);
@@ -1058,6 +1069,11 @@ class Client {
   }
 
  private:
+  bool selection_is_current(const std::string& category, int selection_revision) {
+    std::lock_guard lock(m_state_mutex);
+    return selection_revision == m_selection_revision && category == m_active_category;
+  }
+
   void refresh_identity() {
     enqueue([this]() {
       const auto response =
@@ -1134,20 +1150,27 @@ class Client {
   }
 
   void resolve_and_download(const std::string& category, bool announce, int selection_revision) {
-    if (category.empty()) {
+    if (category.empty() || !selection_is_current(category, selection_revision)) {
       return;
     }
     json body = {{"category", category}, {"player_id", persistent_player_id()}};
     auto response = request("POST", "/api/replay-selection", body.dump());
     if (!response.ok) {
-      clear_pending_selection(category, selection_revision);
-      set_status(fmt::format("Could not resolve ghost mode: {}", response.error));
+      if (selection_is_current(category, selection_revision)) {
+        clear_pending_selection(category, selection_revision);
+        set_status(fmt::format("Could not resolve ghost mode: {}", response.error));
+      }
+      return;
+    }
+    if (!selection_is_current(category, selection_revision)) {
       return;
     }
     const auto parsed = safe_parse_json(response.body);
     if (!parsed || !parsed->contains("replays") || !parsed->at("replays").is_array()) {
-      clear_pending_selection(category, selection_revision);
-      set_status("Replay server returned an invalid ghost selection");
+      if (selection_is_current(category, selection_revision)) {
+        clear_pending_selection(category, selection_revision);
+        set_status("Replay server returned an invalid ghost selection");
+      }
       return;
     }
     std::vector<ReplayInfo> selected;
@@ -1163,6 +1186,9 @@ class Client {
     }
     {
       std::lock_guard lock(m_state_mutex);
+      if (selection_revision != m_selection_revision || category != m_active_category) {
+        return;
+      }
       for (const auto& replay : selected) {
         const auto found = std::find_if(m_replays.begin(), m_replays.end(),
                                         [&](const auto& item) { return item.id == replay.id; });
@@ -1180,7 +1206,7 @@ class Client {
                               const std::string& category,
                               bool announce,
                               int selection_revision) {
-    if (category.empty()) {
+    if (category.empty() || !selection_is_current(category, selection_revision)) {
       return;
     }
     if (announce) {
@@ -1190,17 +1216,47 @@ class Client {
     }
     try {
       file_util::create_dir_if_needed("ghost");
+      std::vector<ReplayInfo> downloaded_replays;
       std::vector<std::string> replay_payloads;
+      downloaded_replays.reserve(selected.size());
       replay_payloads.reserve(selected.size());
       for (size_t index = 0; index < selected.size(); ++index) {
-        auto response =
-            request("GET", fmt::format("/api/replays/{}/download", selected.at(index).id));
-        if (!response.ok) {
-          clear_pending_selection(category, selection_revision);
-          set_status(fmt::format("Could not download {}: {}", selected.at(index).display_name,
-                                 response.error));
+        if (!selection_is_current(category, selection_revision)) {
           return;
         }
+        auto response =
+            request("GET", fmt::format("/api/replays/{}/download", selected.at(index).id));
+        if (!selection_is_current(category, selection_revision)) {
+          return;
+        }
+        if (!response.ok) {
+          lg::warn("Skipping replay {} ({}): {}", selected.at(index).id,
+                   selected.at(index).display_name, response.error);
+          continue;
+        }
+        if (response.body.size() >= kMaxReplayPayloadBytes) {
+          lg::warn("Skipping replay {} ({}): payload is too large", selected.at(index).id,
+                   selected.at(index).display_name);
+          continue;
+        }
+        bool valid_replay = false;
+        try {
+          const auto replay_json = safe_parse_json(response.body);
+          valid_replay =
+              replay_json && replay_json->is_object() &&
+              replay_json->value("category", "") == category && replay_json->contains("frames") &&
+              replay_json->at("frames").is_array() &&
+              replay_json->value("count", -1) ==
+                  static_cast<int>(replay_json->at("frames").size());
+        } catch (const std::exception&) {
+          valid_replay = false;
+        }
+        if (!valid_replay) {
+          lg::warn("Skipping replay {} ({}): invalid replay JSON", selected.at(index).id,
+                   selected.at(index).display_name);
+          continue;
+        }
+        downloaded_replays.push_back(selected.at(index));
         replay_payloads.push_back(std::move(response.body));
       }
       std::lock_guard lock(m_state_mutex);
@@ -1217,7 +1273,7 @@ class Client {
       }
       m_pending_category.clear();
       m_ready_replay_ids.clear();
-      for (const auto& replay : selected) {
+      for (const auto& replay : downloaded_replays) {
         m_ready_replay_ids.push_back(replay.id);
       }
       m_ready_category = category;
@@ -1225,13 +1281,23 @@ class Client {
       if (m_ready_generation <= 0) {
         m_ready_generation = 1;
       }
-      m_status = selected.empty()
-                     ? fmt::format("Ready - no opponents selected for {}", category)
-                     : fmt::format("Ready - {} replay{} selected for {}", selected.size(),
-                                   selected.size() == 1 ? "" : "s", category);
+      const auto skipped = selected.size() - downloaded_replays.size();
+      if (selected.empty()) {
+        m_status = fmt::format("Ready - no opponents selected for {}", category);
+      } else if (downloaded_replays.empty()) {
+        m_status = fmt::format("Ready - no usable replays for {}; {} skipped", category, skipped);
+      } else if (skipped > 0) {
+        m_status = fmt::format("Ready - {} replay{} for {}; {} skipped", downloaded_replays.size(),
+                               downloaded_replays.size() == 1 ? "" : "s", category, skipped);
+      } else {
+        m_status = fmt::format("Ready - {} replay{} selected for {}", downloaded_replays.size(),
+                               downloaded_replays.size() == 1 ? "" : "s", category);
+      }
     } catch (const std::exception& e) {
-      clear_pending_selection(category, selection_revision);
-      set_status(fmt::format("Could not save selected replays: {}", e.what()));
+      if (selection_is_current(category, selection_revision)) {
+        clear_pending_selection(category, selection_revision);
+        set_status(fmt::format("Could not save selected replays: {}", e.what()));
+      }
     }
   }
 
