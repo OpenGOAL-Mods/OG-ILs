@@ -42,6 +42,7 @@ namespace {
 constexpr const char* kDefaultServerUrl = OPENGOAL_REPLAY_DEFAULT_URL;
 constexpr const char* kDefaultGameToken = OPENGOAL_REPLAY_DEFAULT_GAME_TOKEN;
 constexpr int kMaxSelectedReplays = 33;
+constexpr size_t kMaxCachedReplays = 256;
 constexpr size_t kMaxReplayPayloadBytes = 0x3fffff;
 
 struct ServerConfig {
@@ -120,6 +121,111 @@ bool valid_player_id(const std::string& value) {
   return value.size() == 32 && std::all_of(value.begin(), value.end(), [](unsigned char character) {
            return std::isxdigit(character) != 0;
          });
+}
+
+bool valid_replay_id(const std::string& value) {
+  return valid_player_id(value);
+}
+
+fs::path replay_cache_directory() {
+  return fs::path("ghost") / "replay-cache";
+}
+
+fs::path replay_cache_path(const std::string& replay_id) {
+  return replay_cache_directory() / fmt::format("{}.json", replay_id);
+}
+
+bool valid_replay_payload(const std::string& payload, const std::string& category) {
+  if (payload.size() >= kMaxReplayPayloadBytes) {
+    return false;
+  }
+  try {
+    const auto replay_json = safe_parse_json(payload);
+    return replay_json && replay_json->is_object() &&
+           replay_json->value("category", "") == category && replay_json->contains("frames") &&
+           replay_json->at("frames").is_array() &&
+           replay_json->value("count", -1) ==
+               static_cast<int>(replay_json->at("frames").size());
+  } catch (const std::exception&) {
+    return false;
+  }
+}
+
+std::optional<std::string> read_cached_replay(const std::string& replay_id,
+                                              const std::string& category) {
+  if (!valid_replay_id(replay_id)) {
+    return std::nullopt;
+  }
+  const auto path = replay_cache_path(replay_id);
+  try {
+    if (!fs::exists(path)) {
+      return std::nullopt;
+    }
+    auto payload = file_util::read_text_file(path);
+    if (valid_replay_payload(payload, category)) {
+      // Keep recently used mission packs in the bounded cache when pruning.
+      try {
+        fs::last_write_time(path, fs::file_time_type::clock::now());
+      } catch (const std::exception&) {
+        // Cache reads remain useful even on filesystems that reject timestamp updates.
+      }
+      return payload;
+    }
+    lg::warn("Discarding invalid cached replay {}", replay_id);
+    fs::remove(path);
+  } catch (const std::exception& error) {
+    lg::warn("Could not read cached replay {}: {}", replay_id, error.what());
+  }
+  return std::nullopt;
+}
+
+void write_cached_replay(const std::string& replay_id, const std::string& payload) {
+  if (!valid_replay_id(replay_id)) {
+    return;
+  }
+  try {
+    file_util::create_dir_if_needed(replay_cache_directory());
+    file_util::write_text_file(replay_cache_path(replay_id), payload);
+  } catch (const std::exception& error) {
+    // A cache failure must never prevent the freshly downloaded replay from
+    // being used for the current attempt.
+    lg::warn("Could not cache replay {}: {}", replay_id, error.what());
+  }
+}
+
+void prune_replay_cache(const std::vector<std::string>& keep_ids) {
+  try {
+    const auto directory = replay_cache_directory();
+    if (!fs::exists(directory)) {
+      return;
+    }
+    std::vector<fs::directory_entry> cached_replays;
+    for (const auto& entry : fs::directory_iterator(directory)) {
+      if (!fs::is_regular_file(entry.path()) || entry.path().extension() != ".json") {
+        continue;
+      }
+      cached_replays.push_back(entry);
+    }
+    if (cached_replays.size() <= kMaxCachedReplays) {
+      return;
+    }
+    std::sort(cached_replays.begin(), cached_replays.end(), [](const auto& left, const auto& right) {
+      return fs::last_write_time(left.path()) < fs::last_write_time(right.path());
+    });
+    size_t remaining = cached_replays.size();
+    for (const auto& entry : cached_replays) {
+      if (remaining <= kMaxCachedReplays) {
+        break;
+      }
+      const auto replay_id = entry.path().stem().string();
+      if (std::find(keep_ids.begin(), keep_ids.end(), replay_id) == keep_ids.end()) {
+        fs::remove(entry.path());
+        --remaining;
+      }
+    }
+  } catch (const std::exception& error) {
+    lg::warn("Could not prune replay cache: {}", error.what());
+  }
 }
 
 std::string generate_player_id() {
@@ -1212,17 +1318,25 @@ class Client {
     if (announce) {
       set_status(selected.empty()
                      ? "Replay opponents disabled"
-                     : fmt::format("Downloading {} selected replays...", selected.size()));
+                     : fmt::format("Preparing {} selected replays...", selected.size()));
     }
     try {
       file_util::create_dir_if_needed("ghost");
       std::vector<ReplayInfo> downloaded_replays;
       std::vector<std::string> replay_payloads;
+      int cache_hits = 0;
+      int network_downloads = 0;
       downloaded_replays.reserve(selected.size());
       replay_payloads.reserve(selected.size());
       for (size_t index = 0; index < selected.size(); ++index) {
         if (!selection_is_current(category, selection_revision)) {
           return;
+        }
+        if (auto cached = read_cached_replay(selected.at(index).id, category)) {
+          downloaded_replays.push_back(selected.at(index));
+          replay_payloads.push_back(std::move(*cached));
+          ++cache_hits;
+          continue;
         }
         auto response =
             request("GET", fmt::format("/api/replays/{}/download", selected.at(index).id));
@@ -1234,30 +1348,15 @@ class Client {
                    selected.at(index).display_name, response.error);
           continue;
         }
-        if (response.body.size() >= kMaxReplayPayloadBytes) {
-          lg::warn("Skipping replay {} ({}): payload is too large", selected.at(index).id,
-                   selected.at(index).display_name);
-          continue;
-        }
-        bool valid_replay = false;
-        try {
-          const auto replay_json = safe_parse_json(response.body);
-          valid_replay =
-              replay_json && replay_json->is_object() &&
-              replay_json->value("category", "") == category && replay_json->contains("frames") &&
-              replay_json->at("frames").is_array() &&
-              replay_json->value("count", -1) ==
-                  static_cast<int>(replay_json->at("frames").size());
-        } catch (const std::exception&) {
-          valid_replay = false;
-        }
-        if (!valid_replay) {
+        if (!valid_replay_payload(response.body, category)) {
           lg::warn("Skipping replay {} ({}): invalid replay JSON", selected.at(index).id,
                    selected.at(index).display_name);
           continue;
         }
+        write_cached_replay(selected.at(index).id, response.body);
         downloaded_replays.push_back(selected.at(index));
         replay_payloads.push_back(std::move(response.body));
+        ++network_downloads;
       }
       std::lock_guard lock(m_state_mutex);
       if (selection_revision != m_selection_revision || category != m_active_category) {
@@ -1271,12 +1370,19 @@ class Client {
         file_util::write_text_file(fmt::format("ghost/selected-replay-{}.json", index),
                                    replay_payloads.at(index));
       }
+      for (size_t index = replay_payloads.size(); index < kMaxSelectedReplays; ++index) {
+        const auto stale_path = fs::path(fmt::format("ghost/selected-replay-{}.json", index));
+        if (fs::exists(stale_path)) {
+          fs::remove(stale_path);
+        }
+      }
       m_pending_category.clear();
       m_ready_replay_ids.clear();
       for (const auto& replay : downloaded_replays) {
         m_ready_replay_ids.push_back(replay.id);
       }
       m_ready_category = category;
+      prune_replay_cache(m_ready_replay_ids);
       ++m_ready_generation;
       if (m_ready_generation <= 0) {
         m_ready_generation = 1;
@@ -1293,6 +1399,8 @@ class Client {
         m_status = fmt::format("Ready - {} replay{} selected for {}", downloaded_replays.size(),
                                downloaded_replays.size() == 1 ? "" : "s", category);
       }
+      lg::info("Replay pack for {}: {} cached, {} downloaded", category, cache_hits,
+               network_downloads);
     } catch (const std::exception& e) {
       if (selection_is_current(category, selection_revision)) {
         clear_pending_selection(category, selection_revision);
