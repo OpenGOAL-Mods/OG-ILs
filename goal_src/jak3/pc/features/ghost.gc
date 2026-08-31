@@ -29,6 +29,12 @@
 ;; Up to 33 independently-selected server replays race on their recorded lines.
 (defconstant GHOST_MAX_PLAYERS 33)
 
+;; Imported packs must not consume the permanent global heap. This heap is
+;; reset whenever a new pack becomes ready, so changing modes or selections
+;; cannot leak another copy of every replay. The C++ BIG_MEMORY layout reserves
+;; the corresponding additional address space before the debug heap.
+(defconstant GHOST_REPLAY_HEAP_SIZE #x800000)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Types
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -113,6 +119,7 @@
 (define *ghost-replay-count* 0)
 (define *ghost-replay-category* (the-as speedrun-category -1))
 (define *ghost-replay-generation* 0)
+(kheap-alloc (define *ghost-replay-heap* (new 'global 'kheap)) GHOST_REPLAY_HEAP_SIZE)
 
 ;; One-way latch for the current attempt. Mission scripts can briefly put Jak
 ;; back into target-grab later, so playback must only wait for the initial
@@ -186,6 +193,20 @@
     (+! (-> reader pos) 1))
   *ghost-json-token*)
 
+(defun ghost-alloc-replay! ((count int))
+  "Allocate an imported replay from the resettable replay heap."
+  ;; `new` only accepts the compiler's built-in allocation names. Temporarily
+  ;; point its process-level allocation slot at our private heap, allocate both
+  ;; objects without yielding, then restore the engine's original heap.
+  (let ((old-process-level-heap process-level-heap))
+    (set! process-level-heap *ghost-replay-heap*)
+    (let ((replay (new 'process-level-heap 'ghost-replay)))
+      (set! (-> replay samples)
+            (new 'process-level-heap 'inline-array 'ghost-sample count))
+      (set! (-> replay count) count)
+      (set! process-level-heap old-process-level-heap)
+      replay)))
+
 (defun ghost-load-json-replay! ((filename string))
   "Load one exported ghost JSON file into an independent replay buffer."
   (let ((file (new 'stack 'file-stream filename 'read)))
@@ -210,9 +231,18 @@
             (when (or (<= count 0)
                       (not (ghost-json-seek-key! reader *ghost-json-frames-key*)))
               (return (the-as ghost-replay #f)))
-            (let ((replay (new 'global 'ghost-replay)))
-              (set! (-> replay samples) (new 'global 'inline-array 'ghost-sample count))
-              (set! (-> replay count) count)
+            (let* ((bytes-needed (+ (* count (size-of ghost-sample))
+                                    (size-of ghost-replay)
+                                    #x40))
+                   (heap-free (&- (-> *ghost-replay-heap* top)
+                                  (the-as uint (-> *ghost-replay-heap* current)))))
+              (when (> bytes-needed heap-free)
+                (format 0 "ghost: replay heap full; skipping ~S (~D frames, ~D bytes free)~%"
+                        filename
+                        count
+                        heap-free)
+                (return (the-as ghost-replay #f)))
+            (let ((replay (ghost-alloc-replay! count)))
               (dotimes (i count)
                 (let ((sample (-> replay samples i)))
                   ;; time
@@ -248,7 +278,7 @@
                               *ghost-json-token*
                               art-joint-anim)
                             -1))))
-              replay)))))))
+              replay))))))))
 
 (defun ghost-load-json-pack! ((category speedrun-category))
   "Load every replay selected in the native menu for this mission."
@@ -263,6 +293,11 @@
                (= *ghost-replay-category* category)
                (= *ghost-replay-generation* generation))
       (return *ghost-replay-count*))
+    ;; No active player may retain pointers into the pack while its heap is
+    ;; reset. Mission transitions normally clear them, but manual replay/mode
+    ;; changes can reload a pack while remaining in the same level.
+    (ghost-stop-playback)
+    (kheap-reset *ghost-replay-heap*)
     (set! *ghost-replay-count* 0)
     (set! *ghost-replay-category* category)
     (set! *ghost-replay-generation* generation)

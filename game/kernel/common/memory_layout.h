@@ -16,7 +16,11 @@ constexpr u32 DEBUG_HEAP_SPACE_FOR_STACK = 0x10000;
 constexpr u32 HEAP_START = 0x13fd20;
 
 //! Where to end the global heap so it doesn't overlap with the stack.
-constexpr u32 GLOBAL_HEAP_END = 0x1ffc000 + (BIG_MEMORY ? (0x1ffc000 - HEAP_START) : 0);  // doubled
+//! The replay mod keeps imported ghost samples in an 8 MiB resettable GOAL
+//! heap. BIG_MEMORY has over 17 MiB of unused address space before the debug
+//! heap, so reserve eight of those MiB for persistent gameplay data.
+constexpr u32 GLOBAL_HEAP_END =
+    0x1ffc000 + (BIG_MEMORY ? (0x1ffc000 - HEAP_START + 0x800000) : 0);
 
 //! Location of kglobalheap, kdebugheap kheapinfo structures.
 constexpr u32 GLOBAL_HEAP_INFO_ADDR = 0x13AD00;
