@@ -79,6 +79,7 @@
 
 (define-extern *ghost-recording* ghost-recording)
 (define-extern ghost-stop-playback (function none))
+(define-extern ghost-spawn-playback! (function none))
 
 (deftype ghost-player (process-drawable)
   "A translucent replay of a recorded IL run using the real Jak model."
@@ -312,6 +313,24 @@
               *ghost-replay-count*
               cat-name))
     (return *ghost-replay-count*)))
+
+(defun ghost-load-local-stress-pack! ((category speedrun-category))
+  "Reload the downloaded replay files without consulting the network bridge.
+   This is only used by the memory regression harness, so the test still runs
+   when its boot-time server refresh has not completed."
+  (ghost-stop-playback)
+  (kheap-reset *ghost-replay-heap*)
+  (set! *ghost-replay-count* 0)
+  (set! *ghost-replay-category* category)
+  (set! *ghost-replay-generation* 1)
+  (dotimes (i GHOST_MAX_PLAYERS)
+    (format (clear *ghost-json-path*) "ghost/selected-replay-~D.json" i)
+    (when (pc-filepath-exists? *ghost-json-path*)
+      (let ((replay (ghost-load-json-replay! *ghost-json-path*)))
+        (when replay
+          (set! (-> *ghost-replays* *ghost-replay-count*) replay)
+          (+! *ghost-replay-count* 1)))))
+  (return *ghost-replay-count*))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Recording
@@ -641,17 +660,97 @@
   (set! (-> self draw lod-set max-lod) 0)
   ;; ghost look: blue tint (translucency via force-fade can be re-enabled once visible)
   (set-vector! (the-as vector (-> self draw color-mult)) 0.4 0.7 1.0 1.0)
-  ;; debug: confirm the skeleton actually loaded (check the goalc/game console)
-  (format 0 "ghost: spawned skel=~A jgeo=~A mgeo=~A frames=~D~%"
-          (-> self skel)
-          (if (nonzero? (-> self draw)) (-> self draw jgeo) #f)
-          (if (nonzero? (-> self draw)) (-> self draw mgeo) #f)
-          (-> self frames))
   (go-virtual idle))
 
 (defun ghost-stop-playback ()
   "Remove every active ghost clone. The pinned replay data is retained."
   (kill-by-type ghost-player *pc-pool*)
+  (none))
+
+(defun ghost-free-process-count ()
+  "Count the reusable ghost processes currently back in the fixed dead pool."
+  (let ((node (-> *ghost-dead-pool* child))
+        (count 0))
+    (while node
+      (+! count 1)
+      (set! node (-> node 0 brother)))
+    count))
+
+(defun ghost-memory-stress-test! ((cycles int))
+  "Repeatedly reload, spawn, render, and kill the selected ghost pack.
+   A warmup reaches all lazy high-water marks before measured cycles verify
+   that replay data, the global heap, and the fixed process pool stay stable."
+  (kill-by-name "ghost-memory-stress-test" *pc-pool*)
+  (process-spawn-function process
+    :name "ghost-memory-stress-test"
+    :to *pc-pool*
+    :stack-size #x10000
+    (lambda :behavior process ((cycles int))
+      (stack-size-set! (-> self main-thread) 2048)
+      (cond
+        ((or (not *target*) (= (-> *speedrun-info* category) (the-as speedrun-category -1)))
+         (format 0 "ghost-memory-test: ERROR no active mission/player~%"))
+        (else
+         (let ((category (-> *speedrun-info* category))
+               (baseline-global 0)
+               (baseline-replay 0)
+               (max-global-growth 0)
+               (failed? #f))
+           (format 0 "ghost-memory-test: START warmup=24 cycles=~D~%" cycles)
+           ;; Several engine/render caches are populated lazily. Warm through
+           ;; those bounded high-water allocations before measuring retention.
+           (dotimes (warmup 24)
+             (ghost-load-local-stress-pack! category)
+             (ghost-spawn-playback!)
+             (dotimes (frame 3) (suspend))
+             (ghost-stop-playback)
+             (dotimes (frame 2) (suspend)))
+           (when (= *ghost-replay-count* 0)
+             (format 0 "ghost-memory-test: ERROR no downloaded replay files~%"))
+           (set! baseline-global
+                 (&- (-> global current) (the-as uint (-> global base))))
+           (set! baseline-replay
+                 (&- (-> *ghost-replay-heap* current)
+                     (the-as uint (-> *ghost-replay-heap* base))))
+           (dotimes (cycle cycles)
+             ;; Force the same path used after a server selection refresh.
+             (ghost-load-local-stress-pack! category)
+             (ghost-spawn-playback!)
+             (dotimes (frame 3) (suspend))
+             (ghost-stop-playback)
+             (dotimes (frame 2) (suspend))
+             (let ((global-used
+                     (&- (-> global current) (the-as uint (-> global base))))
+                   (replay-used
+                     (&- (-> *ghost-replay-heap* current)
+                         (the-as uint (-> *ghost-replay-heap* base)))))
+               (set! max-global-growth
+                     (max max-global-growth (- global-used baseline-global)))
+               (when (!= replay-used baseline-replay)
+                 (set! failed? #t))
+               (when (or (= cycle 0)
+                         (= (mod (+ cycle 1) 10) 0)
+                         (= (+ cycle 1) cycles))
+                 (format 0 "ghost-memory-test: cycle=~D global=~D replay=~D growth=~D~%"
+                         (+ cycle 1)
+                         global-used
+                         replay-used
+                         (- global-used baseline-global)))))
+           (when (!= (ghost-free-process-count) GHOST_MAX_PLAYERS)
+             (set! failed? #t)
+             (format 0 "ghost-memory-test: process leak; free=~D expected=~D~%"
+                     (ghost-free-process-count)
+                     GHOST_MAX_PLAYERS))
+           (cond
+             ((or failed? (> max-global-growth #x1000))
+              (format 0 "ghost-memory-test: FAIL global-growth=~D replay-baseline=~D~%"
+                      max-global-growth
+                      baseline-replay))
+             (else
+               (format 0 "ghost-memory-test: PASS global-growth=~D replay-bytes=~D~%"
+                      max-global-growth
+                      baseline-replay)))))))
+    cycles)
   (none))
 
 (defun ghost-spawn-playback! ()
