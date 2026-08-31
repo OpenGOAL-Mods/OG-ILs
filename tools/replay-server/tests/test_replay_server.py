@@ -292,7 +292,8 @@ class ReplayHTTPTests(unittest.TestCase):
                 with urlopen(base, timeout=2) as response:
                     dashboard = response.read().decode("utf-8")
                     self.assertIn("Speedrun.com moderator", dashboard)
-                    self.assertIn("Ghost mode", dashboard)
+                    self.assertNotIn("Ghost mode", dashboard)
+                    self.assertNotIn('id="replay-mode"', dashboard)
                     self.assertIn("Replay Server Admin", dashboard)
                     self.assertIn('name="username"', dashboard)
                     self.assertIn('name="password"', dashboard)
