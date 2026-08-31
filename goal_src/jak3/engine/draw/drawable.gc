@@ -9,6 +9,8 @@
   `(the work-area *fake-scratchpad-data*))
 
 (define-extern draw-vortex (function none)) ;; doesn't exist in jak 3!!
+(#when PC_PORT
+  (define-extern il-menu-display-draw (function dma-buffer none)))
 
 ;; DECOMP BEGINS
 
@@ -2093,6 +2095,7 @@
             (draw *pc-settings* s2-7)
             (draw-memory *pc-settings* s2-7)
             (print-debug-misc *pc-settings*)
+            (il-menu-display-draw s2-7)
             )
           (display-file-info)
           )

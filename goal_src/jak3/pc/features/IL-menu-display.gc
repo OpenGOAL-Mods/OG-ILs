@@ -8,18 +8,24 @@
 (define *il-menu-display-text* (new 'global 'string 256 (the-as string #f)))
 (define *il-menu-encoded-text* (new 'global 'string 256 (the-as string #f)))
 
-(defun il-menu-display-draw ()
-  (clear *il-menu-player-name*)
-  (clear *il-menu-display-text*)
-  (clear *il-menu-encoded-text*)
-  (pc-replay-get-player-name *il-menu-player-name*)
-  (if (string= *il-menu-player-name* "")
-      (format *il-menu-display-text*
-              "you are an unknown player contact barg or zed to be known")
-      (format *il-menu-display-text* "welcome back ~S" *il-menu-player-name*))
-  (pc-encode-utf8-string *il-menu-display-text* *il-menu-encoded-text*)
-  (with-dma-buffer-add-bucket
-    ((buf (-> (current-frame) global-buf)) (bucket-id debug-no-zbuf2))
+(defun il-menu-display-draw ((buf dma-buffer))
+  ;; Called from display-frame-finish while the debug overlay DMA bucket is
+  ;; open. Never write display commands from an independently scheduled process.
+  (when (and *target*
+             (-> *target* control)
+             (!= (-> *target* current-level name) 'title)
+             (progress-allowed?)
+             (< (-> *game-info* blackout-time) (get-current-time))
+             (= (-> *setting-control* user-current bg-a-force) 0.0))
+    (clear *il-menu-player-name*)
+    (clear *il-menu-display-text*)
+    (clear *il-menu-encoded-text*)
+    (pc-replay-get-player-name *il-menu-player-name*)
+    (if (string= *il-menu-player-name* "")
+        (format *il-menu-display-text*
+                "you are an unknown player contact barg or zed to be known")
+        (format *il-menu-display-text* "welcome back ~S" *il-menu-player-name*))
+    (pc-encode-utf8-string *il-menu-display-text* *il-menu-encoded-text*)
     (dma-buffer-add-gs-set-flusha
       buf
       (alpha-1 (new 'static 'gs-alpha :b #x1 :d #x1))
@@ -31,15 +37,3 @@
       (set! (-> font-ctx scale) 0.25)
       (draw-string-adv *il-menu-encoded-text* buf font-ctx)))
   (none))
-
-(defun il-menu-display-start ()
-  (kill-by-name "il-menu-display" *pc-pool*)
-  (process-spawn-function process :name "il-menu-display" :to *pc-pool*
-    (lambda :behavior process ()
-      (stack-size-set! (-> self main-thread) 1024)
-      (loop
-        (il-menu-display-draw)
-        (suspend))))
-  (none))
-
-(il-menu-display-start)
