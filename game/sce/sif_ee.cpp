@@ -112,9 +112,11 @@ s32 sceOpen(const char* filename, s32 flag) {
       // either append or truncate
       file_util::create_dir_if_needed_for_file(name);
       if (flag & SCE_TRUNC) {
-        fp = file_util::open_file(name.c_str(), "w");
+        // SCE file descriptors are byte streams.  Text mode corrupts binary GOAL
+        // writes on Windows by expanding every LF byte to CRLF.
+        fp = file_util::open_file(name.c_str(), "wb");
       } else {
-        fp = file_util::open_file(name.c_str(), "a+");
+        fp = file_util::open_file(name.c_str(), "ab+");
       }
     } break;
   }

@@ -322,7 +322,7 @@
 
 (defmethod respond-progress ((this menu-generic-point-leaderboard-page) (progress progress) (selected? symbol))
   "Navigate the JakMods point standings and switch their game/category filters."
-  (let* ((entry-count (pc-point-leaderboard-count))
+  (let* ((entry-count (-> (points-info-selected-board *Points-Info*) entry-count))
          (row-count (+ 3 (if (= entry-count 0) 1 entry-count)))
          (hover (-> *progress-pc-generic-store* current-menu-hover-index)))
     (when (>= hover row-count)
@@ -348,44 +348,44 @@
       ((cpad-pressed? 0 left l-analog-left)
        (cond
          ((= hover 0)
-          (let ((index (dec (pc-point-leaderboard-mode-index))))
+          (let ((index (dec (-> *Points-Info* selected-mode))))
             (when (< index 0)
-              (set! index (dec (pc-point-leaderboard-mode-count))))
-            (pc-point-leaderboard-set-mode index)))
+              (set! index (dec POINTS_MODE_COUNT)))
+            (points-info-set-mode! *Points-Info* index)))
          ((= hover 1)
-          (let ((index (dec (pc-point-leaderboard-group-index))))
+          (let ((index (dec (-> *Points-Info* selected-group))))
             (when (< index 0)
-              (set! index (dec (pc-point-leaderboard-group-count))))
-            (pc-point-leaderboard-set-group index))))
+              (set! index (dec POINTS_GROUP_COUNT)))
+            (points-info-set-group! *Points-Info* index))))
        (sound-play "generic-beep"))
       ((cpad-pressed? 0 right l-analog-right)
        (cond
          ((= hover 0)
-          (pc-point-leaderboard-set-mode
-            (mod (inc (pc-point-leaderboard-mode-index))
-                 (pc-point-leaderboard-mode-count))))
+          (points-info-set-mode!
+            *Points-Info*
+            (inc (-> *Points-Info* selected-mode))))
          ((= hover 1)
-          (pc-point-leaderboard-set-group
-            (mod (inc (pc-point-leaderboard-group-index))
-                 (pc-point-leaderboard-group-count)))))
+          (points-info-set-group!
+            *Points-Info*
+            (inc (-> *Points-Info* selected-group)))))
        (sound-play "generic-beep"))
       ((cpad-pressed? 0 confirm)
        (cpad-clear! 0 confirm)
        (cond
          ((= hover 0)
-          (pc-point-leaderboard-set-mode
-            (mod (inc (pc-point-leaderboard-mode-index))
-                 (pc-point-leaderboard-mode-count))))
+          (points-info-set-mode!
+            *Points-Info*
+            (inc (-> *Points-Info* selected-mode))))
          ((= hover 1)
-          (pc-point-leaderboard-set-group
-            (mod (inc (pc-point-leaderboard-group-index))
-                 (pc-point-leaderboard-group-count))))
+          (points-info-set-group!
+            *Points-Info*
+            (inc (-> *Points-Info* selected-group))))
          ((= hover 2)
-          (pc-point-leaderboard-refresh)))
+          (points-info-refresh! *Points-Info*)))
        (sound-play "generic-beep"))
       ((cpad-pressed? 0 square)
        (cpad-clear! 0 square)
-       (pc-point-leaderboard-refresh)
+       (points-info-refresh! *Points-Info*)
        (sound-play "generic-beep"))
       ((cpad-pressed? 0 triangle)
        (when (has-history? *progress-pc-generic-store*)

@@ -463,6 +463,18 @@ static void copy_replay_string(u32 dest_ptr, const std::string& value) {
   dest[2047] = '\0';
 }
 
+static void copy_replay_string_bounded(u32 dest_ptr,
+                                       const std::string& value,
+                                       s32 capacity) {
+  if (capacity <= 0) {
+    return;
+  }
+  auto* dest = Ptr<String>(dest_ptr).c()->data();
+  const auto last = static_cast<size_t>(capacity - 1);
+  std::strncpy(dest, value.c_str(), last);
+  dest[last] = '\0';
+}
+
 void pc_replay_get_mission_label(s32 index, u32 dest_ptr) {
   copy_replay_string(dest_ptr, replay_client::mission_replay_label(index));
 }
@@ -515,6 +527,14 @@ void pc_point_leaderboard_refresh() {
   replay_client::refresh_point_leaderboard();
 }
 
+u64 pc_point_leaderboard_select(s32 mode_index, s32 group_index) {
+  return bool_to_symbol(replay_client::select_point_leaderboard(mode_index, group_index));
+}
+
+s32 pc_point_leaderboard_state() {
+  return replay_client::point_leaderboard_state();
+}
+
 s32 pc_point_leaderboard_count() {
   return replay_client::point_leaderboard_count();
 }
@@ -523,12 +543,22 @@ void pc_point_leaderboard_get_label(s32 index, u32 dest_ptr) {
   copy_replay_string(dest_ptr, replay_client::point_leaderboard_label(index));
 }
 
+s32 pc_point_leaderboard_get_value(s32 index, s32 field) {
+  return replay_client::point_leaderboard_value(index, field);
+}
+
+void pc_point_leaderboard_get_text(s32 index, s32 field, u32 dest_ptr, s32 capacity) {
+  copy_replay_string_bounded(dest_ptr, replay_client::point_leaderboard_text(index, field),
+                             capacity);
+}
+
 s32 pc_point_leaderboard_mode_count() {
   return replay_client::point_leaderboard_mode_count();
 }
 
-void pc_point_leaderboard_get_mode_label(s32 index, u32 dest_ptr) {
-  copy_replay_string(dest_ptr, replay_client::point_leaderboard_mode_label(index));
+void pc_point_leaderboard_get_mode_label(s32 index, u32 dest_ptr, s32 capacity) {
+  copy_replay_string_bounded(dest_ptr, replay_client::point_leaderboard_mode_label(index),
+                             capacity);
 }
 
 s32 pc_point_leaderboard_mode_index() {
@@ -543,8 +573,9 @@ s32 pc_point_leaderboard_group_count() {
   return replay_client::point_leaderboard_group_count();
 }
 
-void pc_point_leaderboard_get_group_label(s32 index, u32 dest_ptr) {
-  copy_replay_string(dest_ptr, replay_client::point_leaderboard_group_label(index));
+void pc_point_leaderboard_get_group_label(s32 index, u32 dest_ptr, s32 capacity) {
+  copy_replay_string_bounded(dest_ptr, replay_client::point_leaderboard_group_label(index),
+                             capacity);
 }
 
 s32 pc_point_leaderboard_group_index() {
@@ -555,8 +586,8 @@ u64 pc_point_leaderboard_set_group(s32 index) {
   return bool_to_symbol(replay_client::set_point_leaderboard_group(index));
 }
 
-void pc_point_leaderboard_get_status(u32 dest_ptr) {
-  copy_replay_string(dest_ptr, replay_client::point_leaderboard_status());
+void pc_point_leaderboard_get_status(u32 dest_ptr, s32 capacity) {
+  copy_replay_string_bounded(dest_ptr, replay_client::point_leaderboard_status(), capacity);
 }
 
 void callback_fetch_external_speedrun_times(bool success,

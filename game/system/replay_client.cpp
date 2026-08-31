@@ -482,6 +482,7 @@ class Client {
       mode_index = m_point_leaderboard_mode_index;
       group_index = m_point_leaderboard_group_index;
       m_point_leaderboard_pending = true;
+      m_point_leaderboard_state = 0;
       m_point_leaderboard_status = "Loading JakMods point standings...";
     }
     enqueue([this, revision, mode_index, group_index]() {
@@ -493,6 +494,7 @@ class Client {
         std::lock_guard lock(m_state_mutex);
         if (revision == m_point_leaderboard_revision) {
           m_point_leaderboard_pending = false;
+          m_point_leaderboard_state = -1;
           m_point_leaderboard_status =
               fmt::format("Could not load point standings: {}", response.error);
         }
@@ -503,6 +505,7 @@ class Client {
         std::lock_guard lock(m_state_mutex);
         if (revision == m_point_leaderboard_revision) {
           m_point_leaderboard_pending = false;
+          m_point_leaderboard_state = -1;
           m_point_leaderboard_status = "Point leaderboard returned invalid JSON";
         }
         return;
@@ -519,6 +522,7 @@ class Client {
         std::lock_guard lock(m_state_mutex);
         if (revision == m_point_leaderboard_revision) {
           m_point_leaderboard_pending = false;
+          m_point_leaderboard_state = -1;
           m_point_leaderboard_status =
               fmt::format("Could not parse point standings: {}", error.what());
         }
@@ -530,12 +534,33 @@ class Client {
       }
       m_point_leaderboard_entries = std::move(entries);
       m_point_leaderboard_pending = false;
+      m_point_leaderboard_state = 1;
       m_point_leaderboard_status =
           fmt::format("{} / {} - {} runner{}", kPointLeaderboardModes.at(mode_index).label,
                       kPointLeaderboardGroups.at(group_index).label,
                       m_point_leaderboard_entries.size(),
                       m_point_leaderboard_entries.size() == 1 ? "" : "s");
     });
+  }
+
+  bool select_point_leaderboard(int mode_index, int group_index) {
+    if (mode_index < 0 || mode_index >= static_cast<int>(kPointLeaderboardModes.size()) ||
+        group_index < 0 || group_index >= static_cast<int>(kPointLeaderboardGroups.size())) {
+      return false;
+    }
+    {
+      std::lock_guard lock(m_state_mutex);
+      m_point_leaderboard_mode_index = mode_index;
+      m_point_leaderboard_group_index = group_index;
+      m_point_leaderboard_entries.clear();
+    }
+    refresh_point_leaderboard();
+    return true;
+  }
+
+  int point_leaderboard_state() {
+    std::lock_guard lock(m_state_mutex);
+    return m_point_leaderboard_state;
   }
 
   int point_leaderboard_count() {
@@ -552,6 +577,46 @@ class Client {
     return fmt::format("{}  {}  {} pts  {}/{}  WR {}+{}", entry.rank_label, entry.runner,
                        entry.points, entry.missions_run, entry.missions_total, entry.tied_wrs,
                        entry.untied_wrs);
+  }
+
+  int point_leaderboard_value(int index, int field) {
+    std::lock_guard lock(m_state_mutex);
+    if (index < 0 || index >= static_cast<int>(m_point_leaderboard_entries.size())) {
+      return 0;
+    }
+    const auto& entry = m_point_leaderboard_entries.at(index);
+    switch (field) {
+      case 0:
+        return entry.rank;
+      case 1:
+        return entry.points;
+      case 2:
+        return entry.missions_run;
+      case 3:
+        return entry.missions_total;
+      case 4:
+        return entry.tied_wrs;
+      case 5:
+        return entry.untied_wrs;
+      default:
+        return 0;
+    }
+  }
+
+  std::string point_leaderboard_text(int index, int field) {
+    std::lock_guard lock(m_state_mutex);
+    if (index < 0 || index >= static_cast<int>(m_point_leaderboard_entries.size())) {
+      return {};
+    }
+    const auto& entry = m_point_leaderboard_entries.at(index);
+    switch (field) {
+      case 0:
+        return entry.rank_label;
+      case 1:
+        return entry.runner;
+      default:
+        return {};
+    }
   }
 
   int point_leaderboard_mode_index() {
@@ -1194,6 +1259,7 @@ class Client {
   int m_point_leaderboard_group_index = 0;
   int m_point_leaderboard_revision = 0;
   bool m_point_leaderboard_pending = false;
+  int m_point_leaderboard_state = -1;
 };
 
 Client& client() {
@@ -1279,12 +1345,28 @@ void refresh_point_leaderboard() {
   client().refresh_point_leaderboard();
 }
 
+bool select_point_leaderboard(int mode_index, int group_index) {
+  return client().select_point_leaderboard(mode_index, group_index);
+}
+
+int point_leaderboard_state() {
+  return client().point_leaderboard_state();
+}
+
 int point_leaderboard_count() {
   return client().point_leaderboard_count();
 }
 
 std::string point_leaderboard_label(int index) {
   return client().point_leaderboard_label(index);
+}
+
+int point_leaderboard_value(int index, int field) {
+  return client().point_leaderboard_value(index, field);
+}
+
+std::string point_leaderboard_text(int index, int field) {
+  return client().point_leaderboard_text(index, field);
 }
 
 int point_leaderboard_mode_count() {

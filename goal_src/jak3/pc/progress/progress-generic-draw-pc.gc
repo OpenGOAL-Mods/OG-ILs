@@ -251,7 +251,8 @@
   (when (not (-> *progress-pc-generic-store* clear-screen?))
     (let* ((alpha (fmax 0.0 (* 2.0 (- 0.5 (-> progress menu-transition)))))
            (hud-bounds (new 'stack-no-clear 'hud-box))
-           (entry-count (pc-point-leaderboard-count))
+           (board (points-info-selected-board *Points-Info*))
+           (entry-count (-> board entry-count))
            (empty? (= entry-count 0))
            ;; Game, category, refresh, then either status or standings.
            (row-count (+ 3 (if empty? 1 entry-count)))
@@ -286,24 +287,16 @@
               (draw-generic-highlight (the int (- (-> font-ctx origin y) 2.0)) HIGHLIGHT_SIZE alpha))
             (cond
               ((= start-index 0)
-               (clear *pc-cpp-temp-string*)
                (clear *progress-generic-temp-string*)
-               (pc-point-leaderboard-get-mode-label
-                 (pc-point-leaderboard-mode-index)
-                 *pc-cpp-temp-string*)
-               (format *progress-generic-temp-string* "Game: ~S" *pc-cpp-temp-string*)
+               (format *progress-generic-temp-string* "Game: ~S" (-> board mode-label))
                (clear *pc-encoded-temp-string*)
                (pc-encode-utf8-string *progress-generic-temp-string* *pc-encoded-temp-string*)
                (set-color! font-ctx (font-color font-color-33))
                (print-game-text *pc-encoded-temp-string* font-ctx #f 44
                                 (bucket-id hud-draw-hud-alpha)))
               ((= start-index 1)
-               (clear *pc-cpp-temp-string*)
                (clear *progress-generic-temp-string*)
-               (pc-point-leaderboard-get-group-label
-                 (pc-point-leaderboard-group-index)
-                 *pc-cpp-temp-string*)
-               (format *progress-generic-temp-string* "Category: ~S" *pc-cpp-temp-string*)
+               (format *progress-generic-temp-string* "Category: ~S" (-> board group-label))
                (clear *pc-encoded-temp-string*)
                (pc-encode-utf8-string *progress-generic-temp-string* *pc-encoded-temp-string*)
                (set-color! font-ctx (font-color font-color-33))
@@ -314,18 +307,16 @@
                (print-game-text "Refresh Point Leaderboard" font-ctx #f 44
                                 (bucket-id hud-draw-hud-alpha)))
               (empty?
-               (clear *pc-cpp-temp-string*)
                (clear *pc-encoded-temp-string*)
-               (pc-point-leaderboard-get-status *pc-cpp-temp-string*)
-               (pc-encode-utf8-string *pc-cpp-temp-string* *pc-encoded-temp-string*)
+               (pc-encode-utf8-string (-> board status) *pc-encoded-temp-string*)
                (set-color! font-ctx (font-color font-color-44))
                (print-game-text *pc-encoded-temp-string* font-ctx #f 44
                                 (bucket-id hud-draw-hud-alpha)))
               (else
-               (clear *pc-cpp-temp-string*)
                (clear *pc-encoded-temp-string*)
-               (pc-point-leaderboard-get-label (- start-index 3) *pc-cpp-temp-string*)
-               (pc-encode-utf8-string *pc-cpp-temp-string* *pc-encoded-temp-string*)
+               (pc-encode-utf8-string
+                 (-> (points-info-get-entry *Points-Info* (- start-index 3)) display-label)
+                 *pc-encoded-temp-string*)
                (set-color! font-ctx (font-color font-color-32))
                (print-game-text *pc-encoded-temp-string* font-ctx #f 44
                                 (bucket-id hud-draw-hud-alpha))))

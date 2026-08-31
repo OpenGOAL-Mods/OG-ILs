@@ -1,0 +1,447 @@
+;;-*-Lisp-*-
+(in-package goal)
+
+;; GOAL-owned cache for every JakMods points leaderboard. Native code only
+;; performs one asynchronous request at a time; this object remains the
+;; authoritative structured copy used by the progress menu.
+
+(defconstant POINTS_MODE_COUNT 3)
+(defconstant POINTS_GROUP_COUNT 4)
+(defconstant POINTS_BOARD_COUNT 12)
+(defconstant POINTS_MAX_ENTRIES 256)
+(defconstant POINTS_MODE_LABEL_CAPACITY 32)
+(defconstant POINTS_GROUP_LABEL_CAPACITY 64)
+(defconstant POINTS_STATUS_CAPACITY 256)
+(defconstant POINTS_RANK_LABEL_CAPACITY 24)
+(defconstant POINTS_RUNNER_CAPACITY 128)
+(defconstant POINTS_DISPLAY_LABEL_CAPACITY 256)
+(defconstant POINTS_CACHE_MAGIC #x504e5453)
+(defconstant POINTS_CACHE_VERSION 1)
+
+(defconstant POINTS_VALUE_RANK 0)
+(defconstant POINTS_VALUE_POINTS 1)
+(defconstant POINTS_VALUE_MISSIONS_RUN 2)
+(defconstant POINTS_VALUE_MISSIONS_TOTAL 3)
+(defconstant POINTS_VALUE_TIED_WRS 4)
+(defconstant POINTS_VALUE_UNTIED_WRS 5)
+(defconstant POINTS_TEXT_RANK_LABEL 0)
+(defconstant POINTS_TEXT_RUNNER 1)
+
+(deftype points-entry (structure)
+  ((rank int32)
+   (points int32)
+   (missions-run int32)
+   (missions-total int32)
+   (tied-wrs int32)
+   (untied-wrs int32)
+   (rank-label string)
+   (runner string)
+   (display-label string)))
+
+(deftype points-board-info (structure)
+  ((mode-index int32)
+   (group-index int32)
+   (entry-count int32)
+   (loaded? symbol)
+   (mode-label string)
+   (group-label string)
+   (status string)
+   (entries points-entry 256 :inline)))
+
+(deftype points-info (structure)
+  ((selected-mode int32)
+   (selected-group int32)
+   (loaded-board-count int32)
+   (started? symbol)
+   (initialized? symbol)
+   (cache-loaded? symbol)
+   (cache-generation int32)
+   (loading? symbol)
+   (ready? symbol)
+   ;; Keep the top-level object small. Each board owns its inline entry array,
+   ;; while this is an array of references to the 12 independently allocated
+   ;; boards. A single inline 12 x 256 hierarchy is larger than GOAL's safe
+   ;; fixed-structure range.
+   (boards points-board-info 12)))
+
+(define *Points-Info* (new 'static 'points-info))
+(define *Points-Cache-Path-A* (new 'global 'string 256 (the-as string #f)))
+(define *Points-Cache-Path-B* (new 'global 'string 256 (the-as string #f)))
+
+(defun points-info-board-index ((mode int) (group int))
+  (+ (* mode POINTS_GROUP_COUNT) group))
+
+(defun points-info-get-board ((info points-info) (mode int) (group int))
+  (-> info boards (points-info-board-index mode group)))
+
+(defun points-info-selected-board ((info points-info))
+  (points-info-get-board info (-> info selected-mode) (-> info selected-group)))
+
+(defun points-info-get-entry ((info points-info) (index int))
+  (-> (points-info-selected-board info) entries index))
+
+(defun points-info-init! ((info points-info))
+  (when (not (= (-> info initialized?) #t))
+    (set! (-> info selected-mode) 1)
+    (set! (-> info selected-group) 0)
+    (set! (-> info loaded-board-count) 0)
+    (set! (-> info ready?) #f)
+    (dotimes (mode POINTS_MODE_COUNT)
+      (dotimes (group POINTS_GROUP_COUNT)
+        (let* ((board-index (points-info-board-index mode group))
+               (board (new 'global 'points-board-info)))
+          (set! (-> info boards board-index) board)
+          (set! (-> board mode-index) mode)
+          (set! (-> board group-index) group)
+          (set! (-> board entry-count) 0)
+          (set! (-> board loaded?) #f)
+          ;; Allocate the complete cache before requests begin. A cutscene or
+          ;; level transition then only mutates existing storage.
+          (dotimes (entry-index POINTS_MAX_ENTRIES)
+            (let ((entry (-> board entries entry-index)))
+              (set! (-> entry rank-label)
+                    (new 'global 'string POINTS_RANK_LABEL_CAPACITY (the-as string #f)))
+              (set! (-> entry runner)
+                    (new 'global 'string POINTS_RUNNER_CAPACITY (the-as string #f)))
+              (set! (-> entry display-label)
+                    (new 'global 'string POINTS_DISPLAY_LABEL_CAPACITY (the-as string #f)))))
+          (set! (-> board mode-label)
+                (new 'global 'string POINTS_MODE_LABEL_CAPACITY (the-as string #f)))
+          (set! (-> board group-label)
+                (new 'global 'string POINTS_GROUP_LABEL_CAPACITY (the-as string #f)))
+          (set! (-> board status)
+                (new 'global 'string POINTS_STATUS_CAPACITY (the-as string #f)))
+          (pc-point-leaderboard-get-mode-label
+            mode (-> board mode-label) POINTS_MODE_LABEL_CAPACITY)
+          (pc-point-leaderboard-get-group-label
+            group (-> board group-label) POINTS_GROUP_LABEL_CAPACITY)
+          (format (-> board status) "Waiting to load ~S / ~S"
+                  (-> board mode-label) (-> board group-label)))))
+    (set! (-> info initialized?) #t))
+  (none))
+
+(defun points-cache-build-paths! ()
+  (format (clear *Points-Cache-Path-A*)
+          "~S/points-info-cache-0.bin" *pc-settings-folder*)
+  (format (clear *Points-Cache-Path-B*)
+          "~S/points-info-cache-1.bin" *pc-settings-folder*)
+  (none))
+
+(defun points-cache-write-int ((file file-stream) (value int))
+  (let ((data value))
+    (= (file-stream-write file (& data) (the-as uint 4)) (the-as uint 4))))
+
+(defun points-cache-read-int ((file file-stream))
+  ;; file-stream-read writes four bytes.  Start with zero so the upper half of
+  ;; GOAL's machine-sized local cannot retain sign-extension bits from -1.
+  (let ((data 0))
+    (if (= (file-stream-read file (& data) 4) 4) data -1)))
+
+(defun points-cache-write-string ((file file-stream) (value string) (capacity int))
+  (= (file-stream-write file (-> value data) (the-as uint capacity))
+     (the-as uint capacity)))
+
+(defun points-cache-read-string! ((file file-stream) (value string) (capacity int))
+  (let ((ok? (= (file-stream-read file (-> value data) capacity) capacity)))
+    ;; A damaged cache must never leave an unterminated GOAL string behind.
+    (set! (-> value data (dec capacity)) 0)
+    ok?))
+
+(defun points-cache-write-entry ((file file-stream) (entry points-entry))
+  (let ((ok? #t))
+    (set! ok? (and ok? (points-cache-write-int file (-> entry rank))))
+    (set! ok? (and ok? (points-cache-write-int file (-> entry points))))
+    (set! ok? (and ok? (points-cache-write-int file (-> entry missions-run))))
+    (set! ok? (and ok? (points-cache-write-int file (-> entry missions-total))))
+    (set! ok? (and ok? (points-cache-write-int file (-> entry tied-wrs))))
+    (set! ok? (and ok? (points-cache-write-int file (-> entry untied-wrs))))
+    (set! ok? (and ok? (points-cache-write-string
+                          file (-> entry rank-label) POINTS_RANK_LABEL_CAPACITY)))
+    (set! ok? (and ok? (points-cache-write-string
+                          file (-> entry runner) POINTS_RUNNER_CAPACITY)))
+    (set! ok? (and ok? (points-cache-write-string
+                          file (-> entry display-label) POINTS_DISPLAY_LABEL_CAPACITY)))
+    ok?))
+
+(defun points-cache-read-entry! ((file file-stream) (entry points-entry))
+  (let ((ok? #t)
+        (value 0))
+    (set! value (points-cache-read-int file))
+    (set! ok? (>= value 0))
+    (when ok? (set! (-> entry rank) value))
+    (set! value (points-cache-read-int file))
+    (set! ok? (and ok? (>= value 0)))
+    (when ok? (set! (-> entry points) value))
+    (set! value (points-cache-read-int file))
+    (set! ok? (and ok? (>= value 0)))
+    (when ok? (set! (-> entry missions-run) value))
+    (set! value (points-cache-read-int file))
+    (set! ok? (and ok? (>= value 0)))
+    (when ok? (set! (-> entry missions-total) value))
+    (set! value (points-cache-read-int file))
+    (set! ok? (and ok? (>= value 0)))
+    (when ok? (set! (-> entry tied-wrs) value))
+    (set! value (points-cache-read-int file))
+    (set! ok? (and ok? (>= value 0)))
+    (when ok? (set! (-> entry untied-wrs) value))
+    (when ok?
+      (set! ok? (points-cache-read-string!
+                  file (-> entry rank-label) POINTS_RANK_LABEL_CAPACITY)))
+    (when ok?
+      (set! ok? (points-cache-read-string!
+                  file (-> entry runner) POINTS_RUNNER_CAPACITY)))
+    (when ok?
+      (set! ok? (points-cache-read-string!
+                  file (-> entry display-label) POINTS_DISPLAY_LABEL_CAPACITY)))
+    ok?))
+
+(defun points-cache-file-generation ((filename string))
+  (let ((file (new 'stack 'file-stream filename 'read))
+        (generation -1))
+    (when (file-stream-valid? file)
+      (let ((magic (points-cache-read-int file))
+            (version (points-cache-read-int file))
+            (stored-generation (points-cache-read-int file))
+            (board-count (points-cache-read-int file)))
+        (when (and (= magic POINTS_CACHE_MAGIC)
+                   (= version POINTS_CACHE_VERSION)
+                   (>= stored-generation 0)
+                   (= board-count POINTS_BOARD_COUNT))
+          (set! generation stored-generation)))
+      (file-stream-close file))
+    generation))
+
+(defun points-cache-reset-boards! ((info points-info))
+  (dotimes (board-index POINTS_BOARD_COUNT)
+    (let ((board (-> info boards board-index)))
+      (set! (-> board loaded?) #f)
+      (set! (-> board entry-count) 0)))
+  (set! (-> info loaded-board-count) 0)
+  (none))
+
+(defun points-cache-read-file! ((info points-info) (filename string))
+  (let ((file (new 'stack 'file-stream filename 'read))
+        (ok? #f)
+        (generation -1)
+        (loaded-count 0)
+        (failure-board -1)
+        (failure-entry -1))
+    (when (file-stream-valid? file)
+      (let ((magic (points-cache-read-int file))
+            (version (points-cache-read-int file))
+            (board-count 0))
+        (set! generation (points-cache-read-int file))
+        (set! board-count (points-cache-read-int file))
+        (set! ok? (and (= magic POINTS_CACHE_MAGIC)
+                       (= version POINTS_CACHE_VERSION)
+                       (>= generation 0)
+                       (= board-count POINTS_BOARD_COUNT)))
+        (when (not ok?)
+          (format 0 "points: rejected cache header ~X v~D gen ~D boards ~D~%"
+                  magic version generation board-count)))
+      (when ok?
+        (points-cache-reset-boards! info)
+        (dotimes (board-index POINTS_BOARD_COUNT)
+          (when ok?
+            (set! failure-board board-index)
+            (let* ((board (-> info boards board-index))
+                   (loaded-value (points-cache-read-int file))
+                   (entry-count (points-cache-read-int file)))
+              (set! ok? (and (or (= loaded-value 0) (= loaded-value 1))
+                             (>= entry-count 0)
+                             (<= entry-count POINTS_MAX_ENTRIES)
+                             (or (= loaded-value 1) (= entry-count 0))))
+              (when ok?
+                (dotimes (entry-index entry-count)
+                  (when ok?
+                    (set! failure-entry entry-index)
+                    (set! ok? (points-cache-read-entry!
+                                file (-> board entries entry-index)))))
+                (when ok?
+                  (set! (-> board loaded?) (= loaded-value 1))
+                  (set! (-> board entry-count) entry-count)
+                  (when (= loaded-value 1)
+                    (+! loaded-count 1)
+                    (clear (-> board status))
+                    (format (-> board status) "Cached ~S / ~S"
+                            (-> board mode-label) (-> board group-label)))))))))
+      (file-stream-close file))
+    (when (and (not ok?) (>= failure-board 0))
+      (format 0 "points: rejected cache data at board ~D entry ~D~%"
+              failure-board failure-entry))
+    (if ok?
+        (begin
+          (set! (-> info loaded-board-count) loaded-count)
+          (set! (-> info cache-loaded?) #t)
+          (set! (-> info cache-generation) generation)
+          (set! (-> info ready?) #t)
+          (format 0 "points: restored ~D/~D boards from disk cache~%"
+                  loaded-count POINTS_BOARD_COUNT))
+        (points-cache-reset-boards! info))
+    ok?))
+
+(defun points-cache-write-file! ((info points-info) (filename string) (generation int))
+  (let ((file (new 'stack 'file-stream filename 'write))
+        (ok? #f))
+    (when (file-stream-valid? file)
+      (set! ok? (points-cache-write-int file POINTS_CACHE_MAGIC))
+      (set! ok? (and ok? (points-cache-write-int file POINTS_CACHE_VERSION)))
+      (set! ok? (and ok? (points-cache-write-int file generation)))
+      (set! ok? (and ok? (points-cache-write-int file POINTS_BOARD_COUNT)))
+      (dotimes (board-index POINTS_BOARD_COUNT)
+        (when ok?
+          (let* ((board (-> info boards board-index))
+                 (loaded-value (if (-> board loaded?) 1 0))
+                 (entry-count (if (-> board loaded?) (-> board entry-count) 0)))
+            (set! ok? (points-cache-write-int file loaded-value))
+            (set! ok? (and ok? (points-cache-write-int file entry-count)))
+            (dotimes (entry-index entry-count)
+              (when ok?
+                (set! ok? (points-cache-write-entry
+                            file (-> board entries entry-index))))))))
+      (file-stream-close file))
+    ok?))
+
+(defun points-info-load-cache! ((info points-info))
+  (points-cache-build-paths!)
+  (set! (-> info cache-loaded?) #f)
+  (set! (-> info cache-generation) 0)
+  (let* ((generation-a (points-cache-file-generation *Points-Cache-Path-A*))
+         (generation-b (points-cache-file-generation *Points-Cache-Path-B*))
+         (newer-path (if (>= generation-a generation-b)
+                         *Points-Cache-Path-A* *Points-Cache-Path-B*))
+         (older-path (if (>= generation-a generation-b)
+                         *Points-Cache-Path-B* *Points-Cache-Path-A*))
+         (newer-generation (max generation-a generation-b))
+         (older-generation (min generation-a generation-b))
+         (loaded? #f))
+    (when (>= newer-generation 0)
+      (set! loaded? (points-cache-read-file! info newer-path)))
+    (when (and (not loaded?) (>= older-generation 0))
+      (set! loaded? (points-cache-read-file! info older-path)))
+    loaded?))
+
+(defun points-info-save-cache! ((info points-info))
+  (when (> (-> info loaded-board-count) 0)
+    (let* ((generation (inc (-> info cache-generation)))
+           (filename (if (= (mod generation 2) 0)
+                         *Points-Cache-Path-A* *Points-Cache-Path-B*)))
+      (if (points-cache-write-file! info filename generation)
+          (begin
+            (set! (-> info cache-loaded?) #t)
+            (set! (-> info cache-generation) generation)
+            (format 0 "points: saved disk cache generation ~D~%" generation))
+          (format 0 "points: could not write disk cache~%"))))
+  (none))
+
+(defun points-info-copy-current-board! ((board points-board-info))
+  (let ((count (min POINTS_MAX_ENTRIES (pc-point-leaderboard-count))))
+    (set! (-> board entry-count) count)
+    (set! (-> board loaded?) #t)
+    (clear (-> board status))
+    (pc-point-leaderboard-get-status (-> board status) POINTS_STATUS_CAPACITY)
+    (dotimes (index count)
+      (let ((entry (-> board entries index)))
+        (set! (-> entry rank)
+              (pc-point-leaderboard-get-value index POINTS_VALUE_RANK))
+        (set! (-> entry points)
+              (pc-point-leaderboard-get-value index POINTS_VALUE_POINTS))
+        (set! (-> entry missions-run)
+              (pc-point-leaderboard-get-value index POINTS_VALUE_MISSIONS_RUN))
+        (set! (-> entry missions-total)
+              (pc-point-leaderboard-get-value index POINTS_VALUE_MISSIONS_TOTAL))
+        (set! (-> entry tied-wrs)
+              (pc-point-leaderboard-get-value index POINTS_VALUE_TIED_WRS))
+        (set! (-> entry untied-wrs)
+              (pc-point-leaderboard-get-value index POINTS_VALUE_UNTIED_WRS))
+        (clear (-> entry rank-label))
+        (clear (-> entry runner))
+        (clear (-> entry display-label))
+        (pc-point-leaderboard-get-text
+          index POINTS_TEXT_RANK_LABEL (-> entry rank-label) POINTS_RANK_LABEL_CAPACITY)
+        (pc-point-leaderboard-get-text
+          index POINTS_TEXT_RUNNER (-> entry runner) POINTS_RUNNER_CAPACITY)
+        ;; Split this across two calls to stay below GOAL's eight-argument cap.
+        (format (-> entry display-label) "~S  ~S  ~D pts  ~D/~D"
+                (-> entry rank-label) (-> entry runner) (-> entry points)
+                (-> entry missions-run) (-> entry missions-total))
+        (format (-> entry display-label) "  WR ~D+~D"
+                (-> entry tied-wrs) (-> entry untied-wrs)))))
+  (none))
+
+(defun points-info-load-all! ((info points-info))
+  (set! (-> info loaded-board-count) 0)
+  (set! (-> info loading?) #t)
+  ;; Cached boards remain visible while their replacements are fetched.
+  (set! (-> info ready?) (-> info cache-loaded?))
+  (dotimes (mode POINTS_MODE_COUNT)
+    (dotimes (group POINTS_GROUP_COUNT)
+      (let* ((board (points-info-get-board info mode group))
+             (had-data? (-> board loaded?)))
+        (clear (-> board status))
+        (format (-> board status) "Loading ~S / ~S..."
+                (-> board mode-label) (-> board group-label))
+        (pc-point-leaderboard-select mode group)
+        (while (= (pc-point-leaderboard-state) 0)
+          (suspend))
+        (if (= (pc-point-leaderboard-state) 1)
+            (begin
+              (points-info-copy-current-board! board)
+              (+! (-> info loaded-board-count) 1))
+            (if had-data?
+                (begin
+                  (+! (-> info loaded-board-count) 1)
+                  (clear (-> board status))
+                  (format (-> board status) "Cached ~S / ~S (update unavailable)"
+                          (-> board mode-label) (-> board group-label)))
+                (begin
+                  (set! (-> board loaded?) #f)
+                  (set! (-> board entry-count) 0)
+                  (clear (-> board status))
+                  (pc-point-leaderboard-get-status
+                    (-> board status) POINTS_STATUS_CAPACITY))))
+        (suspend))))
+  (set! (-> info loading?) #f)
+  (set! (-> info ready?) #t)
+  (points-info-save-cache! info)
+  (format 0 "points: loaded ~D/~D boards into *Points-Info*~%"
+          (-> info loaded-board-count) POINTS_BOARD_COUNT)
+  (none))
+
+(defun points-info-refresh! ((info points-info))
+  ;; Do not kill and replace an in-flight request loop. A cutscene skip can
+  ;; briefly propagate the same controller press into progress-menu handlers.
+  (when (not (-> info loading?))
+    (set! (-> info loading?) #t)
+    (process-spawn-function process :name "points-info-loader" :to *pc-pool*
+      (lambda :behavior process ((info points-info))
+        (stack-size-set! (-> self main-thread) 1024)
+        (points-info-load-all! info))
+      info))
+  (none))
+
+(defun points-info-set-mode! ((info points-info) (mode int))
+  (set! (-> info selected-mode) (mod (+ mode POINTS_MODE_COUNT) POINTS_MODE_COUNT))
+  (none))
+
+(defun points-info-set-group! ((info points-info) (group int))
+  (set! (-> info selected-group) (mod (+ group POINTS_GROUP_COUNT) POINTS_GROUP_COUNT))
+  (none))
+
+(defun points-info-start! ((info points-info))
+  (when (not (= (-> info started?) #t))
+    (set! (-> info started?) #t)
+    (set! (-> info loading?) #t)
+    (process-spawn-function process :name "points-info-loader" :to *pc-pool*
+      (lambda :behavior process ((info points-info))
+        (stack-size-set! (-> self main-thread) 1024)
+        ;; GAME.CGO is still linking while this object is evaluated. Defer all
+        ;; allocations and native requests until the first live frame.
+        (suspend)
+        (points-info-init! info)
+        (points-info-load-cache! info)
+        (points-info-load-all! info))
+      info))
+  (none))
+
+(points-info-start! *Points-Info*)

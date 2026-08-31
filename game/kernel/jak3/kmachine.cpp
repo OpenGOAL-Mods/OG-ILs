@@ -498,10 +498,18 @@ void InitMachine_PCPort() {
                               (void*)kmachine_extras::pc_replay_ping_unknown_player);
   make_function_symbol_from_c("pc-point-leaderboard-refresh",
                               (void*)kmachine_extras::pc_point_leaderboard_refresh);
+  make_function_symbol_from_c("pc-point-leaderboard-select",
+                              (void*)kmachine_extras::pc_point_leaderboard_select);
+  make_function_symbol_from_c("pc-point-leaderboard-state",
+                              (void*)kmachine_extras::pc_point_leaderboard_state);
   make_function_symbol_from_c("pc-point-leaderboard-count",
                               (void*)kmachine_extras::pc_point_leaderboard_count);
   make_function_symbol_from_c("pc-point-leaderboard-get-label",
                               (void*)kmachine_extras::pc_point_leaderboard_get_label);
+  make_function_symbol_from_c("pc-point-leaderboard-get-value",
+                              (void*)kmachine_extras::pc_point_leaderboard_get_value);
+  make_function_symbol_from_c("pc-point-leaderboard-get-text",
+                              (void*)kmachine_extras::pc_point_leaderboard_get_text);
   make_function_symbol_from_c("pc-point-leaderboard-mode-count",
                               (void*)kmachine_extras::pc_point_leaderboard_mode_count);
   make_function_symbol_from_c("pc-point-leaderboard-get-mode-label",
