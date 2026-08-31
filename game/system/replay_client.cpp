@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <condition_variable>
 #include <cstdlib>
 #include <cstring>
@@ -203,6 +204,27 @@ struct RunnerInfo {
   std::string display_name;
 };
 
+std::string mapped_player_name(const json& state) {
+  std::string runner_id;
+  if (state.contains("players") && state.at("players").is_array()) {
+    for (const auto& player : state.at("players")) {
+      if (player.value("id", "") == persistent_player_id()) {
+        runner_id = player.value("src_runner_id", "");
+        break;
+      }
+    }
+  }
+  if (runner_id.empty() || !state.contains("runners") || !state.at("runners").is_array()) {
+    return {};
+  }
+  for (const auto& runner : state.at("runners")) {
+    if (runner.value("id", "") == runner_id) {
+      return runner.value("display_name", "");
+    }
+  }
+  return {};
+}
+
 struct HttpResponse {
   bool ok = false;
   long status = 0;
@@ -316,6 +338,7 @@ class Client {
       std::vector<RunnerInfo> runners;
       std::vector<ReplayModeInfo> modes;
       try {
+        const auto player_name = mapped_player_name(*parsed);
         for (const auto& item : parsed->at("replays")) {
           replays.push_back({item.value("id", ""), item.value("display_name", "Unnamed replay"),
                              item.value("category", ""), item.value("src_status", ""),
@@ -358,6 +381,10 @@ class Client {
           m_modes = std::move(modes);
           m_selected_replay_ids = selected_replays;
           m_replay_mode = settings.value("replay_mode", "default");
+          m_player_name = player_name;
+          m_identity_checked = true;
+          m_identity_refresh_pending = false;
+          m_next_identity_refresh = std::chrono::steady_clock::now() + std::chrono::seconds(30);
           m_connected = true;
           active_category = m_active_category;
           if (!active_category.empty()) {
@@ -375,6 +402,49 @@ class Client {
         set_connected(false, fmt::format("Invalid replay-server state: {}", e.what()));
       }
     });
+  }
+
+  void draw_identity_overlay() {
+    bool refresh_identity_now = false;
+    bool identity_checked = false;
+    std::string player_name;
+    {
+      std::lock_guard lock(m_state_mutex);
+      const auto now = std::chrono::steady_clock::now();
+      if (!m_identity_refresh_pending && now >= m_next_identity_refresh) {
+        m_identity_refresh_pending = true;
+        m_next_identity_refresh = now + std::chrono::seconds(30);
+        refresh_identity_now = true;
+      }
+      identity_checked = m_identity_checked;
+      player_name = m_player_name;
+    }
+    if (refresh_identity_now) {
+      refresh_identity();
+    }
+    if (!identity_checked) {
+      return;
+    }
+
+    constexpr float kPadding = 10.f;
+    constexpr float kBottomOffset = 50.f;
+    const auto* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + kPadding,
+                                   viewport->WorkPos.y + viewport->WorkSize.y - kBottomOffset),
+                            ImGuiCond_Always, ImVec2(0.f, 1.f));
+    ImGui::SetNextWindowBgAlpha(0.65f);
+    constexpr auto flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                           ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                           ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs;
+    if (ImGui::Begin("Replay player identity", nullptr, flags)) {
+      if (player_name.empty()) {
+        ImGui::TextColored(ImVec4(1.f, 0.72f, 0.25f, 1.f),
+                           "you are an unknown player contact barg or zed to be known");
+      } else {
+        ImGui::TextColored(ImVec4(0.35f, 1.f, 0.45f, 1.f), "welcome back %s", player_name.c_str());
+      }
+    }
+    ImGui::End();
   }
 
   void publish(const std::string& replay_path, ReplayLevelResolver level_resolver) {
@@ -759,6 +829,29 @@ class Client {
   }
 
  private:
+  void refresh_identity() {
+    enqueue([this]() {
+      const auto response =
+          request("GET", fmt::format("/api/state?player_id={}", persistent_player_id()));
+      if (!response.ok) {
+        std::lock_guard lock(m_state_mutex);
+        m_identity_refresh_pending = false;
+        return;
+      }
+      const auto parsed = safe_parse_json(response.body);
+      if (!parsed) {
+        std::lock_guard lock(m_state_mutex);
+        m_identity_refresh_pending = false;
+        return;
+      }
+      const auto player_name = mapped_player_name(*parsed);
+      std::lock_guard lock(m_state_mutex);
+      m_player_name = player_name;
+      m_identity_checked = true;
+      m_identity_refresh_pending = false;
+    });
+  }
+
   const ReplayInfo* mission_replay_at_index(int index) const {
     if (index < 0) {
       return nullptr;
@@ -940,10 +1033,14 @@ class Client {
   std::string m_ready_category;
   std::string m_pending_category;
   std::string m_status = "Replay server has not been contacted";
+  std::string m_player_name;
+  std::chrono::steady_clock::time_point m_next_identity_refresh{};
   int m_ready_generation = 0;
   int m_selection_revision = 0;
   bool m_connected = false;
   bool m_refresh_started = false;
+  bool m_identity_checked = false;
+  bool m_identity_refresh_pending = false;
 };
 
 Client& client() {
@@ -1015,6 +1112,10 @@ std::string status() {
 
 std::string player_id() {
   return persistent_player_id();
+}
+
+void draw_identity_overlay() {
+  client().draw_identity_overlay();
 }
 
 void draw_window(bool* open) {

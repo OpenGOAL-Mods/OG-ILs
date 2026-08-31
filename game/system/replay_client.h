@@ -6,8 +6,7 @@
 
 namespace replay_client {
 
-using ReplayLevelResolver =
-    std::function<std::optional<std::string>(const std::string& category)>;
+using ReplayLevelResolver = std::function<std::optional<std::string>(const std::string& category)>;
 
 void refresh();
 void publish(const std::string& replay_path, ReplayLevelResolver level_resolver);
@@ -25,6 +24,7 @@ bool set_mode(int index);
 std::string ready_replay_name(int index);
 std::string status();
 std::string player_id();
+void draw_identity_overlay();
 void draw_window(bool* open);
 
 }  // namespace replay_client
