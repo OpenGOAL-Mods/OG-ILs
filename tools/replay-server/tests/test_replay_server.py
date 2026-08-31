@@ -13,7 +13,7 @@ from speedrun_submitter.replay_store import PROOF_VIDEO_URL, ReplayStore
 
 
 def replay_envelope():
-    return {"category": "wascity-bbush-get-to-18", "time_seconds": 8.125,
+    return {"game": "jak3", "category": "wascity-bbush-get-to-18", "time_seconds": 8.125,
             "player_id": "player-0123456789abcdef",
             "is_personal_best": True,
             "src_level_id": "9203p03d", "src_category_id": "rkl7n8qd",
@@ -53,6 +53,18 @@ class ReplayStoreTests(unittest.TestCase):
         reloaded = ReplayStore(Path(self.tmp.name), api_factory=FakeAPI)
         saved = next(item for item in reloaded.public_state()["replays"] if item["id"] == first["id"])
         self.assertEqual(saved["display_name"], "Orb 18 PB")
+        self.assertEqual(saved["game"], "jak3")
+
+    def test_legacy_replays_default_to_jak3(self):
+        replay = self.store.add_replay(replay_envelope())
+        saved = self.store.public_state()
+        saved["replays"][0].pop("game")
+        self.store.index_path.write_text(json.dumps(saved), encoding="utf-8")
+        migrated = ReplayStore(Path(self.tmp.name), api_factory=FakeAPI)
+        migrated_replay = next(
+            item for item in migrated.public_state()["replays"] if item["id"] == replay["id"]
+        )
+        self.assertEqual(migrated_replay["game"], "jak3")
 
     def test_upload_requires_a_well_formed_player_id(self):
         missing = replay_envelope()
@@ -299,6 +311,9 @@ class ReplayHTTPTests(unittest.TestCase):
                     self.assertIn('name="password"', dashboard)
                     self.assertIn('id="players"', dashboard)
                     self.assertIn("assignPlayer", dashboard)
+                    self.assertIn("function sortedReplays()", dashboard)
+                    self.assertIn('class="replay-group"', dashboard)
+                    self.assertIn("<th>Category</th>", dashboard)
                 with urlopen(f"{base}/api/state", timeout=2) as response:
                     self.assertEqual(json.load(response)["replays"], [])
                 body = json.dumps(replay_envelope()).encode("utf-8")

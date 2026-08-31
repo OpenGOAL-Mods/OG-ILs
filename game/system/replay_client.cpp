@@ -19,6 +19,7 @@
 #include "common/log/log.h"
 #include "common/util/FileUtil.h"
 #include "common/util/json_util.h"
+#include "common/versions/versions.h"
 
 #include "game/runtime.h"
 
@@ -405,7 +406,8 @@ class Client {
         const auto src_category_id =
             replay->value("percent_warped", 0) == 0 ? "rkl7n8qd" : "7dgw7742";
         const auto vehicle_name = replay->value("vehicle_name", "N/A");
-        json envelope = {{"category", category},
+        json envelope = {{"game", version_to_game_name(g_game_version)},
+                         {"category", category},
                          {"player_id", persistent_player_id()},
                          {"time_seconds", time_seconds},
                          {"src_level_id", *src_level_id},

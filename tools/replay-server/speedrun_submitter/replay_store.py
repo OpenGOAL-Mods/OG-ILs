@@ -127,6 +127,7 @@ class ReplayStore:
                 base["player_settings"] = data["player_settings"]
             for replay in base["replays"]:
                 if isinstance(replay, dict):
+                    replay.setdefault("game", "jak3")
                     replay.setdefault("player_id", "")
                     replay.setdefault("src_runner_id", "")
                     replay.setdefault("is_personal_best", False)
@@ -250,11 +251,16 @@ class ReplayStore:
 
     def add_replay(self, envelope: dict[str, Any]) -> dict[str, Any]:
         replay = envelope.get("replay")
+        game = str(envelope.get("game") or "jak3").strip().lower()
         category = str(envelope.get("category") or "").strip()
         player_id = str(envelope.get("player_id") or "").strip()
         seconds = envelope.get("time_seconds")
         if not category or not player_id or not isinstance(replay, dict):
             raise ValueError("category, player_id, and replay are required")
+        if not game or len(game) > 32 or not all(
+            character.isalnum() or character in "-_" for character in game
+        ):
+            raise ValueError("game is invalid")
         if not (16 <= len(player_id) <= 128) or not all(
             character.isalnum() or character in "-_" for character in player_id
         ):
@@ -293,6 +299,7 @@ class ReplayStore:
             replay_path.write_text(json.dumps(replay, separators=(",", ":")), encoding="utf-8")
             metadata = {
                 "id": replay_id,
+                "game": game,
                 "player_id": player_id,
                 "display_name": str(envelope.get("display_name") or "").strip()
                 or f"{category} — {seconds:.3f}s"
