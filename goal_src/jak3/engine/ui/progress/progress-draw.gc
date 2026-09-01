@@ -2457,13 +2457,13 @@
             )
           (when (and s2-0 (= (-> s2-0 formatted) 1) (= (-> s2-0 inited) 1))
             (cond
-              ((= (-> s2-0 file arg2 present) 1)
+              (#f ;; (= (-> s2-0 file arg2 present) 1)
                (let ((sv-48 print-game-text))
                  (format (clear *temp-string*) "~S ~D" (lookup-text! *common-text* (text-id text-0073) #f) (+ arg2 1))
                  (sv-48 *temp-string* arg1 #f 44 (bucket-id hud-draw-hud-alpha))
                  )
                )
-              ((zero? (-> s2-0 file arg2 present))
+              (#t ;; (zero? (-> s2-0 file arg2 present))
                (print-game-text
                  (lookup-text! *common-text* (text-id progress-empty) #f)
                  arg1
@@ -2518,7 +2518,7 @@
                   )
                 )
               )
-            (when (= (-> s2-0 file arg2 present) 1)
+            (when #f ;; (= (-> s2-0 file arg2 present) 1)
               (when (= arg2 (-> arg0 option-index))
                 (draw-icon-array!
                   (-> *progress-icon-arrays* (-> s2-0 file arg2 level-index))
