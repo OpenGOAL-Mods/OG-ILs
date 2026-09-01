@@ -342,8 +342,15 @@
       (= state 'target-grab-ride)
       (= state 'target-continue)))
 
+(defun ghost-cancel-playback-waiters! ()
+  "Remove delayed replay work left behind by the previous attempt."
+  (kill-by-name "ghost-safe-spawn-wait" *pc-pool*)
+  (kill-by-name "ghost-server-wait" *pc-pool*)
+  (none))
+
 (defun ghost-start-recording! ()
   "Begin a fresh recording for the current speedrun category."
+  (ghost-cancel-playback-waiters!)
   (set! *ghost-race-released?* #f)
   (when *ghost-record-enabled?*
     ;; Release archives may not contain an empty ghost directory. Ensure it
@@ -455,6 +462,7 @@
 
 (defun ghost-discard-recording! ()
   "Publish an interrupted recording as the last attempt, then clear the recorder."
+  (ghost-cancel-playback-waiters!)
   ;; Replay players live in the persistent PC pool. Remove them before a retry
   ;; can unload the mission art their skeletons reference.
   (ghost-stop-playback)
@@ -476,6 +484,7 @@
 
 (defun ghost-stop-recording! ((time-seconds float) (new-best? symbol))
   "Finish recording and publish a new personal best to the local replay server."
+  (ghost-cancel-playback-waiters!)
   ;; This must happen for every finish, not only PBs. Mission completion unloads
   ;; the current level/art before the next attempt; a persistent ghost retaining
   ;; that art otherwise enters process-drawable-art-error on the retry.
@@ -575,6 +584,35 @@
     (&+! (-> this runner-font) diff))
   (call-parent-method this diff))
 
+(defun ghost-stable-target-level ()
+  "Return the permanent art owner for Jak's current level."
+  (when (not *target*)
+    (return (the-as level #f)))
+  (let ((target-level (-> *target* level)))
+    (when (and target-level (-> target-level info master-level))
+      (let ((master-level
+              (level-get *level* (-> target-level info master-level))))
+        (when (and master-level (= (-> master-level status) 'active))
+          (return master-level))))
+    target-level))
+
+(defun ghost-stable-target-skel-group ((art-level level))
+  "Find Jak's skeleton definition specifically in the permanent art level.
+   The normal global lookup can select a temporary task DGO first."
+  (let ((skel-name
+          (case (-> *target* ext-geo)
+            (((target-geo jakb)) "skel-jchar-normal")
+            (((target-geo jakb-old)) "skel-jchar-old")
+            (((target-geo jakc)) "skel-jchar-c")
+            (else "skel-jchar"))))
+    (countdown (i (-> art-level art-group art-group-array length))
+      (let ((element (-> art-level art-group art-group-array i)))
+        (when (and element
+                   (= (-> element type) skeleton-group)
+                   (name= (-> element name) skel-name))
+          (return (the-as skeleton-group element)))))
+    (the-as skeleton-group #f)))
+
 (defbehavior ghost-player-init-by-other ghost-player ((clone-idx int))
   (stack-size-set! (-> self main-thread) 1024)
   (set! (-> self idx) 0)
@@ -632,8 +670,11 @@
   ;; a fresh trsqv has scale 0 - without this the whole model collapses to a point!
   (vector-identity! (-> self root scale))
   (quaternion-identity! (-> self root quat))
-  ;; associate with the level jak is in so art loading/drawing works
-  (set! (-> self level) (level-get-target-inside *level*))
+  ;; Bind both the process and its skeleton definition to the permanent master
+  ;; level. A global skeleton lookup can otherwise select the temporary task DGO
+  ;; (for example wasstadb), whose art heap is discarded after the mission intro.
+  (let ((art-level (ghost-stable-target-level)))
+    (set! (-> self level) art-level)
   ;; Start at frame zero, or at the synchronized frame for a late download.
   (when (> (-> self frames) 0)
     (let ((s (-> self samples (-> self idx))))
@@ -644,7 +685,7 @@
   ;; Match the geometry currently selected for the real target.  "skel-jchar"
   ;; is only the bootstrap geometry; normal gameplay swaps it to the Jak 2,
   ;; classic, or Jak 3 body selected by target-skel-group.
-  (initialize-skeleton self (target-skel-group) (the-as pair 0))
+    (initialize-skeleton self (ghost-stable-target-skel-group art-level) (the-as pair 0)))
   ;; The cloth engine has only 32 slots. Keep the Jak 3 body mesh, but do not
   ;; submit cloth simulations for 33 ghosts plus the real player.
   (set! (-> self draw cloth-instances) (the-as (array cloth-system) #f))
@@ -791,16 +832,53 @@
 (defun ghost-spawn-playback! ()
   "Restart the playback pack from frame zero."
   (ghost-stop-playback)
-  (let ((available (if (> *ghost-replay-count* 0)
-                       *ghost-replay-count*
-                       (if (-> *ghost-recording* have-ghost?) 1 0)))
-        (want 0)
-        (spawned 0))
-    (set! want (max 1 (min available (min GHOST_MAX_PLAYERS *ghost-playback-count*))))
-    (dotimes (i want)
-      (when (process-spawn ghost-player i :from *ghost-dead-pool* :to *pc-pool*)
-        (+! spawned 1)))
-    (format 0 "ghost: spawned ~D/~D independent replay players~%" spawned want))
+  ;; Automatic playback must not build skeletons on the same frame the mission
+  ;; releases Jak. Task DGOs can still be retiring at that point.
+  (cond
+    ((and (-> *ghost-recording* recording?)
+          (not *ghost-race-released?*))
+     (format 0 "ghost: blocked playback before mission release~%"))
+    (else
+     (let ((available (if (> *ghost-replay-count* 0)
+                           *ghost-replay-count*
+                           (if (-> *ghost-recording* have-ghost?) 1 0)))
+           (want 0)
+           (spawned 0)
+           (stable-level (ghost-stable-target-level)))
+       (cond
+         ((not stable-level)
+          (format 0 "ghost: ERROR no stable target level for playback~%"))
+         (else
+          (set! want (max 1 (min available (min GHOST_MAX_PLAYERS *ghost-playback-count*))))
+          (dotimes (i want)
+            ;; process-spawn schedules the init behavior; the returned process has
+            ;; not necessarily populated its level field yet.
+            (when (process-spawn ghost-player i :from *ghost-dead-pool* :to *pc-pool*)
+              (+! spawned 1)))
+          (format 0 "ghost: spawned ~D/~D independent replay players~%" spawned want))))))
+  (none))
+
+(defun ghost-await-safe-spawn! ((category speedrun-category))
+  "Spawn after control release and a short scheduler/DGO settling window."
+  (kill-by-name "ghost-safe-spawn-wait" *pc-pool*)
+  (process-spawn-function process :name "ghost-safe-spawn-wait" :to *pc-pool*
+    (lambda :behavior process ((category speedrun-category))
+      (stack-size-set! (-> self main-thread) 1024)
+      (while (and (-> *ghost-recording* recording?)
+                  (= (-> *speedrun-info* category) category)
+                  (not *ghost-race-released?*))
+        (suspend))
+      (when (and (-> *ghost-recording* recording?)
+                 (= (-> *speedrun-info* category) category)
+                 *target*)
+        ;; Run start and DGO retirement happen on different scheduler passes.
+        ;; Playback synchronizes to rec-count, so this does not make ghosts late.
+        (dotimes (frame 3) (suspend))
+        (when (and (-> *ghost-recording* recording?)
+                   (= (-> *speedrun-info* category) category)
+                   *target*)
+          (ghost-spawn-playback!))))
+    category)
   (none))
 
 (defun ghost-await-server-pack! ((category speedrun-category))
@@ -827,7 +905,7 @@
                    (> (pc-replay-selected-count) 0))
           (ghost-load-json-pack! category)
           (when (> *ghost-replay-count* 0)
-            (ghost-spawn-playback!)))))
+            (ghost-await-safe-spawn! category)))))
     category)
   (none))
 
@@ -867,10 +945,10 @@
       (ghost-load-json-pack! category)
       (cond
         ((> *ghost-replay-count* 0)
-         (ghost-spawn-playback!))
+         (ghost-await-safe-spawn! category))
         ((and (-> *ghost-recording* have-ghost?)
               (= (-> *ghost-recording* category) category))
-         (ghost-spawn-playback!))
+         (ghost-await-safe-spawn! category))
         (else
          (ghost-await-server-pack! category)))))
   (none))
