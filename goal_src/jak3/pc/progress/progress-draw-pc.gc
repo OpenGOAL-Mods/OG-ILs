@@ -1152,11 +1152,11 @@
             (set-flags! arg1 (font-flags kerning large))
             (when (and s2-0 (= (-> s2-0 formatted) 1) (= (-> s2-0 inited) 1))
               (cond
-                (#f ;; (= (-> s2-0 file arg2 present) 1)
+                ((= (-> s2-0 file arg2 present) 1)
                  (string-format "~S ~D" (lookup-text! *common-text* (text-id text-0073) #f) (1+ arg2))
                  (print-game-text *temp-string* arg1 #f 44 (bucket-id hud-draw-hud-alpha))
                  )
-                (#t ;; (zero? (-> s2-0 file arg2 present))
+                ((zero? (-> s2-0 file arg2 present))
                  (print-game-text (lookup-text! *common-text* (text-id progress-empty) #f) arg1 #f 44 (bucket-id hud-draw-hud-alpha))
                  )
                 )
@@ -1187,7 +1187,7 @@
                     )
                   )
                 )
-              (when #f ;; (= (-> s2-0 file arg2 present) 1)
+              (when (= (-> s2-0 file arg2 present) 1)
                 (when (= arg2 (-> arg0 option-index))
                   (draw-icon-array!
                     (-> *progress-icon-arrays* (-> s2-0 file arg2 level-index))
