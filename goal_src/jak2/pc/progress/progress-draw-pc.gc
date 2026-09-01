@@ -1928,7 +1928,7 @@
         ((and *progress-save-info*
               (= (-> *progress-save-info* formatted) 1)
               (= (-> *progress-save-info* inited) 1)
-              (= (-> *progress-save-info* file arg2 present) 1)
+              #f ;; (= (-> *progress-save-info* file arg2 present) 1)
               )
           (cond
             ((= arg2 sv-20)
@@ -2086,7 +2086,7 @@
         ((and *progress-save-info*
               (= (-> *progress-save-info* formatted) 1)
               (= (-> *progress-save-info* inited) 1)
-              (zero? (-> *progress-save-info* file arg2 present))
+              ;; (zero? (-> *progress-save-info* file arg2 present))
               )
           (cond
             ((= arg2 sv-20)
