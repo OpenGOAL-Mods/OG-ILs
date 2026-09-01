@@ -62,6 +62,7 @@ s32 pc_replay_mode_count();
 void pc_replay_get_mode_label(s32 index, u32 dest_ptr);
 u64 pc_replay_mode_selected(s32 index);
 u64 pc_replay_custom_mode_selected();
+u64 pc_replay_personal_best_mode_selected();
 u64 pc_replay_set_mode(s32 index);
 void pc_replay_get_ready_name(s32 index, u32 dest_ptr);
 void pc_replay_get_status(u32 dest_ptr);

@@ -20,6 +20,7 @@ int mode_count();
 std::string mode_label(int index);
 bool mode_selected(int index);
 bool custom_mode_selected();
+bool personal_best_mode_selected();
 bool set_mode(int index);
 std::string ready_replay_name(int index);
 std::string status();

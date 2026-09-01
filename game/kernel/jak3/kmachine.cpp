@@ -488,6 +488,9 @@ void InitMachine_PCPort() {
                               (void*)kmachine_extras::pc_replay_mode_selected);
   make_function_symbol_from_c("pc-replay-custom-mode-selected",
                               (void*)kmachine_extras::pc_replay_custom_mode_selected);
+  make_function_symbol_from_c(
+      "pc-replay-personal-best-mode-selected",
+      (void*)kmachine_extras::pc_replay_personal_best_mode_selected);
   make_function_symbol_from_c("pc-replay-set-mode", (void*)kmachine_extras::pc_replay_set_mode);
   make_function_symbol_from_c("pc-replay-get-ready-name",
                               (void*)kmachine_extras::pc_replay_get_ready_name);

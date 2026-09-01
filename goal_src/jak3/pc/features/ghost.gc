@@ -935,8 +935,8 @@
   (none))
 
 (defun ghost-on-run-start! ()
-  "Called when an IL run begins: replay the pinned ghost (same category),
-   then start recording the new attempt."
+  "Called when an IL run begins: resolve the selected replay mode, then start
+   recording the new attempt."
   ;; Start counting immediately so a server replay that finishes downloading a
   ;; few frames later can begin at the matching point in the current attempt.
   (ghost-start-recording!)
@@ -946,7 +946,12 @@
       (cond
         ((> *ghost-replay-count* 0)
          (ghost-await-safe-spawn! category))
-        ((and (-> *ghost-recording* have-ghost?)
+        ;; A server pack can still be pending when the mission starts. Falling
+        ;; back to the local PB here made every mode look like Personal Best on
+        ;; slower connections. Only that explicit mode may use the local copy;
+        ;; every other mode waits for its resolved pack (or correctly uses none).
+        ((and (pc-replay-personal-best-mode-selected)
+              (-> *ghost-recording* have-ghost?)
               (= (-> *ghost-recording* category) category))
          (ghost-await-safe-spawn! category))
         (else

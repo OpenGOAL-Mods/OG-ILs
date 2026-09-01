@@ -938,6 +938,11 @@ class Client {
     return m_replay_mode == "custom";
   }
 
+  bool personal_best_mode_selected() {
+    std::lock_guard lock(m_state_mutex);
+    return m_replay_mode == "personal_best";
+  }
+
   bool set_mode(int index) {
     std::string mode_id;
     std::string category;
@@ -1517,6 +1522,10 @@ bool mode_selected(int index) {
 
 bool custom_mode_selected() {
   return client().custom_mode_selected();
+}
+
+bool personal_best_mode_selected() {
+  return client().personal_best_mode_selected();
 }
 
 bool set_mode(int index) {

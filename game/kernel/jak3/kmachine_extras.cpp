@@ -503,6 +503,10 @@ u64 pc_replay_custom_mode_selected() {
   return bool_to_symbol(replay_client::custom_mode_selected());
 }
 
+u64 pc_replay_personal_best_mode_selected() {
+  return bool_to_symbol(replay_client::personal_best_mode_selected());
+}
+
 u64 pc_replay_set_mode(s32 index) {
   return bool_to_symbol(replay_client::set_mode(index));
 }

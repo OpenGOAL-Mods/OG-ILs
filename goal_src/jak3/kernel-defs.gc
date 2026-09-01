@@ -332,6 +332,7 @@
 (define-extern pc-replay-get-mode-label (function int string none))
 (define-extern pc-replay-mode-selected (function int symbol))
 (define-extern pc-replay-custom-mode-selected (function symbol))
+(define-extern pc-replay-personal-best-mode-selected (function symbol))
 (define-extern pc-replay-set-mode (function int symbol))
 (define-extern pc-replay-get-ready-name (function int string none))
 (define-extern pc-replay-get-status (function string none))
