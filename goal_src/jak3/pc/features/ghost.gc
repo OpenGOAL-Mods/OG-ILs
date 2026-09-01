@@ -548,17 +548,45 @@
           ;; resolve the recorded anim index against OUR (current, valid) art-group,
           ;; then scrub the base channel to that anim + frame. set the group only when
           ;; it changes; otherwise just move frame-num and let ja-post re-pose.
-          (when (and (>= (-> s anim-idx) 0)
-                     (nonzero? (-> self skel))
-                     (nonzero? (-> self draw))
-                     (< (-> s anim-idx) (-> self draw art-group length)))
-            (let ((anim (the-as art-joint-anim (-> self draw art-group data (-> s anim-idx)))))
-              ;; guard exactly like the engine's own anim validity check
-              (when (and anim (nonzero? anim) (= (-> anim type) art-joint-anim))
+          (when (and (nonzero? (-> self skel))
+                     (nonzero? (-> self draw)))
+            (let ((anim (the-as art-joint-anim #f))
+                  (replay-anim? #f))
+              (when (and (>= (-> s anim-idx) 0)
+                         (< (-> s anim-idx) (-> self draw art-group length)))
+                (let ((candidate (the-as art-joint-anim
+                                   (-> self draw art-group data (-> s anim-idx)))))
+                  ;; Task DGOs can unlink mission-only animations while a replay
+                  ;; is active. Never leave a channel pointing at the unlinked
+                  ;; element: evaluate-joint-control treats that as a fatal art
+                  ;; error on the following pose.
+                  (when (and candidate
+                             (nonzero? candidate)
+                             (= (-> candidate type) art-joint-anim))
+                    (set! anim candidate)
+                    (set! replay-anim? #t))))
+              ;; Jak's live base channel is maintained by the game across art
+              ;; streaming transitions, so it is the safe visual fallback when
+              ;; a recorded mission animation is no longer loaded.
+              (when (and (not anim)
+                         *target*
+                         (nonzero? (-> *target* skel))
+                         (> (-> *target* skel active-channels) 0))
+                (let ((candidate (-> *target* skel root-channel 0 frame-group)))
+                  (when (and candidate
+                             (nonzero? candidate)
+                             (= (-> candidate type) art-joint-anim))
+                    (set! anim candidate))))
+              (when anim
                 (when (!= (ja-group) anim)
                   (ja-channel-set! 1)
                   (joint-control-channel-group-eval! (-> self skel root-channel 0) anim num-func-identity))
-                (set! (-> self skel root-channel 0 frame-num) (-> s anim-frame)))))
+                ;; A live fallback uses Jak's own frame. Replay animations retain
+                ;; the recorded frame so normal ghost playback is unchanged.
+                (set! (-> self skel root-channel 0 frame-num)
+                      (if replay-anim?
+                          (-> s anim-frame)
+                          (-> *target* skel root-channel 0 frame-num))))))
           ;; Hold only until the live attempt has crossed its initial control
           ;; release. The release flag is one-way for this run, so later mission
           ;; state changes can never pause an already-moving replay.
@@ -583,35 +611,6 @@
   (when (nonzero? (-> this runner-font))
     (&+! (-> this runner-font) diff))
   (call-parent-method this diff))
-
-(defun ghost-stable-target-level ()
-  "Return the permanent art owner for Jak's current level."
-  (when (not *target*)
-    (return (the-as level #f)))
-  (let ((target-level (-> *target* level)))
-    (when (and target-level (-> target-level info master-level))
-      (let ((master-level
-              (level-get *level* (-> target-level info master-level))))
-        (when (and master-level (= (-> master-level status) 'active))
-          (return master-level))))
-    target-level))
-
-(defun ghost-stable-target-skel-group ((art-level level))
-  "Find Jak's skeleton definition specifically in the permanent art level.
-   The normal global lookup can select a temporary task DGO first."
-  (let ((skel-name
-          (case (-> *target* ext-geo)
-            (((target-geo jakb)) "skel-jchar-normal")
-            (((target-geo jakb-old)) "skel-jchar-old")
-            (((target-geo jakc)) "skel-jchar-c")
-            (else "skel-jchar"))))
-    (countdown (i (-> art-level art-group art-group-array length))
-      (let ((element (-> art-level art-group art-group-array i)))
-        (when (and element
-                   (= (-> element type) skeleton-group)
-                   (name= (-> element name) skel-name))
-          (return (the-as skeleton-group element)))))
-    (the-as skeleton-group #f)))
 
 (defbehavior ghost-player-init-by-other ghost-player ((clone-idx int))
   (stack-size-set! (-> self main-thread) 1024)
@@ -670,11 +669,11 @@
   ;; a fresh trsqv has scale 0 - without this the whole model collapses to a point!
   (vector-identity! (-> self root scale))
   (quaternion-identity! (-> self root quat))
-  ;; Bind both the process and its skeleton definition to the permanent master
-  ;; level. A global skeleton lookup can otherwise select the temporary task DGO
-  ;; (for example wasstadb), whose art heap is discarded after the mission intro.
-  (let ((art-level (ghost-stable-target-level)))
-    (set! (-> self level) art-level)
+  ;; Use the same physical-level + selected-skeleton pairing as normal gameplay.
+  ;; skeleton-group->draw-control understands this level's master-level fallback;
+  ;; binding directly to the master breaks missions whose selected Jak art lives
+  ;; in the physical level's art group.
+  (set! (-> self level) (level-get-target-inside *level*))
   ;; Start at frame zero, or at the synchronized frame for a late download.
   (when (> (-> self frames) 0)
     (let ((s (-> self samples (-> self idx))))
@@ -685,7 +684,7 @@
   ;; Match the geometry currently selected for the real target.  "skel-jchar"
   ;; is only the bootstrap geometry; normal gameplay swaps it to the Jak 2,
   ;; classic, or Jak 3 body selected by target-skel-group.
-    (initialize-skeleton self (ghost-stable-target-skel-group art-level) (the-as pair 0)))
+  (initialize-skeleton self (target-skel-group) (the-as pair 0))
   ;; The cloth engine has only 32 slots. Keep the Jak 3 body mesh, but do not
   ;; submit cloth simulations for 33 ghosts plus the real player.
   (set! (-> self draw cloth-instances) (the-as (array cloth-system) #f))
@@ -844,10 +843,10 @@
                            (if (-> *ghost-recording* have-ghost?) 1 0)))
            (want 0)
            (spawned 0)
-           (stable-level (ghost-stable-target-level)))
+           (playback-level (level-get-target-inside *level*)))
        (cond
-         ((not stable-level)
-          (format 0 "ghost: ERROR no stable target level for playback~%"))
+         ((not playback-level)
+          (format 0 "ghost: ERROR no target level for playback~%"))
          (else
           (set! want (max 1 (min available (min GHOST_MAX_PLAYERS *ghost-playback-count*))))
           (dotimes (i want)
