@@ -12,18 +12,100 @@ This gives us more freedom to write code how we want.
     :y-space 15
     :scale 0.82
     :options (new 'static 'boxed-array :type menu-option
-      (new 'static 'menu-sub-menu-option
-        :name (text-id progress-title-new-game)
-        :offset-y 0.15
-        :next-state 'select-save-title
-        )
-      (new 'static 'menu-sub-menu-option :name (text-id progress-load-save) :offset-y 0.3 :next-state 'select-load)
+      (new 'static 'menu-sub-menu-option :name (text-id progress-select-category) :offset-y 0.15 :next-state 'select-category)
+      (new 'static 'menu-category-option :name (text-id progress-last-category) :offset-y 0.3 :cat (speedrun-category custom))
       (new 'static 'menu-sub-menu-option :name (text-id progress-options) :offset-y 0.45 :next-state 'title-options)
       (new 'static 'menu-sub-menu-option :name (text-id progress-secrets) :offset-y 0.6 :next-state 'unlocked-secrets)
       (new 'static 'menu-exit-game-option :name (text-id progress-quit) :offset-y 0.75)
       )
     )
   )
+
+(define *select-category-options-pc* (new 'static 'menu-option-list
+    :y-center #xc6
+    :y-space 30
+    :scale 0.15
+    :options (new 'static 'boxed-array :type menu-option
+      (new 'static 'menu-sub-menu-option
+        :name (text-id progress-act-1)
+        :offset-y 0.14
+        :next-state 'act-1-options
+        )
+      (new 'static 'menu-sub-menu-option
+        :name (text-id progress-act-2)
+        :offset-y 0.28
+        :next-state 'act-2-options
+        )
+      (new 'static 'menu-sub-menu-option
+        :name (text-id progress-act-3)
+        :offset-y 0.42
+        :next-state 'act-3-options
+        )
+      (new 'static 'menu-sub-menu-option
+        :name (text-id progress-side-missions)
+        :offset-y 0.56
+        :next-state 'side-missions-options
+        )
+      )
+    )
+  )
+
+(define *side-missions-options-pc* (new 'static 'menu-option-list
+    :y-center #xc6
+    :y-space 30
+    :scale 0.15
+    :options (new 'static 'boxed-array :type menu-option
+      (new 'static 'menu-sub-menu-option
+        :name (text-id progress-side-mission-spargus)
+        :offset-y 0.14
+        :next-state 'side-spargus-options
+        )
+      (new 'static 'menu-sub-menu-option
+        :name (text-id progress-side-mission-wasteland)
+        :offset-y 0.28
+        :next-state 'side-wasteland-options
+        )
+      (new 'static 'menu-sub-menu-option
+        :name (text-id progress-side-mission-haven)
+        :offset-y 0.43
+        :next-state 'side-haven-options
+        )
+      )
+    )
+  )
+
+(define *act-1-options-pc*
+  (progress-new-generic-scrolling-page (text-id progress-act-1)
+    (new 'static 'menu-generic-category-option :cat (speedrun-category arena-training-1))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category arena-fight-1))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category wascity-chase))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category wascity-pre-game))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category desert-turtle-training))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category desert-course-race))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category desert-artifact-race-1))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category wascity-leaper-race))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category desert-hover))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category arena-fight-2))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category desert-catch-lizards))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category desert-rescue))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category wascity-gungame))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category arena-fight-3))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category nest-eggs))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category temple-climb))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category desert-glide))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category volcano-darkeco))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category temple-oracle))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category desert-oasis-defense))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category temple-tests))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category comb-travel))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category mine-explore))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category mine-blow))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category mine-boss))
+    )
+  )
+
+
+
 
 (define *sound-options-pc*
   (progress-new-generic-scrolling-page (text-id progress-sound-options)

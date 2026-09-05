@@ -143,6 +143,11 @@
   (set! (-> this confirmed?) #f)
   (none))
 
+(defmethod on-mount! ((this menu-generic-category-option))
+  (set! (-> this mounted?) #t)
+  ;; (set! (-> this confirmed?) #f)
+  (none))
+
 (defun controller-keybind->input-index ((bind controller-keybind))
   (case bind
     (((controller-keybind l-analog-up)) 1)
@@ -400,6 +405,20 @@
     (cond
       ((cpad-pressed? 0 confirm)
        (set! (-> this confirmed?) #f))))
+  0)
+
+(defmethod respond-progress ((this menu-generic-category-option) (progress progress) (selected? symbol))
+  (when (cpad-pressed? 0 confirm)
+    (logclear! (-> *cpad-list* cpads 0 button0-abs 0) (pad-buttons confirm))
+    (logclear! (-> *cpad-list* cpads 0 button0-rel 0) (pad-buttons confirm))
+    (cond
+      ((= (-> this cat) (speedrun-category custom))
+        (set-category! *speedrun-info* (the-as speedrun-category (-> *pc-settings* last-category))))
+      (else 
+        (set-category! *speedrun-info* (the-as speedrun-category (-> this cat))))
+      )
+    (send-event (ppointer->process *speedrun-manager*) 'invoke (speedrun-menu-command reset))
+    )
   0)
 
 (defmethod respond-progress ((this menu-generic-slider-option) (progress progress) (selected? symbol))

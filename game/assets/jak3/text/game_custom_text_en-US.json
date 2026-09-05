@@ -294,5 +294,15 @@
   "152c": "Bottom Right",
   "152d": "Bottom Left",
   "152e": "Show PB",
-  "152f": "Show WR"
+  "152f": "Show WR",
+
+  "1600": "Select Category",
+  "1601": "Play Last Category",
+  "1602": "Act 1",
+  "1603": "Act 2",
+  "1604": "Act 3",
+  "1605": "Side Missions",
+  "1606": "Spargus",
+  "1607": "Wasteland",
+  "1608": "Haven"
 }

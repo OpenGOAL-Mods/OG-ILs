@@ -1801,6 +1801,24 @@
     (draw-yes-no-style-footer arg0 arg1 (text-id progress-yes) (text-id progress-no)))
   (none))
 
+(defmethod draw-option ((this menu-category-option) (arg0 progress) (arg1 font-context) (arg2 int) (arg3 symbol))
+  (let ((f30-0 (fmax 0.0 (* 2.0 (- 0.5 (-> arg0 menu-transition)))))
+        (offset-y (-> this offset-y)))
+    (set! (-> arg1 alpha) f30-0)
+    (set-scale! arg1 0.85)
+    (adjust-font-origin-y arg0 arg1 offset-y)
+    (cond
+      ((= (-> arg0 option-index) arg2)
+        (draw-highlight-bar arg0 arg1 (the int (+ -6.0 (-> arg1 origin y))) 35 f30-0)
+        (let ((a0-4 arg1)) (set! (-> a0-4 color) (font-color font-color-33))))
+      (else (let ((a0-5 arg1)) (set! (-> a0-5 color) (font-color font-color-32)))))
+    (if (or (nonzero? (-> this name)) (= (-> this cat) (speedrun-category custom)))
+      (print-game-text (lookup-text! *common-text* (-> this name) #f) arg1 #f 44 (bucket-id hud-draw-hud-alpha))
+      (print-game-text (-> *speedrun-category-names* (-> this cat)) arg1 #f 44 (bucket-id hud-draw-hud-alpha)))
+    )
+  0
+  (none))
+
 (defmethod draw-option ((this menu-sub-menu-option) (arg0 progress) (arg1 font-context) (arg2 int) (arg3 symbol))
   (let ((f30-0 (fmax 0.0 (* 2.0 (- 0.5 (-> arg0 menu-transition)))))
         (offset-y (-> this offset-y)))
