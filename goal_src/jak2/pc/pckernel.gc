@@ -813,6 +813,8 @@
     (("pb-location") (set! (-> obj pb-location) (the-as pb-wr-location (file-stream-read-int file))))
     (("wr-location") (set! (-> obj wr-location) (the-as pb-wr-location (file-stream-read-int file))))
     ;; (("good-weather?") (set! (-> obj good-weather?) (file-stream-read-symbol file)))
+    (("last-category") (set! (-> obj last-category) (file-stream-read-int file)))
+
     (("pb-time-fortress-escape") (set! (-> obj pb-time-fortress-escape) (file-stream-read-float file)))
     (("pb-time-city-help-kid") (set! (-> obj pb-time-city-help-kid) (file-stream-read-float file)))
     (("pb-time-ruins-tower") (set! (-> obj pb-time-ruins-tower) (file-stream-read-float file)))
@@ -951,6 +953,7 @@
   (format file "  (pb-location ~D)~%" (-> obj pb-location))
   (format file "  (wr-location ~D)~%" (-> obj wr-location))
   ;; (format file "  (good-weather? ~A)~%" (-> obj good-weather?))
+  (format file "  (last-category ~D)~%" (-> obj last-category))
   (format file "  (pb-time-fortress-escape ~F)~%" (-> obj pb-time-fortress-escape))
   (format file "  (pb-time-city-help-kid ~F)~%" (-> obj pb-time-city-help-kid))
   (format file "  (pb-time-ruins-tower ~F)~%" (-> obj pb-time-ruins-tower))

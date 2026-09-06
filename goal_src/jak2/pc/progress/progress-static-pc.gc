@@ -12,12 +12,8 @@ This gives us more freedom to write code how we want.
     :y-space 30
     :scale 0.82
     :options (new 'static 'boxed-array :type menu-option
-      (new 'static 'menu-sub-menu-option
-        :name (text-id progress-title-new-game)
-        :scale #t
-        :next-state 'select-save-title
-        )
-      (new 'static 'menu-sub-menu-option :name (text-id progress-load-game) :scale #t :next-state 'select-load)
+      (new 'static 'menu-sub-menu-option :name (text-id progress-select-category) :next-state 'select-category)
+      (new 'static 'menu-category-option :name (text-id progress-last-category) :cat (speedrun-category custom))
       (new 'static 'menu-sub-menu-option
         :name (text-id progress-title-options)
         :scale #t
@@ -33,6 +29,147 @@ This gives us more freedom to write code how we want.
         :scale #f
         )
       )
+    )
+  )
+
+(define *select-category-options-pc* (new 'static 'menu-option-list
+    :y-center #xc6
+    :y-space 30
+    :scale 0.15
+    :options (new 'static 'boxed-array :type menu-option
+      (new 'static 'menu-sub-menu-option
+        :name (text-id progress-act-1)
+        :next-state 'act-1-options
+        )
+      (new 'static 'menu-sub-menu-option
+        :name (text-id progress-act-2)
+        :next-state 'act-2-options
+        )
+      (new 'static 'menu-sub-menu-option
+        :name (text-id progress-act-3)
+        :next-state 'act-3-options
+        )
+      (new 'static 'menu-sub-menu-option
+        :name (text-id progress-side-missions)
+        :next-state 'side-missions-options
+        )
+      )
+    )
+  )
+
+(define *act-1-options-pc*
+  (progress-new-generic-scrolling-page (text-id progress-act-1)
+    (new 'static 'menu-generic-category-option :cat (speedrun-category fortress-escape))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-help-kid))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category ruins-tower))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category atoll-water))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category fortress-dump))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-krew-delivery))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-red-gun-training))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category atoll-sig))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category sewer-enemy))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category strip-rescue))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category atoll-battle))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category mountain-lens))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category mountain-gear))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category mountain-shard))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category mountain-collection))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-keira-delivery))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category stadium-board1))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-krew-collection))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-yellow-gun-training))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category drill-eggs))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-power))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category palace-cable))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category palace-boss))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-shuttle))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category ruins-enemy))
+    )
+  )
+
+(define *act-2-options-pc*
+  (progress-new-generic-scrolling-page (text-id progress-act-2)
+    (new 'static 'menu-generic-category-option :cat (speedrun-category forest-scouts))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-escort-kid))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category dig-knock-down))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category strip-grenade))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category drill-ship))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-port-run))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-meet-brutter))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category sewer-board))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category forest-hunt))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-intercept-tanker))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category stadium-race-class3))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-protect-water-slums))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category dig-find-totem))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-destroy-guard-vehicles))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-play-onin-game))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category canyon-insert-items))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category tomb-poles))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category tomb-water))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category tomb-boss))
+    )
+  )
+
+(define *act-3-options-pc*
+  (progress-new-generic-scrolling-page (text-id progress-act-3)
+    (new 'static 'menu-generic-category-option :cat (speedrun-category fortress-save-friends))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category sewer-escort))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category stadium-race-class2))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-stop-bomb-bots))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-errol-challenge))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category strip-drop))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category ruins-mech))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category forest-protect))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category drill-mech))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-save-lurkers))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category stadium-race-class))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category palace-sneak-in))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category castle-break-in))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category castle-boss))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-whack))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category under-mech))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category under-sig))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-defend-stadium))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category consite-find-baron))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category nest-get-to-gun))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category nest-enter))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category nest-boss))
+    )
+  )
+
+(define *side-missions-options-pc*
+  (progress-new-generic-scrolling-page (text-id progress-side-missions)
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-1))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-2))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-3))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-4))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-5))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-6))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-7))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-8))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-9))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-10))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-11))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-12))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-13))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-14))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-get-to-15))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-collection-1))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-collection-2))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-collection-3))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-bombbot-1))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-racepoint-1))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-shuttle-1))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-ring-1))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-ring-2))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-ring-3))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-burning-bush-race-port))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category stadium-burning-bush-race-class3-r))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category stadium-burning-bush-race-class2-r))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category stadium-burning-bush-race-class1-r))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-blue-gun-training))
+    (new 'static 'menu-generic-category-option :cat (speedrun-category city-dark-gun-training))
     )
   )
 
