@@ -124,6 +124,9 @@
    )
   )
 
+(deftype menu-category-option (menu-option)
+  ((cat uint32))
+  )
 
 (deftype menu-sub-menu-sound-option (menu-option)
   ((next-state  symbol)

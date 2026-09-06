@@ -152,6 +152,7 @@
    (pb-location       pb-wr-location)
    (wr-location       pb-wr-location)
   ;;  (good-weather?     symbol)
+   (last-category     uint32)
 
    ;; Act 1 IL times
    (pb-time-fortress-escape float)

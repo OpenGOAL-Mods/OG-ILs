@@ -112,6 +112,10 @@
   (:methods
     (call-on-confirm (_type_) none)))
 
+(deftype menu-generic-category-option (menu-generic-option)
+  ((cat uint32))
+  )
+
 (deftype menu-generic-slider-option (menu-generic-option)
   "A generic slider, can go into the negative as well."
   (;; props

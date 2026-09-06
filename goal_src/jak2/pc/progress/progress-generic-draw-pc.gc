@@ -355,6 +355,19 @@
   (draw-generic-simple-string-option obj progress font-ctx option-index (lookup-text! *common-text* (-> obj name) #f))
   (none))
 
+(defmethod draw-option ((obj menu-generic-category-option) (progress progress) (font-ctx font-context) (option-index int) (selected? symbol))
+  (when (not (-> obj mounted?))
+    (on-mount! obj))
+  (cond
+    ((or (nonzero? (-> obj name)) (= (-> obj cat) (speedrun-category custom)))
+      (draw-generic-simple-string-option obj progress font-ctx option-index (lookup-text! *common-text* (-> obj name) #f)))
+    (else
+      (format (clear *temp-string*) "~S" (-> *speedrun-category-names* (-> obj cat)))
+      (pc-encode-utf8-string *temp-string* (clear *pc-encoded-temp-string*))
+      (draw-generic-simple-string-option obj progress font-ctx option-index *pc-encoded-temp-string*))
+    )
+(none))
+
 (defmethod draw-option ((obj menu-generic-confirm-option) (progress progress) (font-ctx font-context) (option-index int) (selected? symbol))
   (when (not (-> obj mounted?))
     (on-mount! obj))

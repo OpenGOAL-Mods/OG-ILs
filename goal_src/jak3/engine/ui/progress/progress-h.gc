@@ -352,6 +352,10 @@
    )
   )
 
+(deftype menu-category-option (menu-option)
+  ((cat uint32))
+  )
+
 
 (deftype menu-stereo-mode-sound-option (menu-option)
   ()

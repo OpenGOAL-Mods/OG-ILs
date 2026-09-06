@@ -259,6 +259,21 @@
     (('title-options)
      (set! (-> obj current-options) *options-pc*)
      )
+    (('select-category)
+     (set! (-> obj current-options) *select-category-options-pc*)
+     )
+    (('act-1-options)
+     (set! (-> obj current-options) *act-1-options-pc*)
+     )
+    (('act-2-options)
+     (set! (-> obj current-options) *act-2-options-pc*)
+     )
+    (('act-3-options)
+     (set! (-> obj current-options) *act-3-options-pc*)
+     )
+    (('side-missions-options)
+      (set! (-> obj current-options) *side-missions-options-pc*)
+      )
     (('select-start 'select-pre-start 'select-kiosk-start)
      (set! (-> obj current-options) *select-start-options*)
      (set! (-> (the-as menu-select-start-option (-> (the-as (array menu-option) (-> *select-start-options* options)) 0))
@@ -1210,6 +1225,20 @@
   0
   )
 
+(defmethod respond-progress ((this menu-category-option) (arg0 progress) (arg1 symbol))
+  (when (cpad-pressed? 0 confirm)
+    (logclear! (-> *cpad-list* cpads 0 button0-abs 0) (pad-buttons confirm))
+    (logclear! (-> *cpad-list* cpads 0 button0-rel 0) (pad-buttons confirm))
+    (cond
+      ((= (-> this cat) (speedrun-category custom))
+        (set-category! *speedrun-info* (the-as speedrun-category (-> *pc-settings* last-category))))
+      (else 
+        (set-category! *speedrun-info* (the-as speedrun-category (-> this cat))))
+      )
+    (send-event (ppointer->process *speedrun-manager*) 'invoke (speedrun-menu-command reset))
+    )
+  0
+  )
 
 (defmethod respond-progress ((this menu-exit-game-option) (arg0 progress) (selected? symbol))
   "Handle progress menu navigation logic."

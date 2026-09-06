@@ -835,6 +835,8 @@
 (defmethod set-category! ((this speedrun-info) (category speedrun-category))
   (reset! (the-as speedrun-timer (ppointer->process (-> *speedrun-manager* 0 timer))))
   (set! (-> this category) category)
+  (set! (-> *pc-settings* last-category) (the-as uint category))
+  (pc-settings-save)
   (none))
 
 (defmethod start-individual-level-run! ((this speedrun-info) (tsk game-task) (side-mish? symbol) (secrets game-secrets))
@@ -1761,7 +1763,7 @@
     ;; see if we should stop drawing the run info (after 10 seconds from starting run)
     (when (and (!= (-> this category) (speedrun-category custom))
               ;;  (task-complete? *game-info* (game-task fortress-escape))
-               (time-elapsed? (-> this run-started-at) (seconds 10)))
+               (-> this run-started-at) (time-elapsed? (-> this run-started-at) (seconds 10)))
       (set! (-> this display-run-info?) #f))
     
     ;; track avg speed

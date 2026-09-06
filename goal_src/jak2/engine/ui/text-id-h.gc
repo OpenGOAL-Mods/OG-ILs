@@ -882,6 +882,17 @@
   (progress-timer-pb-options #x152e)
   (progress-timer-wr-options #x152f)
 
+  (progress-select-category #x1600)
+  (progress-last-category #x1601)
+  (progress-act-1 #x1602)
+  (progress-act-2 #x1603)
+  (progress-act-3 #x1604)
+  (progress-side-missions #x1605)
+  (progress-side-mission-spargus #x1606)
+  (progress-side-mission-wasteland #x1607)
+  (progress-side-mission-haven #x1608)
+  (progress-wasteland-vehicle #x1609)
+
   (pad-triangle #x2000)
   (pad-circle #x2001)
   (pad-x #x2002)

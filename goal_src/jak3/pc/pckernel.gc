@@ -683,6 +683,8 @@
     (("pb-location") (set! (-> obj pb-location) (the-as pb-wr-location (file-stream-read-int file))))
     (("wr-location") (set! (-> obj wr-location) (the-as pb-wr-location (file-stream-read-int file))))
     (("good-weather?") (set! (-> obj good-weather?) (file-stream-read-symbol file)))
+    (("last-category") (set! (-> obj last-category) (file-stream-read-int file)))
+
     (("pb-time-arena-training-1") (set! (-> obj pb-time-arena-training-1) (file-stream-read-float file)))
     (("pb-time-arena-fight-1") (set! (-> obj pb-time-arena-fight-1) (file-stream-read-float file)))
     (("pb-time-wascity-chase") (set! (-> obj pb-time-wascity-chase) (file-stream-read-float file)))
@@ -873,6 +875,7 @@
   (format file "  (pb-location ~D)~%" (-> obj pb-location))
   (format file "  (wr-location ~D)~%" (-> obj wr-location))
   (format file "  (good-weather? ~A)~%" (-> obj good-weather?))
+  (format file "  (last-category ~D~%" (-> obj last-category))
   (format file "  (pb-time-arena-training-1 ~F)~%" (-> obj pb-time-arena-training-1))
   (format file "  (pb-time-arena-fight-1 ~F)~%" (-> obj pb-time-arena-fight-1))
   (format file "  (pb-time-wascity-chase ~F)~%" (-> obj pb-time-wascity-chase))
