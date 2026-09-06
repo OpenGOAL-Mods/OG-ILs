@@ -1806,6 +1806,12 @@
         (offset-y (-> this offset-y)))
     (set! (-> arg1 alpha) f30-0)
     (set-scale! arg1 0.85)
+    ;; adjust for potentially hidden secrets menu
+    (when (and (= *title-pc* (-> arg0 current-options))
+               (not (memcard-unlocked-secrets? #f #f)))
+      ;; above secrets, shift down
+      (+! offset-y 0.08)
+      )
     (adjust-font-origin-y arg0 arg1 offset-y)
     (cond
       ((= (-> arg0 option-index) arg2)
