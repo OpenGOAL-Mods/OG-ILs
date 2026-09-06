@@ -1654,6 +1654,7 @@
   (progress-side-mission-spargus #x1606)
   (progress-side-mission-wasteland #x1607)
   (progress-side-mission-haven #x1608)
+  (progress-wasteland-vehicle #x1609)
   )
 ;; ---text-id
 

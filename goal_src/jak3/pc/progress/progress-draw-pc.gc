@@ -1812,9 +1812,19 @@
         (draw-highlight-bar arg0 arg1 (the int (+ -6.0 (-> arg1 origin y))) 35 f30-0)
         (let ((a0-4 arg1)) (set! (-> a0-4 color) (font-color font-color-33))))
       (else (let ((a0-5 arg1)) (set! (-> a0-5 color) (font-color font-color-32)))))
-    (if (or (nonzero? (-> this name)) (= (-> this cat) (speedrun-category custom)))
-      (print-game-text (lookup-text! *common-text* (-> this name) #f) arg1 #f 44 (bucket-id hud-draw-hud-alpha))
-      (print-game-text (-> *speedrun-category-names* (-> this cat)) arg1 #f 44 (bucket-id hud-draw-hud-alpha)))
+    (cond
+      ((or (nonzero? (-> this name)) (= (-> this cat) (speedrun-category custom)))
+        (print-game-text (lookup-text! *common-text* (-> this name) #f) arg1 #f 44 (bucket-id hud-draw-hud-alpha)))
+      (else
+        (cond
+          ((-> *speedrun-category-names-2* (-> this cat))
+            (format (clear *temp-string*) "~S ~S" (-> *speedrun-category-names* (-> this cat)) (-> *speedrun-category-names-2* (-> this cat))))
+          (else
+            (format (clear *temp-string*) "~S" (-> *speedrun-category-names* (-> this cat))))
+          )
+        (print-game-text *temp-string* arg1 #f 44 (bucket-id hud-draw-hud-alpha))
+        )
+      )
     )
   0
   (none))

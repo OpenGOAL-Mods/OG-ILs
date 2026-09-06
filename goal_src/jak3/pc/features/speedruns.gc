@@ -600,23 +600,22 @@
   (none)
   )
 
-(defun get-override-vehicle-name ()
-  (let ((v (if (nonzero? (-> *speedrun-info* override-vehicle)) (-> *speedrun-info* override-vehicle) (-> *game-info* current-vehicle))))
-    (case v
-      (((vehicle-type vt27)) "On Foot")
-      (((vehicle-type v-turtle)) "Tough Puppy")
-      (((vehicle-type v-snake)) "Sand Shark")
-      (((vehicle-type v-toad)) "Dune Hopper")
-      (((vehicle-type v-scorpion)) "Gila Stomper")
-      (((vehicle-type v-rhino)) "Slam Dozer")
-      (((vehicle-type v-fox)) "Heat Seeker")
-      (((vehicle-type v-mirage)) "Dust Demon")
-      (((vehicle-type v-x-ride)) "Desert Screamer")
-      (((vehicle-type v-marauder)) "Marauder")
-      (((vehicle-type v-faccar)) "Factory Car")
-      (else "N/A")
-      )
+(defun get-vehicle-name ((v vehicle-type))
+  (case v
+    (((vehicle-type vt27)) (pc-encode-utf8-string "On Foot" (clear *pc-encoded-temp-string*)))
+    (((vehicle-type v-turtle)) (pc-encode-utf8-string "Tough Puppy" (clear *pc-encoded-temp-string*)))
+    (((vehicle-type v-snake)) (pc-encode-utf8-string "Sand Shark" (clear *pc-encoded-temp-string*)))
+    (((vehicle-type v-toad)) (pc-encode-utf8-string "Dune Hopper" (clear *pc-encoded-temp-string*)))
+    (((vehicle-type v-scorpion)) (pc-encode-utf8-string "Gila Stomper" (clear *pc-encoded-temp-string*)))
+    (((vehicle-type v-rhino)) (pc-encode-utf8-string "Slam Dozer" (clear *pc-encoded-temp-string*)))
+    (((vehicle-type v-fox)) (pc-encode-utf8-string "Heat Seeker" (clear *pc-encoded-temp-string*)))
+    (((vehicle-type v-mirage)) (pc-encode-utf8-string "Dust Demon" (clear *pc-encoded-temp-string*)))
+    (((vehicle-type v-x-ride)) (pc-encode-utf8-string "Desert Screamer" (clear *pc-encoded-temp-string*)))
+    (((vehicle-type v-marauder)) (pc-encode-utf8-string "Marauder" (clear *pc-encoded-temp-string*)))
+    (((vehicle-type v-faccar)) (pc-encode-utf8-string "Factory Car" (clear *pc-encoded-temp-string*)))
+    (else (pc-encode-utf8-string "N/A" (clear *pc-encoded-temp-string*)))
     )
+  *pc-encoded-temp-string*
   )
 
 (defun get-override-vehicle ()
@@ -734,7 +733,8 @@
         (speedrun-category desert-bbush-time-trial-1) (speedrun-category desert-bbush-rally) (speedrun-category desert-rescue-bbush) (speedrun-category desert-bbush-air-time)
         (speedrun-category desert-bbush-total-air-time) (speedrun-category desert-bbush-jump-distance) (speedrun-category desert-bbush-total-jump-distance)
         (speedrun-category desert-bbush-roll-count) (speedrun-category desert-bbush-destroy-interceptors) (speedrun-category wascity-pre-game-2))
-        (format *temp-string* "~32LWasteland Vehicle: ~0L~S~%" (get-override-vehicle-name))
+        (format *temp-string* "~32LWasteland Vehicle: ~0L~S~%"
+          (get-vehicle-name (the vehicle-type (if (nonzero? (-> *speedrun-info* override-vehicle)) (-> *speedrun-info* override-vehicle) (-> *game-info* current-vehicle)))))
         )
       )
     
