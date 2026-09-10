@@ -875,7 +875,7 @@
   (format file "  (pb-location ~D)~%" (-> obj pb-location))
   (format file "  (wr-location ~D)~%" (-> obj wr-location))
   (format file "  (good-weather? ~A)~%" (-> obj good-weather?))
-  (format file "  (last-category ~D~%" (-> obj last-category))
+  (format file "  (last-category ~D)~%" (-> obj last-category))
   (format file "  (pb-time-arena-training-1 ~F)~%" (-> obj pb-time-arena-training-1))
   (format file "  (pb-time-arena-fight-1 ~F)~%" (-> obj pb-time-arena-fight-1))
   (format file "  (pb-time-wascity-chase ~F)~%" (-> obj pb-time-wascity-chase))
