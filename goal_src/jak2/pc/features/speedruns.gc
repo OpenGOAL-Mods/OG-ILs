@@ -535,6 +535,16 @@
     (set! (-> font-ctx scale) 0.35)
     (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
     (draw-string-adv *pc-encoded-temp-string* buf font-ctx)
+
+    ;; draw version
+    (clear *temp-string*)
+    (clear *pc-encoded-temp-string*)
+    (format *temp-string* "~S" *mod-version-text*)
+    (set-origin! font-ctx (the int (+ (* 183.9 (-> *video-params* relative-x-scale)) 257.08)) 319)
+    (set! (-> font-ctx scale) 0.2)
+    (set! (-> font-ctx flags) (font-flags right shadow kerning large))
+    (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+    (draw-string-adv *pc-encoded-temp-string* buf font-ctx)
     )
   )
 

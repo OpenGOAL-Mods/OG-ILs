@@ -784,26 +784,35 @@
     )
   :code (behavior ()
     (suspend)
-    (when (nonzero? (-> self actor-group-count))
-      (let ((v1-4 (-> self actor-group 0 data)))
-        (when v1-4
-          (let ((a1-0 (new 'stack-no-clear 'event-message-block)))
-            (set! (-> a1-0 from) (process->ppointer self))
-            (set! (-> a1-0 num-params) 0)
-            (set! (-> a1-0 message) 'trigger)
-            (let ((t9-0 send-event-function)
-                  (v1-5 (-> v1-4 0 actor))
-                  )
-              (t9-0
-                (if v1-5
-                    (-> v1-5 extra process)
+    ;; og-ils add loop to ensure we trigger first ring
+    (let ((triggered? #f))
+      (until triggered?
+        (when (nonzero? (-> self actor-group-count))
+          (let ((v1-4 (-> self actor-group 0 data)))
+            (when v1-4
+              (let ((a1-0 (new 'stack-no-clear 'event-message-block)))
+                (set! (-> a1-0 from) (process->ppointer self))
+                (set! (-> a1-0 num-params) 0)
+                (set! (-> a1-0 message) 'trigger)
+                (let ((t9-0 send-event-function)
+                      (v1-5 (-> v1-4 0 actor))
+                      )
+                  (when (-> v1-5 extra process) ;; only bother if there's a process to receive event
+                    (t9-0
+                      (if v1-5
+                          (-> v1-5 extra process)
+                          )
+                      a1-0
+                      )
+                    (set! triggered? #t)
                     )
-                a1-0
+                  )
                 )
+              0
               )
             )
-          0
           )
+        (suspend)
         )
       )
     (until #f

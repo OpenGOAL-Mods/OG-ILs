@@ -729,10 +729,10 @@
         (speedrun-category desert-bbush-get-to-5) (speedrun-category desert-bbush-get-to-6) (speedrun-category desert-bbush-get-to-7) (speedrun-category desert-bbush-get-to-8)
         (speedrun-category desert-bbush-get-to-9) (speedrun-category desert-bbush-get-to-11) (speedrun-category desert-bbush-get-to-12) (speedrun-category desert-bbush-get-to-14)
         (speedrun-category desert-bbush-get-to-16) (speedrun-category desert-bbush-get-to-17) (speedrun-category desert-bbush-ring-1) (speedrun-category desert-bbush-ring-2)
-        (speedrun-category desert-bbush-egg-spider-1) (speedrun-category desert-bbush-spirit-chase-1) (speedrun-category desert-bbush-timer-chase-1)
+        (speedrun-category desert-bbush-spirit-chase-1) (speedrun-category desert-bbush-timer-chase-1) ;; (speedrun-category desert-bbush-egg-spider-1)
         (speedrun-category desert-bbush-time-trial-1) (speedrun-category desert-bbush-rally) (speedrun-category desert-rescue-bbush) (speedrun-category desert-bbush-air-time)
         (speedrun-category desert-bbush-total-air-time) (speedrun-category desert-bbush-jump-distance) (speedrun-category desert-bbush-total-jump-distance)
-        (speedrun-category desert-bbush-roll-count) (speedrun-category desert-bbush-destroy-interceptors) (speedrun-category wascity-pre-game-2))
+        (speedrun-category desert-bbush-roll-count) (speedrun-category desert-bbush-destroy-interceptors)) ;; (speedrun-category wascity-pre-game-2))
         (format *temp-string* "~32LWasteland Vehicle: ~0L~S~%"
           (get-vehicle-name (the vehicle-type (if (nonzero? (-> *speedrun-info* override-vehicle)) (-> *speedrun-info* override-vehicle) (-> *game-info* current-vehicle)))))
         )
@@ -758,9 +758,19 @@
     (set! (-> font-ctx scale) 0.35)
     (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
     (draw-string-adv *pc-encoded-temp-string* buf font-ctx)
+
+    ;; draw version
+    (clear *temp-string*)
+    (clear *pc-encoded-temp-string*)
+    (format *temp-string* "~S" *mod-version-text*)
+    (set-origin! font-ctx (the int (+ (* 183.9 (-> *video-params* relative-x-scale)) 257.08)) 319)
+    (set! (-> font-ctx scale) 0.2)
+    (set! (-> font-ctx flags) (font-flags right shadow kerning large))
+    (pc-encode-utf8-string *temp-string* *pc-encoded-temp-string*)
+    (draw-string-adv *pc-encoded-temp-string* buf font-ctx)
     )
   (none)
-  )  
+  )
 
 ;; (defun play-music ((music-name symbol) (flava uint) (mode uint))
 (defun play-music ((music-name symbol) (mode uint))
